@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+
+{% block title %}Academic Calendar - Smart Attendance{% endblock %}
+{% block navbar_title %}Academic Calendar{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h2 class="page-title mb-1"><i class="fas fa-calendar-alt text-primary me-2"></i>Academic Calendar</h2>
+        <p class="text-muted mb-0">Create, manage, and view scheduled academic events and holidays for your organization.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-secondary" onclick="window.print()">
+            <i class="fas fa-print me-1"></i> Print Calendar
+        </button>
+        <button class="btn btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#addEventCollapse" aria-expanded="false">
+            <i class="fas fa-plus-circle me-1"></i> Add New Event
+        </button>
+    </div>
+</div>
+
+<!-- Collapsible Add Event Form -->
+<div class="collapse mb-4" id="addEventCollapse">
+    <div class="card shadow-sm border-0" style="border-radius: 12px; border-left: 4px solid #4361ee !important;">
+        <div class="card-header bg-white py-3">
+            <h5 class="mb-0 text-primary fw-bold"><i class="fas fa-edit me-2"></i>Enter New Academic Event</h5>
+        </div>
+        <div class="card-body p-4">
+            <form method="POST" action="">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Event Title <span class="text-danger">*</span></label>
+                        <input type="text" name="title" class="form-control" placeholder="e.g., Mid-Term Examinations, Sports Day, Winter Break" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold">Event Type <span class="text-danger">*</span></label>
+                        <select name="event_type" class="form-select" required>
+                            <option value="Academic" selected>Academic</option>
+                            <option value="Examination">Examination</option>
+                            <option value="Holiday">Holiday</option>
+                            <option value="Co-Curricular">Co-Curricular / Fest</option>
+                            <option value="Meeting">Meeting / Conference</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold">Status</label>
+                        <select name="status" class="form-select">
+                            <option value="Upcoming" selected>Upcoming</option>
+                            <option value="Ongoing">Ongoing</option>
+                            <option value="Completed">Completed</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Start Date <span class="text-danger">*</span></label>
+                        <input type="date" name="start_date" class="form-control" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">End Date (Optional)</label>
+                        <input type="date" name="end_date" class="form-control" placeholder="Leave empty for single-day event">
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <small class="text-muted mb-2">Leave end date blank for 1-day events.</small>
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label fw-bold">Description / Notes (Optional)</label>
+                        <textarea name="description" class="form-control" rows="2" placeholder="Additional details, instructions, venue or timings..."></textarea>
+                    </div>
+
+                    <div class="col-12 text-end mt-3">
+                        <button type="button" class="btn btn-light me-2" data-bs-toggle="collapse" data-bs-target="#addEventCollapse">Cancel</button>
+                        <button type="submit" class="btn btn-primary px-4"><i class="fas fa-save me-1"></i> Save to Calendar</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Filter Tabs & Stats -->
+<div class="card shadow-sm border-0 mb-4" style="border-radius: 12px;">
+    <div class="card-body p-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div class="btn-group flex-wrap" role="group" id="filterGroup">
+            <button type="button" class="btn btn-sm btn-outline-primary active" onclick="filterEvents('all', this)">All Events ({{ events|length }})</button>
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="filterEvents('Academic', this)">Academic</button>
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="filterEvents('Examination', this)">Examinations</button>
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="filterEvents('Holiday', this)">Holidays</button>
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="filterEvents('Co-Curricular', this)">Co-Curricular</button>
+        </div>
+        <div class="text-muted small">
+            <i class="fas fa-calendar-check text-success me-1"></i> Total Scheduled: <strong>{{ events|length }}</strong>
+        </div>
+    </div>
+</div>
+
+<!-- Calendar Events Table -->
+<div class="card shadow-sm border-0" style="border-radius: 12px; overflow: hidden;">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 fw-bold text-dark"><i class="fas fa-list me-2 text-primary"></i>Scheduled Events</h5>
+    </div>
+    <div class="card-body p-0">
+        {% if events and events|length > 0 %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle" id="eventsTable">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4" style="width: 220px;">Date & Duration</th>
+                        <th>Event Details</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th class="pe-4 text-end" style="width: 100px;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for event in events %}
+                    <tr class="event-row" data-type="{{ event.event_type }}">
+                        <td class="ps-4">
+                            <div class="fw-bold text-dark">
+                                <i class="far fa-calendar text-primary me-1"></i>
+                                {{ event.start_date.strftime('%b %d, %Y') }}
+                            </div>
+                            {% if event.end_date and event.end_date != event.start_date %}
+                            <small class="text-muted d-block">to {{ event.end_date.strftime('%b %d, %Y') }}</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="fw-bold text-dark">{{ event.title }}</div>
+                            {% if event.description %}
+                            <small class="text-muted d-block">{{ event.description }}</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if event.event_type == 'Academic' %}
+                                <span class="badge bg-info text-dark px-2 py-1"><i class="fas fa-graduation-cap me-1"></i>Academic</span>
+                            {% elif event.event_type == 'Examination' %}
+                                <span class="badge bg-danger px-2 py-1"><i class="fas fa-file-alt me-1"></i>Examination</span>
+                            {% elif event.event_type == 'Holiday' %}
+                                <span class="badge bg-success px-2 py-1"><i class="fas fa-umbrella-beach me-1"></i>Holiday</span>
+                            {% elif event.event_type == 'Co-Curricular' %}
+                                <span class="badge bg-warning text-dark px-2 py-1"><i class="fas fa-trophy me-1"></i>Co-Curricular</span>
+                            {% elif event.event_type == 'Meeting' %}
+                                <span class="badge bg-secondary px-2 py-1"><i class="fas fa-users me-1"></i>Meeting</span>
+                            {% else %}
+                                <span class="badge bg-secondary px-2 py-1">{{ event.event_type }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if event.status == 'Upcoming' %}
+                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1">Upcoming</span>
+                            {% elif event.status == 'Ongoing' %}
+                                <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">Ongoing</span>
+                            {% elif event.status == 'Completed' %}
+                                <span class="badge bg-secondary px-2 py-1">Completed</span>
+                            {% else %}
+                                <span class="badge bg-light text-dark px-2 py-1">{{ event.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="pe-4 text-end">
+                            <form method="POST" action="{% if org_type == 'school' %}/school/academic-calendar/delete/{{ event.id }}{% elif org_type == 'college' %}/college/academic-calendar/delete/{{ event.id }}{% else %}/institution/academic-calendar/delete/{{ event.id }}{% endif %}" onsubmit="return confirm('Are you sure you want to remove this event from the calendar?');" style="display:inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete Event">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <!-- Empty State -->
+        <div class="text-center py-5 px-4">
+            <div class="mb-3">
+                <i class="fas fa-calendar-plus text-primary" style="font-size: 3.5rem; opacity: 0.7;"></i>
+            </div>
+            <h5 class="fw-bold text-dark">No Academic Events Entered Yet</h5>
+            <p class="text-muted mx-auto" style="max-width: 460px;">
+                You have not added any academic calendar events yet. Click the button below to schedule exams, semester dates, holidays, and cultural events.
+            </p>
+            <button class="btn btn-primary px-4 py-2 mt-2" type="button" data-bs-toggle="collapse" data-bs-target="#addEventCollapse" aria-expanded="false">
+                <i class="fas fa-plus me-1"></i> Add Your First Event
+            </button>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function filterEvents(type, btn) {
+    // Update active tab styling
+    document.querySelectorAll('#filterGroup button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    // Filter table rows
+    const rows = document.querySelectorAll('.event-row');
+    rows.forEach(row => {
+        if (type === 'all' || row.getAttribute('data-type') === type) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+}
+</script>
+
+<style>
+    .page-title {
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: #1e293b;
+    }
+    .table th {
+        font-weight: 600;
+        color: #475569;
+        text-transform: uppercase;
+        font-size: 0.8rem;
+        letter-spacing: 0.5px;
+    }
+    .table td {
+        padding: 0.85rem 0.75rem;
+    }
+    .event-row:hover {
+        background-color: #f8fafc;
+    }
+</style>
+{% endblock %}

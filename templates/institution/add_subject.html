@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Add Subject - Smart Attendance{% endblock %}
+{% block navbar_title %}Add Subject{% endblock %}
+{% block content %}
+<div class="page-title">Add New Subject</div>
+<div class="card">
+    <div class="card-body">
+        <form method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <div class="mb-3">
+                <label>Subject Name</label>
+                <input type="text" name="subject_name" class="form-control" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Add Subject</button>
+            <a href="/institution/dashboard?course_id={{ course_id }}&year={{ year }}" class="btn btn-secondary">Cancel</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

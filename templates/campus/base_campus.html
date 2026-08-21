@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#667eea">
+    <title>{% block title %}Smart Campus Platform{% endblock %}</title>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/static/icon-192.png">
+    
+    <!-- CSS -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="/static/css/campus.css" rel="stylesheet">
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Background Animations -->
+    <div class="campus-bg"></div>
+
+    <!-- Mobile Overlay -->
+    <div class="sidebar-overlay"></div>
+
+    <!-- Sidebar -->
+    <aside class="campus-sidebar">
+        <div class="sidebar-logo">
+            <div class="logo-icon">
+                {% if session.get('org_logo') %}
+                <img src="{{ session.get('org_logo') }}" alt="Logo" style="width:100%;height:100%;object-fit:cover;border-radius:12px;">
+                {% else %}
+                <i class="fas fa-graduation-cap"></i>
+                {% endif %}
+            </div>
+            <h2>CampusAI<br><span>Platform</span></h2>
+            <div class="org-badge">{{ session.get('org_name', 'Institution') }}</div>
+        </div>
+
+        <ul class="campus-nav">
+            <!-- AI Features -->
+            <div class="sidebar-section-label">AI Features</div>
+            <li>
+                <a href="{{ url_for('campus.assistant') }}" class="{% if request.endpoint == 'campus.assistant' %}active{% endif %}">
+                    <div class="nav-icon"><i class="fas fa-robot"></i></div> AI Assistant
+                </a>
+            </li>
+            {% if session.get('user_id') or session.get('staff_id') %}
+            <li>
+                <a href="{{ url_for('campus.ai_attendance_prediction') }}" class="{% if request.endpoint == 'campus.ai_attendance_prediction' %}active{% endif %}">
+                    <div class="nav-icon"><i class="fas fa-chart-line"></i></div> Attendance AI
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('campus.ai_performance') }}" class="{% if request.endpoint == 'campus.ai_performance' %}active{% endif %}">
+                    <div class="nav-icon"><i class="fas fa-brain"></i></div> Performance AI
+                </a>
+            </li>
+            {% endif %}
+
+            <!-- Academics -->
+            <div class="sidebar-section-label">Academics</div>
+            <li>
+                <a href="{{ url_for('campus.timetable') }}" class="{% if request.endpoint == 'campus.timetable' %}active{% endif %}">
+                    <div class="nav-icon"><i class="fas fa-calendar-alt"></i></div> Timetable
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('campus.assignments') }}" class="{% if request.endpoint == 'campus.assignments' %}active{% endif %}">
+                    <div class="nav-icon"><i class="fas fa-tasks"></i></div> Assignments
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('campus.lms') }}" class="{% if request.endpoint == 'campus.lms' %}active{% endif %}">
+                    <div class="nav-icon"><i class="fas fa-book-open"></i></div> LMS
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('campus.exam_results') }}" class="{% if request.endpoint == 'campus.exam_results' %}active{% endif %}">
+                    <div class="nav-icon"><i class="fas fa-graduation-cap"></i></div> Exam Results
+                </a>
+            </li>
+
+
+            <!-- Analytics & Comm -->
+            <li class="nav-header">Communication & More</li>
+            <li>
+                <a href="{{ url_for('campus.feedback') }}" class="{% if request.endpoint == 'campus.feedback' %}active{% endif %}">
+                    <div class="nav-icon"><i class="fas fa-comment-dots"></i></div> Feedback & Surveys
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('campus.notifications') }}" class="{% if request.endpoint == 'campus.notifications' %}active{% endif %}">
+                    <div class="nav-icon"><i class="fas fa-bell"></i></div> Notifications
+                    <span class="badge-count" id="notif-badge-count" style="display:none">0</span>
+                </a>
+            </li>
+            
+            {% if session.get('user_id') or session.get('staff_id') %}
+            <li>
+                <a href="{{ url_for('campus.analytics_admin') }}" class="{% if request.endpoint == 'campus.analytics_admin' %}active{% endif %}">
+                    <div class="nav-icon"><i class="fas fa-chart-pie"></i></div> Admin Analytics
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('campus.ai_reports') }}" class="{% if request.endpoint == 'campus.ai_reports' %}active{% endif %}">
+                    <div class="nav-icon"><i class="fas fa-file-pdf"></i></div> Smart Reports
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('campus.settings') }}" class="{% if request.endpoint == 'campus.settings' %}active{% endif %}">
+                    <div class="nav-icon"><i class="fas fa-cog"></i></div> Settings & Logo
+                </a>
+            </li>
+
+            {% elif session.get('student_id') %}
+            <li>
+                <a href="{{ url_for('campus.analytics_student') }}" class="{% if request.endpoint == 'campus.analytics_student' %}active{% endif %}">
+                    <div class="nav-icon"><i class="fas fa-chart-pie"></i></div> My Analytics
+                </a>
+            </li>
+            {% endif %}
+
+            <!-- Back to Attendance Dashboard -->
+            <div class="sidebar-section-label">System</div>
+            {% if session.get('student_id') %}
+            <li>
+                <a href="{{ url_for('student_dashboard') }}" class="{% if request.endpoint == 'student_dashboard' %}active{% endif %}">
+                    <div class="nav-icon"><i class="fas fa-user-graduate"></i></div> Student Dashboard
+                </a>
+            </li>
+            <li>
+                    <a href="{{ url_for('logout') }}"><div class="nav-icon"><i class="fas fa-sign-out-alt"></i></div> Logout</a>
+            </li>
+            {% else %}
+            <li>
+                {% if session.get('org_type') == 'school' %}
+                    <a href="/school/dashboard"><div class="nav-icon"><i class="fas fa-fingerprint"></i></div> Smart Attendance</a>
+                {% elif session.get('org_type') == 'college' %}
+                    <a href="/college/dashboard"><div class="nav-icon"><i class="fas fa-fingerprint"></i></div> Smart Attendance</a>
+                {% elif session.get('org_type') == 'institution' %}
+                    <a href="/institution/dashboard"><div class="nav-icon"><i class="fas fa-fingerprint"></i></div> Smart Attendance</a>
+                {% else %}
+                    <a href="/logout"><div class="nav-icon"><i class="fas fa-sign-out-alt"></i></div> Logout</a>
+                {% endif %}
+            </li>
+            {% endif %}
+        </ul>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="campus-main">
+        <!-- Topbar -->
+        <header class="campus-topbar">
+            <div style="display:flex; align-items:center; gap:15px;">
+                <div class="hamburger">
+                    <span></span><span></span><span></span>
+                </div>
+                <div class="topbar-title">
+                    {% block title_header %}Smart Campus Portal{% endblock %}
+                </div>
+            </div>
+
+            <div class="topbar-right">
+                {% if session.get('student_id') %}
+                <a href="/student/dashboard" class="att-dash-btn" title="My Student Dashboard">
+                    <i class="fas fa-user-graduate"></i> <span>Student Portal</span>
+                </a>
+                {% elif session.get('org_type') == 'school' %}
+                <a href="/school/dashboard" class="att-dash-btn" title="Smart Attendance Dashboard">
+                    <i class="fas fa-fingerprint"></i> <span>Attendance</span>
+                </a>
+                {% elif session.get('org_type') == 'college' %}
+                <a href="/college/dashboard" class="att-dash-btn" title="Smart Attendance Dashboard">
+                    <i class="fas fa-fingerprint"></i> <span>Attendance</span>
+                </a>
+                {% elif session.get('org_type') == 'institution' %}
+                <a href="/institution/dashboard" class="att-dash-btn" title="Smart Attendance Dashboard">
+                    <i class="fas fa-fingerprint"></i> <span>Attendance</span>
+                </a>
+                {% endif %}
+                <button id="theme-toggle" class="theme-toggle">🌙</button>
+                <a href="{{ url_for('campus.notifications') }}" class="theme-toggle notif-badge">
+                    <i class="fas fa-bell"></i>
+                    {% if session.get('unread_notifs', 0) > 0 %}<span class="dot"></span>{% endif %}
+                </a>
+                <div class="user-chip">
+                    {% set display_name = session.get('username') or session.get('staff_name') or session.get('student_name') or session.get('parent_name') or 'User' %}
+                    <div class="user-avatar">{{ display_name[0]|upper }}</div>
+                    <span class="user-name">{{ display_name }}</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="glass-card campus-flash" style="margin-bottom: 20px; border-left: 4px solid {% if category == 'success' %}#22c55e{% elif category == 'danger' %}#ef4444{% elif category == 'warning' %}#f59e0b{% else %}var(--primary){% endif %};">
+                        <div class="card-body-p flex-between" style="padding: 15px 20px;">
+                            <div>
+                                <i class="fas {% if category == 'success' %}fa-check-circle{% elif category == 'danger' %}fa-exclamation-circle{% elif category == 'warning' %}fa-exclamation-triangle{% else %}fa-info-circle{% endif %}" style="margin-right: 10px; color: {% if category == 'success' %}#22c55e{% elif category == 'danger' %}#ef4444{% elif category == 'warning' %}#f59e0b{% else %}var(--primary){% endif %};"></i>
+                                {{ message }}
+                            </div>
+                            <i class="fas fa-times" style="cursor:pointer; color:var(--text-muted);" onclick="this.parentElement.parentElement.remove()"></i>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- Content -->
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/static/js/campus.js"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

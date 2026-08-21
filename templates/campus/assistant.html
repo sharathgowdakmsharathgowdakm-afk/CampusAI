@@ -1,0 +1,99 @@
+{% extends "campus/base_campus.html" %}
+
+{% block title %}AI Campus Assistant{% endblock %}
+{% block page_title %}AI Assistant{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Your AI Campus Assistant</h1>
+    <p>Ask anything about attendance, assignments, exams, or notifications.</p>
+</div>
+
+<div class="grid-2">
+    <!-- Chat Interface -->
+    <div class="chat-container">
+        <div class="card-header-gradient flex-between" style="padding: 15px 20px;">
+            <div class="flex-center gap-12">
+                <div class="bot-avatar" style="background: rgba(255,255,255,0.2); width:40px; height:40px; font-size:20px;">🤖</div>
+                <div>
+                    <h5 style="margin:0; font-size:1.1rem;">Campus Bot</h5>
+                    <span style="font-size:0.75rem; opacity:0.8;">Online & Ready</span>
+                </div>
+            </div>
+            <div>
+                <select id="lang-select" class="campus-form-control" style="background: rgba(255,255,255,0.1); border:none; color:white; width: auto; padding: 5px 10px;">
+                    <option value="en-US">English</option>
+                    <option value="es-ES">Español</option>
+                    <option value="fr-FR">Français</option>
+                    <option value="hi-IN">हिंदी</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="chat-messages" id="chat-messages">
+            <div class="chat-row">
+                <div class="bot-avatar">🤖</div>
+                <div class="chat-bubble bot">
+                    Hi {{ session.get('username') or session.get('student_name', '') }}! 👋 I'm your AI Campus Assistant. How can I help you today?
+                </div>
+            </div>
+            {% for msg in history %}
+            <div class="chat-row {% if msg.role == 'user' %}user-row{% endif %}">
+                {% if msg.role == 'bot' %}<div class="bot-avatar">🤖</div>{% endif %}
+                <div class="chat-bubble {{ msg.role }}">{{ msg.message | replace('\n', '<br>') | safe }}</div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <form class="chat-input-area" id="chat-form">
+            <input type="text" class="chat-input" id="chat-input" placeholder="Type your message here..." autocomplete="off">
+            <button type="button" class="chat-voice-btn" id="voice-btn" title="Hold to speak"><i class="fas fa-microphone"></i></button>
+            <button type="submit" class="chat-send-btn" title="Send"><i class="fas fa-paper-plane"></i></button>
+        </form>
+    </div>
+
+    <!-- Suggested Queries -->
+    <div>
+        <div class="glass-card stagger">
+            <div class="card-header-gradient">
+                <h5><i class="fas fa-lightbulb"></i> Suggested Queries</h5>
+            </div>
+            <div class="card-body-p">
+                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 15px;">Try asking the assistant one of these questions:</p>
+                
+                <div class="quick-actions" style="flex-direction: column; gap: 10px;">
+                    <div class="quick-chip" style="width:100%; text-align:left; padding: 12px 15px;">
+                        <i class="fas fa-chart-bar" style="margin-right:8px; opacity:0.7;"></i> What is my current attendance percentage?
+                    </div>
+                    <div class="quick-chip" style="width:100%; text-align:left; padding: 12px 15px;">
+                        <i class="fas fa-tasks" style="margin-right:8px; opacity:0.7;"></i> Are there any upcoming assignment deadlines?
+                    </div>
+                    <div class="quick-chip" style="width:100%; text-align:left; padding: 12px 15px;">
+                        <i class="fas fa-file-alt" style="margin-right:8px; opacity:0.7;"></i> When is the next scheduled exam?
+                    </div>
+                    <div class="quick-chip" style="width:100%; text-align:left; padding: 12px 15px;">
+                        <i class="fas fa-bell" style="margin-right:8px; opacity:0.7;"></i> Do I have any unread notifications?
+                    </div>
+                    {% if session.get('user_id') %}
+                    <div class="quick-chip" style="width:100%; text-align:left; padding: 12px 15px;">
+                        <i class="fas fa-exclamation-triangle" style="margin-right:8px; opacity:0.7;"></i> Show students at risk of attendance shortage.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="glass-card mt-4" style="margin-top:20px;">
+            <div class="card-body-p flex-center gap-16">
+                <div class="stat-icon" style="background: rgba(102,126,234,0.1); color: var(--primary); margin:0;">
+                    <i class="fas fa-microphone-alt"></i>
+                </div>
+                <div>
+                    <h5 style="margin:0 0 5px 0;">Voice Enabled</h5>
+                    <p style="margin:0; font-size:0.8rem; color:var(--text-secondary);">Click the microphone icon to ask questions using your voice. The assistant will respond via text and speech.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Login – Smart Attendance</title>
+    <meta name="description" content="Student portal login for Smart Attendance Face Recognition System.">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 30px 16px;
+        }
+
+        /* Floating animated particles */
+        .particles {
+            position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%;
+            overflow: hidden; z-index: 0; pointer-events: none;
+        }
+        .particle {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(167,139,250,0.08);
+            animation: float linear infinite;
+        }
+        @keyframes float {
+            0%   { transform: translateY(110vh) scale(0); opacity: 0; }
+            10%  { opacity: 1; }
+            90%  { opacity: 1; }
+            100% { transform: translateY(-10vh) scale(1); opacity: 0; }
+        }
+
+        .card-wrap {
+            width: 100%;
+            max-width: 440px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .glass-card {
+            background: rgba(255,255,255,0.07);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow: 0 30px 70px rgba(0,0,0,0.55);
+            animation: fadeUp .55s cubic-bezier(.22,.68,0,1.2) both;
+        }
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(36px) scale(.97); }
+            to   { opacity: 1; transform: translateY(0)   scale(1); }
+        }
+
+        /* ── Header ── */
+        .card-header-custom {
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            padding: 38px 32px 30px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .card-header-custom::before {
+            content: '';
+            position: absolute; inset: 0;
+            background: radial-gradient(ellipse at 70% 20%, rgba(255,255,255,.12), transparent 60%);
+        }
+        .icon-ring {
+            width: 72px; height: 72px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.18);
+            border: 2px solid rgba(255,255,255,0.35);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 30px; color: #fff;
+            margin: 0 auto 16px;
+            box-shadow: 0 0 0 8px rgba(255,255,255,0.05);
+            position: relative; z-index: 1;
+        }
+        .card-header-custom h2 {
+            color: #fff; font-weight: 800; font-size: 1.65rem;
+            margin-bottom: 4px; position: relative; z-index: 1;
+        }
+        .card-header-custom p {
+            color: rgba(255,255,255,0.75); font-size: .9rem;
+            position: relative; z-index: 1;
+        }
+
+        /* ── Body ── */
+        .card-body-custom { padding: 36px 32px 28px; }
+
+        .form-group-custom { margin-bottom: 20px; }
+        .form-label-dark {
+            display: block; color: rgba(255,255,255,0.6);
+            font-size: .78rem; font-weight: 700; margin-bottom: 8px;
+            letter-spacing: .06em; text-transform: uppercase;
+        }
+        .input-wrap { position: relative; }
+        .input-icon {
+            position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+            color: rgba(255,255,255,0.3); font-size: .9rem; pointer-events: none;
+            transition: color .2s;
+        }
+        .form-control-dark {
+            background: rgba(255,255,255,0.06);
+            border: 1.5px solid rgba(255,255,255,0.14);
+            border-radius: 11px; color: #fff;
+            padding: 13px 46px 13px 42px;
+            font-size: .93rem; width: 100%;
+            transition: border-color .25s, box-shadow .25s, background .25s;
+        }
+        .form-control-dark:focus {
+            outline: none;
+            border-color: #a78bfa;
+            box-shadow: 0 0 0 3px rgba(167,139,250,0.22);
+            background: rgba(255,255,255,0.1); color: #fff;
+        }
+        .form-control-dark:focus ~ .input-icon { color: #a78bfa; }
+        .form-control-dark::placeholder { color: rgba(255,255,255,0.28); }
+
+        .pw-toggle {
+            position: absolute; right: 13px; top: 50%; transform: translateY(-50%);
+            background: none; border: none; color: rgba(255,255,255,0.35);
+            cursor: pointer; font-size: .88rem; padding: 2px;
+            transition: color .2s;
+        }
+        .pw-toggle:hover { color: #a78bfa; }
+
+        /* submit */
+        .btn-submit {
+            width: 100%; padding: 14px;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            border: none; border-radius: 11px; color: #fff;
+            font-weight: 700; font-size: 1rem; cursor: pointer;
+            letter-spacing: .03em;
+            transition: transform .2s, box-shadow .2s;
+            margin-top: 6px;
+            position: relative; overflow: hidden;
+        }
+        .btn-submit::after {
+            content: '';
+            position: absolute; inset: 0;
+            background: rgba(255,255,255,0);
+            transition: background .2s;
+        }
+        .btn-submit:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(102,126,234,0.45); }
+        .btn-submit:hover::after { background: rgba(255,255,255,0.05); }
+        .btn-submit:active { transform: translateY(0); }
+
+        /* ── Footer ── */
+        .card-footer-custom {
+            text-align: center; padding: 20px 32px;
+            border-top: 1px solid rgba(255,255,255,0.08);
+            background: rgba(0,0,0,0.12);
+        }
+        .card-footer-custom p {
+            color: rgba(255,255,255,0.45); font-size: .85rem;
+            margin-bottom: 8px;
+        }
+        .card-footer-custom p:last-child { margin-bottom: 0; }
+        .card-footer-custom a { color: #a78bfa; text-decoration: none; font-weight: 600; }
+        .card-footer-custom a:hover { color: #c4b5fd; text-decoration: underline; }
+
+        /* divider */
+        .footer-divider {
+            display: flex; align-items: center; gap: 10px;
+            margin: 12px 0;
+        }
+        .footer-divider span {
+            flex: 1; height: 1px;
+            background: rgba(255,255,255,0.08);
+        }
+        .footer-divider p {
+            color: rgba(255,255,255,0.25); font-size: .75rem;
+            margin: 0; white-space: nowrap;
+        }
+
+        /* Alerts */
+        .alert { border-radius: 10px; border: none; font-size: .88rem; }
+        .alert-danger  { background: rgba(239,68,68,.15); color: #fca5a5; }
+        .alert-success { background: rgba(34,197,94,.15); color: #86efac; }
+        .alert-warning { background: rgba(251,191,36,.15); color: #fcd34d; }
+    </style>
+</head>
+<body>
+
+<!-- Animated particles -->
+<div class="particles" id="particles"></div>
+
+<div class="card-wrap">
+    <div class="glass-card">
+
+        <!-- Header -->
+        <div class="card-header-custom">
+            <div class="icon-ring">
+                <i class="fas fa-user-graduate"></i>
+            </div>
+            <h2>Student Login</h2>
+            <p>Check your attendance &amp; records</p>
+        </div>
+
+        <!-- Body -->
+        <div class="card-body-custom">
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for cat, msg in messages %}
+                    <div class="alert alert-{{ cat }} alert-dismissible fade show mb-4">
+                        <i class="fas fa-{{ 'check-circle' if cat == 'success' else ('exclamation-triangle' if cat == 'warning' else 'times-circle') }} me-2"></i>{{ msg }}
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert"></button>
+                    </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <form method="POST" action="{{ url_for('student_login') }}" novalidate>
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+                <div class="form-group-custom">
+                    <label class="form-label-dark">Roll Number / Phone / Email</label>
+                    <div class="input-wrap">
+                        <i class="fas fa-id-badge input-icon"></i>
+                        <input type="text" name="roll_number" class="form-control-dark"
+                               id="identifier"
+                               placeholder="Roll No, Phone, or Email"
+                               required autofocus autocomplete="username">
+                    </div>
+                </div>
+
+                <div class="form-group-custom">
+                    <label class="form-label-dark">Password</label>
+                    <div class="input-wrap">
+                        <i class="fas fa-lock input-icon"></i>
+                        <input type="password" name="password" id="pw" class="form-control-dark"
+                               placeholder="Enter your password"
+                               required autocomplete="current-password">
+                        <button type="button" class="pw-toggle" id="pwToggleBtn" onclick="togglePw()" aria-label="Toggle password visibility">
+                            <i class="fas fa-eye" id="eyeIcon"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-submit" id="loginBtn">
+                    <i class="fas fa-sign-in-alt me-2"></i>Login to Portal
+                </button>
+            </form>
+        </div>
+
+        <!-- Footer -->
+        <div class="card-footer-custom">
+            <p>
+                <i class="fas fa-key me-1" style="color:#a78bfa;"></i>
+                Forgot password? <a href="/forgot-password">Recover via OTP</a>
+            </p>
+            <div class="footer-divider">
+                <span></span>
+                <p>New here?</p>
+                <span></span>
+            </div>
+            <p>
+                <i class="fas fa-user-plus me-1" style="color:#a78bfa;"></i>
+                <a href="{{ url_for('student_register') }}">Create a Student Account</a>
+            </p>
+            <p style="margin-top:10px;">
+                <a href="/login" style="color:rgba(255,255,255,0.35); font-size:.8rem;">
+                    <i class="fas fa-arrow-left me-1"></i>Back to Admin Login
+                </a>
+            </p>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // Password show/hide toggle
+    function togglePw() {
+        const inp = document.getElementById('pw');
+        const ico = document.getElementById('eyeIcon');
+        const isHidden = inp.type === 'password';
+        inp.type = isHidden ? 'text' : 'password';
+        ico.className = isHidden ? 'fas fa-eye-slash' : 'fas fa-eye';
+        document.getElementById('pwToggleBtn').setAttribute('aria-label',
+            isHidden ? 'Hide password' : 'Show password');
+    }
+
+    // Animated floating particles
+    (function spawnParticles() {
+        const container = document.getElementById('particles');
+        for (let i = 0; i < 18; i++) {
+            const el = document.createElement('div');
+            el.className = 'particle';
+            const size = Math.random() * 60 + 20;
+            el.style.cssText = `
+                width:${size}px; height:${size}px;
+                left:${Math.random() * 100}%;
+                animation-duration:${Math.random() * 18 + 10}s;
+                animation-delay:${Math.random() * -20}s;
+                opacity:${Math.random() * 0.5 + 0.1};
+            `;
+            container.appendChild(el);
+        }
+    })();
+</script>
+</body>
+</html>

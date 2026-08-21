@@ -1,0 +1,165 @@
+{% extends "campus/base_campus.html" %}
+
+{% block title %}Student Performance AI{% endblock %}
+{% block page_title %}Student Performance Prediction{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Student Performance Predictor</h1>
+    <p>Predict student academic success, estimate GPA, and identify students needing intervention.</p>
+</div>
+
+<!-- Filters & Summary -->
+<div class="glass-card mb-4" style="margin-bottom: 24px;">
+    <div class="card-body-p flex-between">
+        <form class="flex-center gap-12" method="GET" action="{{ url_for('campus.ai_performance') }}">
+            <select name="class_id" class="campus-form-control" style="width: auto;">
+                <option value="">All Classes</option>
+                {% for c in classes %}
+                    <option value="{{ c.id }}" {% if class_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn-campus btn-primary-c">Filter</button>
+        </form>
+        
+        <div class="flex-center gap-16">
+            <div class="stat-card" style="padding: 10px 20px; min-width:150px; margin:0; box-shadow:none; border:1px solid rgba(239, 68, 68, 0.3);">
+                <div style="font-size: 0.7rem; color: var(--text-muted); text-transform:uppercase;">Needs Intervention</div>
+                <div style="font-size: 1.5rem; font-weight: 700; color: #ef4444;">{{ intervention_count }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Correlation Chart -->
+<div class="chart-container stagger animate-fade-up">
+    <div class="chart-title">
+        <i class="fas fa-project-diagram" style="color:var(--secondary);"></i> Attendance vs Average Marks (Top 15 Students)
+    </div>
+    <div style="height: 300px;">
+        <canvas id="performanceChart"></canvas>
+    </div>
+</div>
+
+<!-- Performance Analysis Table -->
+<div class="campus-table-wrap stagger animate-fade-up">
+    <div class="card-header-gradient">
+        <h5 style="margin:0;"><i class="fas fa-brain"></i> AI Predictive Analysis</h5>
+    </div>
+    <div style="overflow-x: auto;">
+        <table class="campus-table">
+            <thead>
+                <tr>
+                    <th>Student</th>
+                    <th>Attendance</th>
+                    <th>Avg Marks</th>
+                    <th>Predicted GPA</th>
+                    <th>Status</th>
+                    <th>AI Suggestions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in performance_data %}
+                <tr>
+                    <td>
+                        <strong>{{ p.name }}</strong>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">{{ p.roll }}</div>
+                    </td>
+                    <td>
+                        <div class="flex-center gap-12" style="justify-content: flex-start;">
+                            <span style="font-weight: 600; width: 40px;" class="{% if p.att_pct < 75 %}risk-high{% else %}risk-low{% endif %}">{{ p.att_pct }}%</span>
+                        </div>
+                    </td>
+                    <td>
+                        {% if p.avg_marks is not none %}
+                            <span style="font-weight: 600;" class="{% if p.avg_marks < 50 %}risk-high{% elif p.avg_marks < 70 %}risk-medium{% else %}risk-low{% endif %}">{{ p.avg_marks }}%</span>
+                        {% else %}
+                            <span style="color:var(--text-muted);">N/A</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div style="font-size:1.1rem; font-family:'Outfit', sans-serif; font-weight:700; color:var(--primary);">
+                            {{ p.predicted_gpa }} <span style="font-size:0.75rem; color:var(--text-muted); font-weight:500;">/ 4.0</span>
+                        </div>
+                    </td>
+                    <td>
+                        {% if p.intervention %}
+                            <span class="badge-campus badge-danger"><i class="fas fa-hand-paper"></i> Intervention</span>
+                        {% else %}
+                            <span class="badge-campus badge-success"><i class="fas fa-thumbs-up"></i> On Track</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <ul style="margin:0; padding-left:15px; font-size:0.8rem; color:var(--text-secondary);">
+                            {% for sugg in p.suggestions %}
+                                <li>{{ sugg }}</li>
+                            {% endfor %}
+                        </ul>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" style="text-align:center; padding:30px;">
+                        No students found.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const labels = JSON.parse('{{ chart_labels | safe }}');
+        const attData = JSON.parse('{{ chart_att | safe }}');
+        const marksData = JSON.parse('{{ chart_marks | safe }}');
+        
+        const canvas = document.getElementById('performanceChart');
+        if (canvas) {
+            new Chart(canvas.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Attendance %',
+                            data: attData,
+                            backgroundColor: 'rgba(102, 126, 234, 0.7)',
+                            borderColor: '#667eea',
+                            borderWidth: 1,
+                            borderRadius: 4
+                        },
+                        {
+                            label: 'Avg Marks %',
+                            data: marksData,
+                            backgroundColor: 'rgba(118, 75, 162, 0.7)',
+                            borderColor: '#764ba2',
+                            borderWidth: 1,
+                            borderRadius: 4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { labels: { color: '#9ca3af', font: { family: 'Inter' } } }
+                    },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { color: '#9ca3af', font: { family: 'Inter' } } },
+                        y: { 
+                            grid: { color: 'rgba(102,126,234,0.08)' }, 
+                            ticks: { color: '#9ca3af', font: { family: 'Inter' } },
+                            min: 0,
+                            max: 100
+                        }
+                    }
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

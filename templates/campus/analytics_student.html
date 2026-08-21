@@ -1,0 +1,152 @@
+{% extends "campus/base_campus.html" %}
+
+{% block title %}My Analytics{% endblock %}
+{% block page_title %}My Performance{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Your Academic Profile</h1>
+    <p>Track your attendance, marks, and predictive insights.</p>
+</div>
+
+<!-- Summary Stats -->
+<div class="stat-grid stagger">
+    <div class="stat-card {% if summary.attendance_percentage >= 75 %}primary{% else %}danger{% endif %}">
+        <div class="stat-icon"><i class="fas fa-calendar-check"></i></div>
+        <div class="stat-value" data-count="{{ summary.attendance_percentage }}" data-suffix="%">0%</div>
+        <div class="stat-label">Overall Attendance</div>
+        <div class="stat-trend {% if summary.attendance_percentage >= 75 %}up{% else %}down{% endif %}">
+            {% if summary.attendance_percentage >= 75 %}Safe Zone{% else %}Critical Zone{% endif %}
+        </div>
+    </div>
+    
+    <div class="stat-card success">
+        <div class="stat-icon"><i class="fas fa-award"></i></div>
+        <div class="stat-value" data-count="{{ summary.average_percentage }}" data-suffix="%">0%</div>
+        <div class="stat-label">Average Marks</div>
+    </div>
+    
+    <div class="stat-card warning">
+        <div class="stat-icon"><i class="fas fa-brain"></i></div>
+        <div class="stat-value" data-count="{{ summary.predicted_gpa }}">0.0</div>
+        <div class="stat-label">AI Predicted GPA (out of 4.0)</div>
+    </div>
+</div>
+
+<div class="grid-2 stagger">
+    <!-- Attendance Trend Chart -->
+    <div class="chart-container">
+        <div class="chart-title">
+            <i class="fas fa-chart-area" style="color:var(--primary);"></i> Monthly Attendance Trend
+        </div>
+        <div style="height: 300px;">
+            <canvas id="studentAttChart"></canvas>
+        </div>
+    </div>
+    
+    <!-- Marks Performance Chart -->
+    <div class="chart-container">
+        <div class="chart-title">
+            <i class="fas fa-chart-bar" style="color:var(--secondary);"></i> Exam Performance
+        </div>
+        <div style="height: 300px;">
+            <canvas id="studentMarksChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Detailed Marks Table -->
+<div class="campus-table-wrap mb-4 stagger animate-fade-up">
+    <div class="card-header-gradient" style="background:var(--gradient-success);">
+        <h5 style="margin:0;"><i class="fas fa-file-signature"></i> Exam Results Breakdown</h5>
+    </div>
+    <div style="overflow-x: auto;">
+        <table class="campus-table">
+            <thead>
+                <tr>
+                    <th>Exam Name</th>
+                    <th>Marks Obtained</th>
+                    <th>Max Marks</th>
+                    <th>Percentage</th>
+                    <th>Grade</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in summary.marks %}
+                <tr>
+                    <td><strong>{{ m.exam }}</strong></td>
+                    <td>{{ m.marks }}</td>
+                    <td>{{ m.max }}</td>
+                    <td>
+                        <div class="flex-center" style="justify-content:flex-start; gap:10px;">
+                            <span style="width:40px;">{{ m.percentage }}%</span>
+                            <div class="progress-campus" style="width: 80px;">
+                                <div class="progress-bar-c {% if m.percentage >= 80 %}success{% elif m.percentage >= 50 %}warning{% else %}danger{% endif %}" style="width: {{ m.percentage }}%;"></div>
+                            </div>
+                        </div>
+                    </td>
+                    <td><span class="badge-campus badge-primary">{{ m.grade }}</span></td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" style="text-align:center; padding:20px; color:var(--text-muted);">
+                        No exam marks recorded yet.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // Attendance Trend (Dummy data for prototype - in real app, fetch from backend)
+        const attLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+        const attData = [80, 85, 78, 82, {{ summary.attendance_percentage }}, {{ summary.attendance_percentage }} + 2];
+        
+        const aCanvas = document.getElementById('studentAttChart');
+        if (aCanvas) {
+            const ctx = aCanvas.getContext('2d');
+            const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+            gradient.addColorStop(0, 'rgba(102, 126, 234, 0.4)');
+            gradient.addColorStop(1, 'rgba(102, 126, 234, 0)');
+
+            ChartManager.line('studentAttChart', attLabels, [
+                {
+                    label: 'Attendance %',
+                    data: attData,
+                    borderColor: '#667eea',
+                    backgroundColor: gradient,
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4
+                }
+            ], { yAxis: { min: 0, max: 100 } });
+        }
+
+        // Marks Chart
+        const mLabels = [{% for m in summary.marks %}'{{ m.exam }}'{% if not loop.last %},{% endif %}{% endfor %}];
+        const mData = [{% for m in summary.marks %}{{ m.percentage }}{% if not loop.last %},{% endif %}{% endfor %}];
+        
+        if (mLabels.length > 0) {
+            ChartManager.bar('studentMarksChart', mLabels, [
+                {
+                    label: 'Score %',
+                    data: mData,
+                    backgroundColor: 'rgba(67, 233, 123, 0.7)',
+                    borderColor: '#43e97b',
+                    borderWidth: 1,
+                    borderRadius: 4
+                }
+            ], { yAxis: { min: 0, max: 100 } });
+        } else {
+            // Show placeholder if no data
+            const mc = document.getElementById('studentMarksChart');
+            if(mc) mc.parentElement.innerHTML = '<div class="text-center" style="padding-top:100px; color:#9ca3af;">No exam data available</div>';
+        }
+    });
+</script>
+{% endblock %}

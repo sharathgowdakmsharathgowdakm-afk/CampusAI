@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+.env.*
+!.env.template
+instance/
+*.db
+face_encodings/
+uploads/
+test_photos/

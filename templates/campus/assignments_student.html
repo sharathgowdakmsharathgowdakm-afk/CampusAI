@@ -1,0 +1,85 @@
+{% extends "campus/base_campus.html" %}
+
+{% block title %}My Assignments{% endblock %}
+{% block page_title %}My Assignments{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>My Assignments</h1>
+    <p>View your class assignments and submit your work.</p>
+</div>
+
+<!-- Assignments List -->
+<div class="grid-2 stagger">
+    {% for a in assignments %}
+    {% set sub = my_submissions.get(a.id) %}
+    <div class="glass-card">
+        <div class="card-header-gradient flex-between" style="{% if sub and sub.status == 'graded' %}background: var(--gradient-success);{% elif sub %}background: var(--gradient-warning);{% endif %}">
+            <h5 style="margin:0;"><i class="fas fa-file-alt"></i> {{ a.title }}</h5>
+            {% if sub %}
+                {% if sub.status == 'graded' %}
+                    <span class="badge-campus badge-light" style="background:rgba(255,255,255,0.2);"><i class="fas fa-check-double"></i> Graded ({{ sub.marks }}/{{ a.max_marks }})</span>
+                {% else %}
+                    <span class="badge-campus badge-light" style="background:rgba(255,255,255,0.2);"><i class="fas fa-clock"></i> Submitted</span>
+                {% endif %}
+            {% else %}
+                <span class="badge-campus badge-light" style="background:rgba(255,255,255,0.2);">Pending</span>
+            {% endif %}
+        </div>
+        <div class="card-body-p">
+            <p style="font-size:0.9rem; color:var(--text-secondary); margin-bottom:15px; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;">
+                {{ a.description or 'No description provided.' }}
+            </p>
+            <div class="flex-between" style="font-size:0.8rem; color:var(--text-muted); margin-bottom:15px;">
+                <span><i class="far fa-calendar-alt"></i> Due: {% if a.deadline %}{{ a.deadline.strftime('%d %b %Y, %H:%M') }}{% else %}No deadline{% endif %}</span>
+                <span>Max Marks: {{ a.max_marks }}</span>
+            </div>
+            
+            {% if a.file_path %}
+                <a href="/{{ a.file_path }}" target="_blank" class="btn-campus btn-ghost btn-sm" style="margin-bottom:15px;"><i class="fas fa-download"></i> Download Assignment File</a>
+            {% endif %}
+
+            <div class="divider"></div>
+            
+            {% if sub %}
+                <!-- Already Submitted -->
+                <div style="background:rgba(102,126,234,0.05); padding:12px; border-radius:8px; border:1px solid var(--border);">
+                    <div style="font-size:0.8rem; font-weight:600; margin-bottom:8px; color:var(--text-primary);">Your Submission:</div>
+                    {% if sub.file_path %}
+                        <a href="/{{ sub.file_path }}" target="_blank" style="font-size:0.8rem; color:var(--primary); text-decoration:none;"><i class="fas fa-paperclip"></i> View Submitted File</a><br>
+                    {% endif %}
+                    {% if sub.text_content %}
+                        <p style="font-size:0.8rem; color:var(--text-secondary); margin-top:8px;">{{ sub.text_content|truncate(100) }}</p>
+                    {% endif %}
+                    <div style="font-size:0.75rem; color:var(--text-muted); margin-top:8px;">Submitted on: {{ sub.submitted_at.strftime('%d %b %Y, %H:%M') }}</div>
+                    
+                    {% if sub.feedback %}
+                        <div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--border); font-size:0.8rem;">
+                            <strong>Teacher Feedback:</strong> <span style="color:var(--text-secondary);">{{ sub.feedback }}</span>
+                        </div>
+                    {% endif %}
+                </div>
+            {% else %}
+                <!-- Submit Form -->
+                <form method="POST" action="{{ url_for('campus.submit_assignment', asgn_id=a.id) }}" enctype="multipart/form-data">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="form-group mb-2">
+                        <textarea name="text_content" class="campus-form-control" rows="2" placeholder="Write your answer here (optional)..." style="font-size:0.8rem; padding:8px;"></textarea>
+                    </div>
+                    <div class="flex-between">
+                        <input type="file" name="file" class="campus-form-control" style="font-size:0.75rem; padding:5px; width:65%;">
+                        <button type="submit" class="btn-campus btn-primary-c btn-sm" style="width:30%; justify-content:center;">Submit</button>
+                    </div>
+                </form>
+            {% endif %}
+        </div>
+    </div>
+    {% else %}
+    <div style="grid-column: 1 / -1; text-align: center; padding: 40px;" class="glass-card">
+        <i class="fas fa-check-circle" style="font-size:40px; color:var(--primary); margin-bottom:15px; opacity:0.5;"></i>
+        <h3 style="color:var(--text-secondary);">All caught up!</h3>
+        <p style="color:var(--text-muted);">You have no pending assignments at the moment.</p>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,133 @@
+{% extends "campus/base_campus.html" %}
+
+{% block title %}Admin Analytics{% endblock %}
+{% block page_title %}Organization Analytics{% endblock %}
+
+{% block content %}
+<div class="page-header flex-between">
+    <div>
+        <h1>Campus Overview</h1>
+        <p>Comprehensive attendance and performance analytics across all classes.</p>
+    </div>
+    <a href="{{ url_for('campus.ai_reports') }}" class="btn-campus btn-primary-c" style="background:var(--gradient-secondary);">
+        <i class="fas fa-file-pdf"></i> Generate Smart Report
+    </a>
+</div>
+
+<!-- Key Metrics -->
+<div class="stat-grid stagger">
+    <div class="stat-card primary">
+        <div class="stat-icon"><i class="fas fa-users"></i></div>
+        <div class="stat-value" data-count="{{ metrics.total_students }}">0</div>
+        <div class="stat-label">Total Enrolled Students</div>
+    </div>
+    <div class="stat-card success">
+        <div class="stat-icon"><i class="fas fa-chalkboard-teacher"></i></div>
+        <div class="stat-value" data-count="{{ metrics.total_classes }}">0</div>
+        <div class="stat-label">Active Classes</div>
+    </div>
+    <div class="stat-card warning">
+        <div class="stat-icon"><i class="fas fa-chart-line"></i></div>
+        <div class="stat-value" data-count="{{ metrics.avg_attendance }}" data-suffix="%">0%</div>
+        <div class="stat-label">Campus Avg Attendance</div>
+        <div class="stat-trend {% if metrics.avg_attendance >= 80 %}up{% else %}down{% endif %}">
+            {% if metrics.avg_attendance >= 80 %}+2% from last month{% else %}-1% from last month{% endif %}
+        </div>
+    </div>
+    <div class="stat-card danger">
+        <div class="stat-icon"><i class="fas fa-exclamation-triangle"></i></div>
+        <div class="stat-value" data-count="{{ metrics.risk_students }}">0</div>
+        <div class="stat-label">Students at Risk (< 75%)</div>
+    </div>
+</div>
+
+<div class="grid-2 stagger">
+    <!-- Class-wise Attendance -->
+    <div class="chart-container">
+        <div class="chart-title">
+            <i class="fas fa-chart-bar" style="color:var(--primary);"></i> Attendance by Class
+        </div>
+        <div style="height: 300px;">
+            <canvas id="classAttendanceChart"></canvas>
+        </div>
+    </div>
+    
+    <!-- Overall Distribution -->
+    <div class="chart-container">
+        <div class="chart-title">
+            <i class="fas fa-chart-pie" style="color:var(--secondary);"></i> Attendance Distribution
+        </div>
+        <div style="height: 300px; display:flex; justify-content:center;">
+            <canvas id="distributionChart" style="max-width:300px;"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Underperforming Classes -->
+<div class="campus-table-wrap mb-4 stagger animate-fade-up">
+    <div class="card-header-gradient" style="background:var(--gradient-danger);">
+        <h5 style="margin:0;"><i class="fas fa-search"></i> Needs Attention: Classes below 75%</h5>
+    </div>
+    <div style="overflow-x: auto;">
+        <table class="campus-table">
+            <thead>
+                <tr>
+                    <th>Class Name</th>
+                    <th>Students</th>
+                    <th>Avg Attendance</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in metrics.underperforming %}
+                <tr>
+                    <td><strong>{{ c.name }}</strong></td>
+                    <td>{{ c.count }}</td>
+                    <td>
+                        <span style="color:#ef4444; font-weight:700;">{{ c.avg }}%</span>
+                    </td>
+                    <td>
+                        <a href="{{ url_for('campus.ai_attendance_prediction') }}?class_id={{ c.id }}" class="btn-campus btn-ghost btn-sm" style="color:#ef4444; border-color:rgba(239,68,68,0.3);">Analyze Risk</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" style="text-align:center; padding:20px; color:var(--text-muted);">
+                        All classes are performing well!
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // Bar Chart
+        const classLabels = JSON.parse('{{ chart_labels | safe }}');
+        const classData = JSON.parse('{{ chart_data | safe }}');
+        
+        ChartManager.bar('classAttendanceChart', classLabels, [
+            {
+                label: 'Avg Attendance %',
+                data: classData,
+                backgroundColor: 'rgba(102, 126, 234, 0.7)',
+                borderColor: '#667eea',
+                borderWidth: 1,
+                borderRadius: 4
+            }
+        ], {
+            yAxis: { min: 0, max: 100 }
+        });
+
+        // Doughnut Chart
+        const distLabels = ['Above 85%', '75% - 85%', 'Below 75%'];
+        const distData = JSON.parse('{{ dist_data | safe }}');
+        
+        ChartManager.doughnut('distributionChart', distLabels, distData, ['#22c55e', '#f59e0b', '#ef4444']);
+    });
+</script>
+{% endblock %}

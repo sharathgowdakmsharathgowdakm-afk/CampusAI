@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Leave Applications - College{% endblock %}
+{% block navbar_title %}Leave Applications{% endblock %}
+{% block extra_css %}
+<style>
+.leave-card { transition: transform 0.2s; }
+.leave-card:hover { transform: translateY(-3px); }
+.status-pending  { background: linear-gradient(135deg,#f6d365,#fda085); color:#fff; }
+.status-approved { background: linear-gradient(135deg,#11998e,#38ef7d); color:#fff; }
+.status-rejected { background: linear-gradient(135deg,#ee0979,#ff6a00); color:#fff; }
+.section-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:white; border-radius:12px; padding: 18px 24px; margin-bottom: 22px; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-title">Leave Applications</div>
+
+<div class="section-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+  <div>
+    <h5 class="mb-1"><i class="fas fa-file-alt me-2"></i>All Leave Requests</h5>
+    <small style="opacity:0.8">{{ leaves|length }} total application(s)</small>
+  </div>
+  <div class="d-flex gap-2">
+    <span class="badge bg-warning text-dark">Pending: {{ leaves|selectattr('status','equalto','Pending')|list|length }}</span>
+    <span class="badge bg-success">Approved: {{ leaves|selectattr('status','equalto','Approved')|list|length }}</span>
+    <span class="badge bg-danger">Rejected: {{ leaves|selectattr('status','equalto','Rejected')|list|length }}</span>
+  </div>
+</div>
+
+{% if leaves %}
+<div class="row g-3">
+  {% for leave in leaves %}
+  <div class="col-md-6 col-lg-4">
+    <div class="card leave-card h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start mb-3">
+          <div>
+            <h6 class="mb-0 fw-bold">
+              {% if leave.student %}
+                <i class="fas fa-user-graduate text-primary me-1"></i>{{ leave.student.name }}
+              {% elif leave.staff %}
+                <i class="fas fa-user-tie text-info me-1"></i>{{ leave.staff.name }}
+              {% endif %}
+            </h6>
+            <small class="text-muted">Applied: {{ leave.applied_on.strftime('%d %b %Y') }}</small>
+          </div>
+          <span class="badge status-{{ leave.status|lower }}">{{ leave.status }}</span>
+        </div>
+
+        <div class="mb-2">
+          <i class="fas fa-calendar-day text-primary me-1"></i>
+          <strong>{{ leave.start_date.strftime('%d %b %Y') }}</strong>
+          {% if leave.start_date != leave.end_date %}
+            → <strong>{{ leave.end_date.strftime('%d %b %Y') }}</strong>
+          {% endif %}
+        </div>
+
+        <p class="text-muted small mb-3" style="min-height:40px">{{ leave.reason }}</p>
+
+        {% if leave.status == 'Pending' %}
+        <form method="POST" class="d-flex gap-2">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+          <input type="hidden" name="leave_id" value="{{ leave.id }}"/>
+          <button type="submit" name="action" value="Approved" class="btn btn-success btn-sm flex-fill">
+            <i class="fas fa-check me-1"></i>Approve
+          </button>
+          <button type="submit" name="action" value="Rejected" class="btn btn-danger btn-sm flex-fill">
+            <i class="fas fa-times me-1"></i>Reject
+          </button>
+        </form>
+        {% else %}
+        <div class="text-center text-muted small"><i class="fas fa-lock me-1"></i>Decision finalised</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card">
+  <div class="card-body text-center py-5">
+    <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+    <h5 class="text-muted">No Leave Applications</h5>
+    <p class="text-muted">Students and staff can submit leave requests from their dashboards.</p>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

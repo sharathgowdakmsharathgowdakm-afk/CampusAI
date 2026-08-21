@@ -1,0 +1,506 @@
+{% extends "base.html" %}
+{% block title %}Attendance Records - Smart Attendance ERP{% endblock %}
+{% block navbar_title %}Attendance Records{% endblock %}
+
+{% block extra_css %}
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  body { font-family: 'Inter', sans-serif; }
+
+  /* ── Page Header Bar ── */
+  .erp-page-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 22px;
+  }
+  .erp-page-header h1 {
+    font-size: 1.45rem; font-weight: 700; color: #1e293b; margin: 0;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .erp-page-header h1 .module-tag {
+    background: linear-gradient(135deg,#667eea,#764ba2);
+    color: #fff; font-size: 0.65rem; font-weight: 600;
+    padding: 3px 9px; border-radius: 50px; letter-spacing: .5px;
+    text-transform: uppercase;
+  }
+  .erp-action-btns { display: flex; gap: 8px; }
+  .erp-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 14px; border-radius: 7px; font-size: 0.82rem;
+    font-weight: 500; cursor: pointer; border: 1px solid transparent;
+    transition: all .2s;
+  }
+  .erp-btn-outline {
+    background: #fff; border-color: #d1d5db; color: #374151;
+  }
+  .erp-btn-outline:hover { background: #f3f4f6; border-color: #9ca3af; }
+  .erp-btn-primary {
+    background: linear-gradient(135deg,#667eea,#764ba2);
+    color: #fff; border-color: transparent;
+  }
+  .erp-btn-primary:hover { opacity: .9; transform: translateY(-1px); }
+  .erp-btn-success { background:#16a34a; color:#fff; border-color:transparent; }
+  .erp-btn-success:hover { background:#15803d; }
+
+  /* ── KPI Summary Strip ── */
+  .kpi-strip { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 20px; }
+  .kpi-card {
+    background: #fff; border-radius: 12px;
+    box-shadow: 0 1px 6px rgba(0,0,0,.08);
+    padding: 18px 20px; display: flex; align-items: center; gap: 16px;
+    border-left: 4px solid transparent; transition: box-shadow .2s;
+  }
+  .kpi-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.12); }
+  .kpi-card.kpi-total  { border-left-color: #6366f1; }
+  .kpi-card.kpi-present{ border-left-color: #22c55e; }
+  .kpi-card.kpi-absent { border-left-color: #ef4444; }
+  .kpi-card.kpi-rate   { border-left-color: #f59e0b; }
+  .kpi-icon {
+    width: 46px; height: 46px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.25rem; flex-shrink: 0;
+  }
+  .kpi-total  .kpi-icon { background:#ede9fe; color:#6366f1; }
+  .kpi-present .kpi-icon{ background:#dcfce7; color:#16a34a; }
+  .kpi-absent  .kpi-icon{ background:#fee2e2; color:#dc2626; }
+  .kpi-rate    .kpi-icon{ background:#fef9c3; color:#d97706; }
+  .kpi-data .kpi-value { font-size: 1.75rem; font-weight: 800; color: #1e293b; line-height:1; }
+  .kpi-data .kpi-label { font-size: 0.75rem; font-weight: 500; color: #94a3b8; margin-top: 3px; text-transform: uppercase; letter-spacing:.5px; }
+  .kpi-data .kpi-sub   { font-size: 0.7rem; color: #64748b; margin-top: 2px; }
+
+  /* ── Filter Panel ── */
+  .filter-panel {
+    background: #fff; border-radius: 12px;
+    box-shadow: 0 1px 6px rgba(0,0,0,.08);
+    margin-bottom: 18px; overflow: hidden;
+  }
+  .filter-panel-header {
+    padding: 13px 20px; background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex; align-items: center; justify-content: space-between;
+    cursor: pointer; user-select: none;
+  }
+  .filter-panel-header span {
+    font-size: .85rem; font-weight: 600; color: #475569;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .filter-panel-body { padding: 18px 20px; }
+  .filter-row { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 14px; align-items: end; }
+  .filter-group label {
+    display: block; font-size: .75rem; font-weight: 600;
+    color: #64748b; margin-bottom: 5px; text-transform: uppercase; letter-spacing: .4px;
+  }
+  .filter-group select,
+  .filter-group input {
+    width: 100%; padding: 8px 12px; border: 1px solid #d1d5db;
+    border-radius: 8px; font-size: .85rem; color: #374151;
+    background: #f9fafb; transition: border-color .2s, box-shadow .2s;
+    outline: none; font-family: 'Inter', sans-serif;
+  }
+  .filter-group select:focus,
+  .filter-group input:focus {
+    border-color: #667eea; box-shadow: 0 0 0 3px rgba(102,126,234,.15);
+    background: #fff;
+  }
+  .filter-actions { display: flex; gap: 8px; }
+
+  /* ── Toolbar (above table) ── */
+  .table-toolbar {
+    background: #fff; border-radius: 12px 12px 0 0;
+    border: 1px solid #e2e8f0; border-bottom: none;
+    padding: 12px 18px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .table-toolbar-left { display: flex; align-items: center; gap: 12px; }
+  .record-count-badge {
+    background: #ede9fe; color: #5b21b6; font-size: .75rem;
+    font-weight: 600; padding: 4px 10px; border-radius: 20px;
+  }
+  .search-box {
+    position: relative; display: flex; align-items: center;
+  }
+  .search-box input {
+    padding: 7px 12px 7px 34px; border: 1px solid #d1d5db;
+    border-radius: 8px; font-size: .82rem; outline: none;
+    font-family: 'Inter', sans-serif; color: #374151; width: 210px;
+    transition: border-color .2s;
+  }
+  .search-box input:focus { border-color: #667eea; }
+  .search-box .search-icon {
+    position: absolute; left: 10px; color: #94a3b8; font-size: .8rem;
+  }
+  .table-toolbar-right { display: flex; gap: 8px; }
+
+  /* ── ERP Data Grid ── */
+  .erp-table-wrapper {
+    border: 1px solid #e2e8f0; border-radius: 0 0 12px 12px;
+    overflow: hidden; box-shadow: 0 1px 6px rgba(0,0,0,.06);
+    background: #fff;
+  }
+  .erp-table-scroll { overflow-x: auto; max-height: 540px; overflow-y: auto; }
+  .erp-table {
+    width: 100%; border-collapse: collapse;
+    font-size: .82rem; table-layout: auto;
+  }
+  .erp-table thead th {
+    background: #1e293b; color: #cbd5e1;
+    padding: 11px 14px; font-weight: 600;
+    font-size: .72rem; text-transform: uppercase; letter-spacing: .5px;
+    white-space: nowrap; position: sticky; top: 0; z-index: 2;
+    border-right: 1px solid #334155;
+  }
+  .erp-table thead th:last-child { border-right: none; }
+  .erp-table thead th .sort-icon { margin-left: 4px; color: #64748b; font-size: .65rem; }
+  .erp-table tbody tr {
+    border-bottom: 1px solid #f1f5f9;
+    transition: background .15s;
+  }
+  .erp-table tbody tr:nth-child(even) { background: #fafbfc; }
+  .erp-table tbody tr:hover { background: #eff6ff !important; }
+  .erp-table tbody td {
+    padding: 10px 14px; color: #374151; white-space: nowrap;
+    border-right: 1px solid #f1f5f9;
+  }
+  .erp-table tbody td:last-child { border-right: none; }
+
+  /* Serial number column */
+  .col-sno { width: 48px; text-align: center; color: #94a3b8; font-size: .75rem; }
+  .col-sno-head { text-align: center; }
+
+  /* Status badges */
+  .status-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 11px; border-radius: 20px;
+    font-size: .72rem; font-weight: 600; letter-spacing: .3px;
+  }
+  .status-present { background: #dcfce7; color: #15803d; }
+  .status-absent  { background: #fee2e2; color: #dc2626; }
+  .status-pill .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .status-present .dot { background: #16a34a; }
+  .status-absent  .dot  { background: #dc2626; }
+
+  /* Roll number */
+  .roll-chip {
+    background: #f1f5f9; color: #475569;
+    padding: 2px 8px; border-radius: 5px;
+    font-family: 'Courier New', monospace; font-size: .78rem; font-weight: 600;
+  }
+
+  /* Attendance rate mini bar */
+  .rate-bar-wrap { display: flex; align-items: center; gap: 8px; }
+  .rate-bar {
+    height: 5px; border-radius: 10px; background: #e2e8f0;
+    flex: 1; min-width: 60px; overflow: hidden;
+  }
+  .rate-bar-fill { height: 100%; border-radius: 10px; background: linear-gradient(90deg,#22c55e,#16a34a); }
+
+  /* ── Empty State ── */
+  .erp-empty {
+    text-align: center; padding: 60px 20px;
+    background: #fff; border: 1px solid #e2e8f0;
+    border-radius: 0 0 12px 12px;
+  }
+  .erp-empty .empty-icon { font-size: 3rem; color: #cbd5e1; margin-bottom: 14px; }
+  .erp-empty h3 { font-size: 1rem; font-weight: 600; color: #64748b; margin-bottom: 6px; }
+  .erp-empty p { font-size: .85rem; color: #94a3b8; }
+
+  /* ── Footer ── */
+  .erp-table-footer {
+    background: #f8fafc; border: 1px solid #e2e8f0; border-top: none;
+    border-radius: 0 0 12px 12px;
+    padding: 10px 18px;
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: .78rem; color: #64748b;
+  }
+
+  /* Print */
+  @media print {
+    .erp-action-btns, .filter-panel, .table-toolbar, .erp-table-footer,
+    .sidebar, .navbar-top { display: none !important; }
+    .erp-table-scroll { max-height: none; overflow: visible; }
+    .erp-table-wrapper { border: none; box-shadow: none; border-radius: 0; }
+    .erp-table thead th { background: #1e293b !important; color: #fff !important; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+{# ── Counts for KPIs ── #}
+{% set present_count = namespace(value=0) %}
+{% set absent_count  = namespace(value=0) %}
+{% for r in records %}
+  {% if r.status == 'present' %}{% set present_count.value = present_count.value + 1 %}
+  {% else %}{% set absent_count.value = absent_count.value + 1 %}{% endif %}
+{% endfor %}
+{% set total = records|length %}
+{% if total > 0 %}
+  {% set rate = ((present_count.value / total) * 100)|round(1) %}
+{% else %}
+  {% set rate = 0 %}
+{% endif %}
+
+<!-- ── Page Header ── -->
+<div class="erp-page-header">
+  <h1>
+    <i class="fas fa-clipboard-list" style="color:#667eea;"></i>
+    Attendance Records
+    <span class="module-tag">ERP Module</span>
+  </h1>
+  <div class="erp-action-btns">
+    <button class="erp-btn erp-btn-outline" onclick="window.print()">
+      <i class="fas fa-print"></i> Print
+    </button>
+    <button class="erp-btn erp-btn-success" onclick="exportCSV()">
+      <i class="fas fa-file-csv"></i> Export CSV
+    </button>
+  </div>
+</div>
+
+<!-- ── KPI Strip ── -->
+<div class="kpi-strip">
+  <div class="kpi-card kpi-total">
+    <div class="kpi-icon"><i class="fas fa-users"></i></div>
+    <div class="kpi-data">
+      <div class="kpi-value">{{ total }}</div>
+      <div class="kpi-label">Total Records</div>
+      <div class="kpi-sub">Fetched from filters</div>
+    </div>
+  </div>
+  <div class="kpi-card kpi-present">
+    <div class="kpi-icon"><i class="fas fa-user-check"></i></div>
+    <div class="kpi-data">
+      <div class="kpi-value">{{ present_count.value }}</div>
+      <div class="kpi-label">Present</div>
+      <div class="kpi-sub">Marked attendance</div>
+    </div>
+  </div>
+  <div class="kpi-card kpi-absent">
+    <div class="kpi-icon"><i class="fas fa-user-times"></i></div>
+    <div class="kpi-data">
+      <div class="kpi-value">{{ absent_count.value }}</div>
+      <div class="kpi-label">Absent</div>
+      <div class="kpi-sub">No attendance</div>
+    </div>
+  </div>
+  <div class="kpi-card kpi-rate">
+    <div class="kpi-icon"><i class="fas fa-percent"></i></div>
+    <div class="kpi-data">
+      <div class="kpi-value">{{ rate }}%</div>
+      <div class="kpi-label">Attendance Rate</div>
+      <div class="kpi-sub">
+        <div class="rate-bar-wrap" style="margin-top:5px;">
+          <div class="rate-bar">
+            <div class="rate-bar-fill" style="width:{{ rate }}%;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Filter Panel ── -->
+<div class="filter-panel">
+  <div class="filter-panel-header" onclick="toggleFilter()">
+    <span><i class="fas fa-sliders-h"></i> Search & Filter Criteria</span>
+    <i class="fas fa-chevron-down" id="filterChevron" style="color:#94a3b8; font-size:.8rem;"></i>
+  </div>
+  <div class="filter-panel-body" id="filterBody">
+    <form method="GET" id="filterForm">
+      <div class="filter-row">
+        <div class="filter-group">
+          <label><i class="fas fa-chalkboard"></i> Class</label>
+          <select name="class_id" id="classSelect">
+            <option value="">— All Classes —</option>
+            {% for class in classes %}
+            <option value="{{ class.id }}"
+              {% if selected_class == class.id|string %}selected{% endif %}>
+              {{ class.name }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="filter-group">
+          <label><i class="fas fa-calendar-day"></i> Specific Date</label>
+          <input type="date" name="date" value="{{ selected_date or '' }}" placeholder="Pick a date">
+        </div>
+        <div class="filter-group">
+          <label><i class="fas fa-calendar-alt"></i> Month &amp; Year</label>
+          <input type="month" name="month" value="{{ selected_month or '' }}">
+        </div>
+        <div class="filter-group">
+          <label>&nbsp;</label>
+          <div class="filter-actions">
+            <button type="submit" class="erp-btn erp-btn-primary">
+              <i class="fas fa-search"></i> Apply
+            </button>
+            <a href="?" class="erp-btn erp-btn-outline">
+              <i class="fas fa-times"></i> Clear
+            </a>
+          </div>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── Table Toolbar ── -->
+<div class="table-toolbar">
+  <div class="table-toolbar-left">
+    <span style="font-size:.82rem; font-weight:600; color:#374151;">
+      <i class="fas fa-table" style="color:#667eea; margin-right:5px;"></i>
+      Attendance Register
+    </span>
+    <span class="record-count-badge" id="recordCount">
+      {{ total }} Record{% if total != 1 %}s{% endif %}
+    </span>
+    {% if selected_class or selected_date or selected_month %}
+    <span style="font-size:.72rem; color:#94a3b8;">
+      <i class="fas fa-filter"></i> Filters active
+    </span>
+    {% endif %}
+  </div>
+  <div class="table-toolbar-right">
+    <div class="search-box">
+      <i class="fas fa-search search-icon"></i>
+      <input type="text" id="tableSearch" placeholder="Search student, roll, class…"
+             oninput="filterTable()">
+    </div>
+  </div>
+</div>
+
+<!-- ── Data Grid ── -->
+{% if records %}
+<div class="erp-table-wrapper">
+  <div class="erp-table-scroll">
+    <table class="erp-table" id="attendanceTable">
+      <thead>
+        <tr>
+          <th class="col-sno-head">#</th>
+          <th>Date <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
+          <th>Day</th>
+          <th>Check-in Time</th>
+          <th>Student Name <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
+          <th>Roll Number</th>
+          <th>Class <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody">
+        {% for record in records %}
+        <tr>
+          <td class="col-sno">{{ loop.index }}</td>
+          <td>
+            <span style="font-weight:600; color:#1e293b;">
+              {{ record.date.strftime('%d %b %Y') }}
+            </span>
+          </td>
+          <td style="color:#64748b;">{{ record.day }}</td>
+          <td>
+            {% if record.status == 'present' and record.time %}
+              <span style="font-weight:500; color:#0f766e;">
+                <i class="fas fa-clock" style="color:#0d9488; font-size:.72rem; margin-right:3px;"></i>
+                {{ record.time.strftime('%I:%M %p') }}
+              </span>
+            {% else %}
+              <span style="color:#cbd5e1;">—</span>
+            {% endif %}
+          </td>
+          <td>
+            <span style="font-weight:600; color:#1e293b;">{{ record.student.name }}</span>
+          </td>
+          <td>
+            <span class="roll-chip">{{ record.student.roll_number }}</span>
+          </td>
+          <td style="color:#475569; font-weight:500;">{{ record.class_.name }}</td>
+          <td>
+            {% if record.status == 'present' %}
+              <span class="status-pill status-present">
+                <span class="dot"></span> Present
+              </span>
+            {% else %}
+              <span class="status-pill status-absent">
+                <span class="dot"></span> Absent
+              </span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ── Table Footer ── -->
+<div class="erp-table-footer">
+  <span>
+    Showing <strong id="visibleCount">{{ total }}</strong> of <strong>{{ total }}</strong> records
+  </span>
+  <span>
+    Generated: {{ 'now'|strftime('%d %b %Y, %I:%M %p') if 'now'|strftime else '' }}
+    &nbsp;|&nbsp; Smart Attendance ERP
+  </span>
+</div>
+
+{% else %}
+<div class="erp-empty">
+  <div class="empty-icon"><i class="fas fa-inbox"></i></div>
+  <h3>No Records Found</h3>
+  <p>Try adjusting your filters or selecting a different date range.</p>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ── Toggle Filter Panel ──
+function toggleFilter() {
+  const body = document.getElementById('filterBody');
+  const icon = document.getElementById('filterChevron');
+  if (body.style.display === 'none') {
+    body.style.display = '';
+    icon.style.transform = '';
+  } else {
+    body.style.display = 'none';
+    icon.style.transform = 'rotate(-90deg)';
+  }
+}
+
+// ── Live Table Search ──
+function filterTable() {
+  const q = document.getElementById('tableSearch').value.toLowerCase();
+  const rows = document.querySelectorAll('#tableBody tr');
+  let visible = 0;
+  rows.forEach(row => {
+    const text = row.textContent.toLowerCase();
+    if (text.includes(q)) {
+      row.style.display = '';
+      visible++;
+    } else {
+      row.style.display = 'none';
+    }
+  });
+  document.getElementById('visibleCount').textContent = visible;
+  document.getElementById('recordCount').textContent =
+    visible + (visible !== 1 ? ' Records' : ' Record');
+}
+
+// ── Export CSV ──
+function exportCSV() {
+  const table = document.getElementById('attendanceTable');
+  if (!table) return;
+  let csv = [];
+  const rows = table.querySelectorAll('thead tr, tbody tr:not([style*="display: none"])');
+  rows.forEach(row => {
+    const cols = row.querySelectorAll('th, td');
+    const line = Array.from(cols).map(c => `"${c.innerText.replace(/"/g,'""').trim()}"`);
+    csv.push(line.join(','));
+  });
+  const blob = new Blob([csv.join('\n')], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `attendance_records_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+</script>
+{% endblock %}

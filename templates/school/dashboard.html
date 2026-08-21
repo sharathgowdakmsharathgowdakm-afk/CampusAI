@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block title %}School Dashboard - Smart Attendance{% endblock %}
+{% block navbar_title %}School Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-title">Welcome to School Dashboard</div>
+
+<div class="row">
+    <div class="col-md-3">
+        <div class="stat-card">
+            <i class="fas fa-users"></i>
+            <div class="stat-number">{{ total_students }}</div>
+            <div class="stat-label">Total Students</div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="stat-card">
+            <i class="fas fa-chalkboard"></i>
+            <div class="stat-number">{{ total_classes }}</div>
+            <div class="stat-label">Total Classes</div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="stat-card">
+            <i class="fas fa-check-circle"></i>
+            <div class="stat-number">{{ today_attendance }}</div>
+            <div class="stat-label">Today's Attendance</div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="stat-card">
+            <i class="fas fa-calendar"></i>
+            <div class="stat-number">{{ 'now'|strftime('%d') }}</div>
+            <div class="stat-label">Current Date</div>
+        </div>
+    </div>
+</div>
+
+
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-users"></i> Student Management
+            </div>
+            <div class="card-body">
+                <p>Manage student records, add new students, and view class-wise student information.</p>
+                <a href="/school/students" class="btn btn-primary">Manage Students</a>
+                <a href="/school/add-student" class="btn btn-primary ms-2">Add New Student</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-chalkboard"></i> Class Management
+            </div>
+            <div class="card-body">
+                <p>Create and manage classes for your school, view class details and enrollment.</p>
+                <a href="/school/classes" class="btn btn-primary">Manage Classes</a>
+                <a href="/school/add-class" class="btn btn-primary ms-2">Add New Class</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-face"></i> Face Registration
+            </div>
+            <div class="card-body">
+                <p>Register student faces for automated face recognition-based attendance marking.</p>
+                <a href="/school/face-register" class="btn btn-primary">Register Faces</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-camera"></i> Mark Attendance
+            </div>
+            <div class="card-body">
+                <p>Use face recognition technology to mark attendance for your classes automatically.</p>
+                <a href="/school/mark-attendance" class="btn btn-primary">Mark Attendance</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-check-circle"></i> Attendance Records
+            </div>
+            <div class="card-body">
+                <p>View detailed attendance records for classes and students with date-wise filtering.</p>
+                <a href="/school/attendance-records" class="btn btn-primary">View Records</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-chart-bar"></i> Reports
+            </div>
+            <div class="card-body">
+                <p>Generate comprehensive attendance reports in PDF format with detailed analytics.</p>
+                <a href="/school/reports" class="btn btn-primary">Generate Reports</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-calendar-alt"></i> Academic Calendar
+            </div>
+            <div class="card-body">
+                <p>View and manage the academic calendar, including holidays, exams, and important events.</p>
+                <a href="/school/academic-calendar" class="btn btn-primary">View Calendar</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

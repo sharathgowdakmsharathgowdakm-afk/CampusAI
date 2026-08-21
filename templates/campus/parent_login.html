@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parent Portal Login</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="/static/css/campus.css" rel="stylesheet">
+    <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background: var(--bg);
+            margin: 0;
+            overflow: hidden;
+        }
+        .login-box {
+            background: var(--bg-glass);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 40px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: var(--shadow-hover);
+            animation: fadeInUp 0.5s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="campus-bg"></div>
+    <div class="login-box text-center">
+        <div style="font-size: 3rem; color: var(--secondary); margin-bottom: 20px;">
+            <i class="fas fa-user-friends"></i>
+        </div>
+        <h2 style="font-family: 'Outfit', sans-serif; font-weight: 700; margin-bottom: 5px;">Parent Portal</h2>
+        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 30px;">Track your child's progress</p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div style="padding: 10px; border-radius: 8px; margin-bottom: 20px; font-size: 0.85rem;
+                        background: {% if category == 'success' %}rgba(34,197,94,0.1){% else %}rgba(239,68,68,0.1){% endif %};
+                        color: {% if category == 'success' %}#16a34a{% else %}#dc2626{% endif %};">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST" action="{{ url_for('campus.parent_login') }}" style="text-align: left;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label class="campus-form-label">Email Address</label>
+                <div style="position:relative;">
+                    <i class="fas fa-envelope" style="position:absolute; left:15px; top:50%; transform:translateY(-50%); color:var(--text-muted);"></i>
+                    <input type="email" name="email" class="campus-form-control" style="padding-left: 40px;" required>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="campus-form-label">Password</label>
+                <div style="position:relative;">
+                    <i class="fas fa-lock" style="position:absolute; left:15px; top:50%; transform:translateY(-50%); color:var(--text-muted);"></i>
+                    <input type="password" name="password" class="campus-form-control" style="padding-left: 40px;" required>
+                </div>
+            </div>
+            <button type="submit" class="btn-campus btn-primary-c" style="width:100%; justify-content:center; padding: 12px; font-size: 1rem; margin-top: 10px;">Login securely</button>
+        </form>
+        
+        <div style="margin-top: 25px; font-size: 0.85rem; color: var(--text-muted);">
+            Don't have an account? <a href="{{ url_for('campus.parent_register') }}" style="color: var(--primary); font-weight: 600; text-decoration: none;">Register here</a>
+        </div>
+    </div>
+</body>
+</html>

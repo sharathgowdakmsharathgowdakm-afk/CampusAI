@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Add Class - Smart Attendance{% endblock %}
+{% block navbar_title %}Add New Class{% endblock %}
+{% block content %}
+<div class="page-title">Add New Class</div>
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header"><i class="fas fa-plus"></i> Create Class</div>
+            <div class="card-body">
+                <form method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Course *</label>
+                        <select name="course_id" class="form-select" required>
+                            <option value="">-- Select Course --</option>
+                            {% for course in courses %}
+                            <option value="{{ course.id }}" {% if selected_course == course.id|string %}selected{% endif %}>{{ course.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Class Name *</label>
+                        <input type="text" name="class_name" class="form-control" placeholder="e.g., Section A" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Study Year *</label>
+                        <input type="text" name="study_year" class="form-control" placeholder="e.g., First PUC" value="{{ selected_year or '' }}" required>
+                    </div>
+<button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Create Class</button>
+                    <a href="/college/classes" class="btn btn-secondary ms-2">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

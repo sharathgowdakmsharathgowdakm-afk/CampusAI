@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Add Class - Smart Attendance{% endblock %}
+{% block navbar_title %}Add New Class{% endblock %}
+
+{% block content %}
+<div class="page-title">Add New Class</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-plus"></i> Create Class
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <div class="mb-3">
+                        <label class="form-label">Class Name *</label>
+                        <input type="text" name="class_name" class="form-control" placeholder="e.g., A1, Section A, Class 10-A" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Academic Year *</label>
+                        <input type="text" name="academic_year" class="form-control" placeholder="e.g., 2023-2024" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Class Teacher Name</label>
+                        <input type="text" name="class_teacher" class="form-control" placeholder="e.g., John Doe">
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Create Class
+                    </button>
+                    <a href="/school/classes" class="btn btn-secondary ms-2">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

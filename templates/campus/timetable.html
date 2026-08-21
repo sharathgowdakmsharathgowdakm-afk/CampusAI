@@ -1,0 +1,205 @@
+{% extends "campus/base_campus.html" %}
+
+{% block title %}Timetable{% endblock %}
+{% block page_title %}Class Timetable{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Academic Timetable</h1>
+    <p>View and manage the weekly schedule for classes.</p>
+</div>
+
+<!-- Class Selector -->
+<div class="glass-card mb-4 stagger animate-fade-up" style="margin-bottom: 24px;">
+    <div class="card-body-p flex-between">
+        <form method="GET" action="{{ url_for('campus.timetable') }}" class="flex-center gap-12">
+            <label for="class_id" style="font-weight: 600;">Select Class:</label>
+            <select name="class_id" id="class_id" class="campus-form-control" style="width: auto;" onchange="this.form.submit()">
+                {% for c in classes %}
+                    <option value="{{ c.id }}" {% if class_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+                {% endfor %}
+            </select>
+        </form>
+        
+        {% if session.get('user_id') or session.get('staff_id') %}
+        <button class="btn-campus btn-primary-c" onclick="openModal('addTimetableModal')">
+            <i class="fas fa-plus"></i> Add Entry
+        </button>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Today's Schedule in Timetable Order -->
+<div class="glass-card mb-4 stagger animate-fade-up" style="margin-bottom: 24px; border: 1px solid rgba(102,126,234,0.3); box-shadow: 0 8px 24px rgba(102,126,234,0.12);">
+    <div class="card-header-gradient" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); display:flex; justify-content:space-between; align-items:center; padding: 14px 20px;">
+        <h5 style="margin:0; font-size:1.05rem; display:flex; align-items:center; gap:10px; color:#fff;">
+            <i class="fas fa-calendar-check"></i> Today's Schedule & Attendance in Timetable Order ({{ today_day }})
+        </h5>
+        <span class="badge-campus" style="background:rgba(255,255,255,0.25); color:#fff; font-weight:600; padding:4px 12px; border-radius:20px;">
+            {{ today_slots|length }} Periods Scheduled Today
+        </span>
+    </div>
+    <div class="card-body-p" style="padding: 18px 20px;">
+        {% if today_slots and today_slots|length > 0 %}
+        <div style="display:flex; flex-direction:column; gap:12px;">
+            {% for slot in today_slots %}
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; padding:14px 18px; border-radius:10px; background:rgba(255,255,255,0.7); border:1px solid rgba(226,232,240,0.8); transition:all 0.2s;">
+                <div style="display:flex; align-items:center; gap:16px;">
+                    <div style="background:linear-gradient(135deg, #6366f1, #8b5cf6); color:#fff; font-weight:700; width:38px; height:38px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:0.9rem;">
+                        P{{ loop.index }}
+                    </div>
+                    <div>
+                        <div style="font-weight:700; font-size:1rem; color:#1e293b; display:flex; align-items:center; gap:8px;">
+                            {{ slot.subject_name }}
+                            <span style="font-size:0.75rem; background:#f1f5f9; color:#475569; padding:2px 8px; border-radius:4px; font-weight:600;">{{ slot.class_name }}</span>
+                        </div>
+                        <div style="font-size:0.85rem; color:#64748b; margin-top:3px; display:flex; gap:15px; flex-wrap:wrap;">
+                            <span><i class="far fa-clock text-primary"></i> {{ slot.start_time }} - {{ slot.end_time }}</span>
+                            <span><i class="fas fa-map-marker-alt" style="color:#ef4444;"></i> {{ slot.room }}</span>
+                            <span><i class="fas fa-user-tie" style="color:#10b981;"></i> {{ slot.faculty }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display:flex; align-items:center; gap:14px;">
+                    <div>
+                        {% if slot.is_marked %}
+                        <span class="badge-campus" style="background:#dcfce7; color:#15803d; border:1px solid #bbf7d0; font-weight:600; padding:6px 12px;">
+                            <i class="fas fa-check-circle"></i> Marked ({{ slot.present_count }}/{{ slot.total_students }} Present)
+                        </span>
+                        {% else %}
+                        <span class="badge-campus" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-weight:600; padding:6px 12px;">
+                            <i class="far fa-clock"></i> Attendance Pending
+                        </span>
+                        {% endif %}
+                    </div>
+                    {% if session.get('user_id') or session.get('staff_id') %}
+                    <a href="{{ url_for('campus.timetable_mark_attendance', entry_id=slot.id) }}" class="btn-campus btn-primary-c" style="padding:7px 14px; font-size:0.85rem; display:inline-flex; align-items:center; gap:6px; text-decoration:none;">
+                        <i class="fas fa-camera"></i> Mark Attendance
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div style="text-align:center; padding: 25px 15px; color:#64748b;">
+            <i class="far fa-calendar-times" style="font-size:2rem; color:#cbd5e1; margin-bottom:8px; display:block;"></i>
+            <p style="margin:0; font-size:0.95rem;">No classes scheduled for today ({{ today_day }}). You can check other days below or add a new schedule entry.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if class_id %}
+<!-- Weekly Timetable Grid Column View -->
+<div style="margin-bottom:15px; font-weight:700; font-size:1.1rem; color:var(--text-main); display:flex; align-items:center; gap:8px;">
+    <i class="fas fa-calendar-week" style="color:var(--primary);"></i> Full Weekly Timetable Schedule
+</div>
+<div class="grid-3 stagger" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+    {% for day in days %}
+    <div class="glass-card" style="margin-bottom: 20px; {% if day == today_day %}border:2px solid #6366f1;{% endif %}">
+        <div class="card-header-gradient" style="padding: 10px 15px; text-align:center; {% if day == today_day %}background:linear-gradient(135deg, #6366f1, #8b5cf6);{% endif %}">
+            <h5 style="font-size:0.95rem; margin:0; display:flex; justify-content:center; align-items:center; gap:6px;">
+                {{ day }} {% if day == today_day %}<span style="font-size:0.7rem; background:rgba(255,255,255,0.3); padding:1px 6px; border-radius:10px;">TODAY</span>{% endif %}
+            </h5>
+        </div>
+        <div class="card-body-p" style="padding: 15px; min-height: 150px; display:flex; flex-direction:column; gap:10px;">
+            {% if day in slots and slots[day] %}
+                {% for entry in slots[day] | sort(attribute='start_time') %}
+                <div class="tt-slot" style="padding:10px; border-radius:8px; border:1px solid rgba(226,232,240,0.8); background:rgba(255,255,255,0.8);">
+                    <div class="flex-between" style="margin-bottom:4px;">
+                        <span class="tt-time" style="font-size:0.8rem; font-weight:600; color:#4f46e5;"><i class="far fa-clock"></i> {{ entry.start_time }} - {{ entry.end_time }}</span>
+                        {% if session.get('user_id') or session.get('staff_id') %}
+                        <form method="POST" action="{{ url_for('campus.delete_timetable', entry_id=entry.id) }}" style="display:inline;" onsubmit="return confirm('Delete this entry?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" style="background:none; border:none; color:var(--text-muted); cursor:pointer;" title="Delete Slot"><i class="fas fa-trash-alt hover-danger"></i></button>
+                        </form>
+                        {% endif %}
+                    </div>
+                    <div class="tt-subject" style="font-weight:700; color:#1e293b; font-size:0.95rem;">{{ entry.subject_name }}</div>
+                    <div class="flex-between mt-2" style="font-size:0.8rem; color:#64748b;">
+                        <span class="tt-info"><i class="fas fa-map-marker-alt"></i> {{ entry.room }}</span>
+                        <span class="tt-info"><i class="fas fa-user-tie"></i> {{ entry.faculty }}</span>
+                    </div>
+                    {% if session.get('user_id') or session.get('staff_id') %}
+                    <div style="margin-top:8px; text-align:right;">
+                        <a href="{{ url_for('campus.timetable_mark_attendance', entry_id=entry.id) }}" style="font-size:0.75rem; padding:3px 8px; border-radius:4px; background:rgba(99,102,241,0.1); color:#4f46e5; text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:4px;">
+                            <i class="fas fa-camera"></i> Mark Attendance
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            {% else %}
+                <div style="text-align:center; color:var(--text-muted); font-size:0.8rem; margin:auto;">No classes scheduled</div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="glass-card text-center" style="padding: 40px;">
+    <p>Please select a class to view its timetable.</p>
+</div>
+{% endif %}
+
+<!-- Add Timetable Modal -->
+<div id="addTimetableModal" class="campus-modal-backdrop" style="display:none;">
+    <div class="campus-modal">
+        <div class="modal-header-c">
+            <h5>Add Timetable Entry</h5>
+            <button class="modal-close" onclick="closeModal('addTimetableModal')">&times;</button>
+        </div>
+        <div class="modal-body-c">
+            <form method="POST" action="{{ url_for('campus.add_timetable') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="form-group">
+                    <label class="campus-form-label">Class</label>
+                    <select name="class_id" class="campus-form-control" required>
+                        {% for c in classes %}
+                            <option value="{{ c.id }}" {% if class_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="campus-form-label">Day of Week</label>
+                    <select name="day_of_week" class="campus-form-control" required>
+                        {% for day in days %}
+                            <option value="{{ day }}">{{ day }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label class="campus-form-label">Start Time</label>
+                        <input type="time" name="start_time" class="campus-form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="campus-form-label">End Time</label>
+                        <input type="time" name="end_time" class="campus-form-control" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="campus-form-label">Subject Name</label>
+                    <input type="text" name="subject_name" class="campus-form-control" required placeholder="e.g. Mathematics">
+                </div>
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label class="campus-form-label">Room / Lab</label>
+                        <input type="text" name="room" class="campus-form-control" placeholder="e.g. Room 101">
+                    </div>
+                    <div class="form-group">
+                        <label class="campus-form-label">Faculty</label>
+                        <input type="text" name="faculty" class="campus-form-control" placeholder="e.g. Prof. Smith">
+                    </div>
+                </div>
+                <div style="text-align: right; margin-top: 20px;">
+                    <button type="button" class="btn-campus btn-ghost" onclick="closeModal('addTimetableModal')">Cancel</button>
+                    <button type="submit" class="btn-campus btn-primary-c">Add Entry</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

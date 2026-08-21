@@ -1,0 +1,431 @@
+{% extends "campus/base_campus.html" %}
+{% block title %}Exam Results — Smart Campus{% endblock %}
+{% block title_header %}Exam Results{% endblock %}
+{% block extra_css %}
+<style>
+  .results-wrapper { display: grid; gap: 24px; }
+  .res-card {
+    background: var(--glass-bg, rgba(255,255,255,0.92));
+    border-radius: 18px;
+    box-shadow: 0 8px 32px rgba(102,126,234,.13);
+    border: 1px solid rgba(102,126,234,.12);
+    overflow: hidden;
+  }
+  .res-card-header {
+    background: linear-gradient(135deg,#667eea,#764ba2);
+    color:#fff; padding: 16px 24px;
+    font-size:1rem; font-weight:700;
+    display:flex; align-items:center; gap:10px;
+  }
+  .res-card-body { padding: 24px; }
+  .exam-selector { display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end; margin-bottom:24px; }
+  .exam-selector .field { display:flex; flex-direction:column; gap:5px; flex:1; min-width:180px; }
+  .exam-selector label { font-size:.8rem; font-weight:600; color:var(--text-muted,#666); text-transform:uppercase; letter-spacing:.04em; }
+  .exam-selector select, .exam-selector input {
+    border:1.5px solid #e2e8f0; border-radius:9px; padding:10px 13px;
+    font-size:.9rem; background:#fff; outline:none; color:#334155; transition:border .2s;
+  }
+  .exam-selector select:focus, .exam-selector input:focus { border-color:#667eea; }
+  .btn-action {
+    background:linear-gradient(135deg,#667eea,#764ba2); color:#fff;
+    border:none; border-radius:10px; padding:10px 22px;
+    font-weight:700; font-size:.92rem; cursor:pointer;
+    transition:transform .15s,box-shadow .15s; white-space:nowrap;
+  }
+  .btn-action:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(102,126,234,.4); }
+  .marks-table { width:100%; border-collapse:separate; border-spacing:0; }
+  .marks-table thead tr { background:linear-gradient(135deg,#667eea,#764ba2); color:#fff; }
+  .marks-table thead th { padding:13px 16px; font-size:.82rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; }
+  .marks-table thead th:first-child { border-radius:12px 0 0 0; }
+  .marks-table thead th:last-child  { border-radius:0 12px 0 0; }
+  .marks-table tbody tr:nth-child(even) { background:#f8f7ff; }
+  .marks-table tbody tr:hover { background:#eef0ff; }
+  .marks-table td { padding:11px 16px; border-bottom:1px solid #e9eaf5; vertical-align:middle; }
+  .marks-table td input[type=text], .marks-table td input[type=number] {
+    width:100%; border:1.5px solid #e2e8f0; border-radius:8px;
+    padding:7px 10px; font-size:.88rem; background:#fff; outline:none; transition:border .2s;
+  }
+  .marks-table td input:focus { border-color:#667eea; box-shadow:0 0 0 3px rgba(102,126,234,.15); }
+  .table-actions { display:flex; gap:12px; flex-wrap:wrap; margin-top:18px; justify-content: flex-end; }
+  .result-badge {
+    display:inline-flex; align-items:center; gap:8px; padding:10px 22px;
+    border-radius:40px; font-size:1rem; font-weight:800;
+  }
+  .result-badge.pass         { background:#dcfce7; color:#15803d; border:2px solid #86efac; }
+  .result-badge.fail         { background:#fee2e2; color:#b91c1c; border:2px solid #fca5a5; }
+  .result-badge.distinction  { background:#fef9c3; color:#a16207; border:2px solid #fde047; }
+  .result-badge.first-class  { background:#dbeafe; color:#1d4ed8; border:2px solid #93c5fd; }
+  .grade-pill { display:inline-block; padding:3px 12px; border-radius:20px; font-size:.78rem; font-weight:700; }
+  .admin-notice {
+    background:linear-gradient(135deg,#e0f2fe,#dbeafe);
+    border:1px solid #93c5fd; border-radius:12px; padding:14px 20px;
+    margin-bottom:22px; display:flex; align-items:center; gap:12px;
+    font-size:.88rem; color:#1e40af;
+  }
+  .no-results-msg { text-align:center; padding:40px; color:#94a3b8; font-size:.95rem; }
+  
+  /* Student Analytics Styles */
+  .analytics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 24px; margin-bottom: 24px; }
+  .stat-card {
+    background: linear-gradient(135deg,#667eea,#764ba2);
+    border-radius: 16px; padding: 24px; color: #fff; text-align: center;
+    box-shadow: 0 8px 24px rgba(102,126,234,0.2);
+  }
+  .stat-val { font-size: 2.5rem; font-weight: 800; line-height: 1; margin-bottom: 8px; }
+  .stat-lbl { font-size: 0.9rem; font-weight: 600; opacity: 0.9; text-transform: uppercase; letter-spacing: 0.05em; }
+  .stat-card.blue { background: linear-gradient(135deg,#3b82f6,#2563eb); }
+  .stat-card.green { background: linear-gradient(135deg,#22c55e,#16a34a); }
+  
+  .subject-card {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px;
+    margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;
+  }
+  .subject-name { font-weight: 700; color: #1e293b; font-size: 1.1rem; }
+  .subject-marks { font-size: 1.1rem; font-weight: 800; color: #667eea; }
+  
+  @media(max-width:640px){ .exam-selector{flex-direction:column;} .marks-table{font-size:.82rem;} }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1><i class="fas fa-chart-line me-2" style="color:#667eea"></i>{% if session.get("student_id") %}My Analytics{% else %}Exam Results{% endif %}</h1>
+  <p>{% if session.get("student_id") %}View your exam performance and results breakdown.{% else %}Manage and enter subject-wise marks for your classes.{% endif %}</p>
+</div>
+
+<div class="results-wrapper">
+
+  <!-- =============================== -->
+  <!-- ADMIN / STAFF VIEW              -->
+  <!-- =============================== -->
+  {% if session.get("user_id") or session.get("staff_id") %}
+  <div class="res-card">
+    <div class="res-card-header"><i class="fas fa-list-alt"></i> Saved Exam Results</div>
+    <div class="res-card-body">
+      <div class="exam-selector" style="margin-bottom:16px;">
+        <div class="field">
+          <label>Filter by Class</label>
+          <select id="filterClass" onchange="filterResults()">
+            <option value="">All Classes</option>
+            {% for cls in classes %}<option value="{{ cls.id }}">{{ cls.name }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+      {% if saved_results %}
+      <div class="table-responsive">
+        <table class="marks-table" id="savedTable">
+          <thead>
+            <tr>
+              <th>#</th><th>Student</th><th>Roll No.</th><th>Exam</th><th>Class</th>
+              <th>Total Marks</th><th>Obtained</th><th>Percentage</th><th>CGPA</th><th>Overall Result</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in saved_results %}
+            {% set pct = r.percentage %}
+            {% set cgpa_val = r.cgpa %}
+            {% if pct >= 75 %}{% set res_label='Distinction' %}{% set res_cls='distinction' %}
+            {% elif pct >= 60 %}{% set res_label='First Class' %}{% set res_cls='first-class' %}
+            {% elif pct >= 35 %}{% set res_label='Pass' %}{% set res_cls='pass' %}
+            {% else %}{% set res_label='Fail' %}{% set res_cls='fail' %}{% endif %}
+            <tr data-class="{{ r.class_id }}" data-exam="{{ r.exam_id }}">
+              <td>{{ loop.index }}</td>
+              <td><strong>{{ r.student_name }}</strong></td>
+              <td>{{ r.roll_number }}</td>
+              <td>{{ r.exam_name }}</td>
+              <td>{{ r.class_name }}</td>
+              <td>{{ r.total_marks }}</td>
+              <td>{{ r.obtained }}</td>
+              <td><strong>{{ pct }}%</strong></td>
+              <td>{{ cgpa_val }}</td>
+              <td><span class="result-badge {{ res_cls }}" style="padding:4px 12px;font-size:.78rem;margin-top:0;">{{ res_label }}</span></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="no-results-msg">
+        <i class="fas fa-clipboard-list fa-3x mb-3 d-block" style="color:#cbd5e1"></i>
+        No exam results saved yet. Use the entry form below.
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="res-card">
+    <div class="res-card-header">
+      <i class="fas fa-pen-to-square"></i>
+      Enter Subject Marks (Class-wise)
+    </div>
+    <div class="res-card-body">
+      <div class="admin-notice">
+        <i class="fas fa-info-circle fa-lg"></i>
+        <span>Select a class and subject, fill the marks for each student, then click <strong>Save Marks</strong>. Overall results are automatically updated.</span>
+      </div>
+
+      <div class="exam-selector">
+        <div class="field">
+          <label>Class</label>
+          <select id="entryClass" onchange="loadStudents()">
+            <option value="">-- Class --</option>
+            {% for cls in classes %}<option value="{{ cls.id }}">{{ cls.name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label>Subject</label>
+          <input type="text" id="entrySubject" placeholder="e.g. Mathematics">
+        </div>
+        <div class="field">
+          <label>Exam / Test Name</label>
+          <input type="text" id="entryExamName" placeholder="e.g. Mid-term 2024">
+        </div>
+        <div class="field" style="flex:0 0 auto; min-width:130px;">
+          <label>Semester / Term</label>
+          <input type="text" id="entrySemester" placeholder="e.g. Sem 3">
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="marks-table" id="marksTable">
+          <thead>
+            <tr>
+              <th style="width: 50px;">#</th>
+              <th>Student Name</th>
+              <th>Roll Number</th>
+              <th style="width: 150px;">Total Marks <input type="number" id="masterTotal" placeholder="Set All" style="padding: 2px 5px; margin-left: 10px; width: 60px; font-size: .8rem;" oninput="applyMasterTotal()"></th>
+              <th style="width: 150px;">Obtained Marks</th>
+              <th style="width: 120px;">Grade</th>
+            </tr>
+          </thead>
+          <tbody id="marksBody">
+            <tr><td colspan="6" class="text-center text-muted py-4">Please select a class to load students.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="table-actions" style="margin-top: 20px;">
+        <button class="btn-action" onclick="saveSubjectMarks()"><i class="fas fa-save me-1"></i> Save Marks</button>
+      </div>
+
+      <div id="saveMsg" style="margin-top:14px;"></div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- =============================== -->
+  <!-- STUDENT VIEW                    -->
+  <!-- =============================== -->
+  {% if session.get("student_id") %}
+    {% set my_results = [] %}
+    {% for r in saved_results %}
+      {% if r.student_id|string == session.get("student_id")|string %}
+        {% set _ = my_results.append(r) %}
+      {% endif %}
+    {% endfor %}
+    
+    {% if my_results %}
+      {% for r in my_results %}
+      <div class="res-card mb-4">
+        <div class="res-card-header"><i class="fas fa-clipboard-check"></i> {{ r.exam_name }} {% if r.semester %}({{ r.semester }}){% endif %}</div>
+        <div class="res-card-body">
+          <div class="analytics-grid">
+            <div class="stat-card blue">
+              <div class="stat-val">{{ r.percentage }}%</div>
+              <div class="stat-lbl">Overall Percentage</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-val">{{ r.cgpa }}</div>
+              <div class="stat-lbl">CGPA</div>
+            </div>
+            <div class="stat-card green">
+              <div class="stat-val">{{ r.obtained }} / {{ r.total_marks }}</div>
+              <div class="stat-lbl">Marks Obtained</div>
+            </div>
+          </div>
+          
+          <h5 class="fw-bold mb-3 mt-4" style="color: #334155;"><i class="fas fa-list-ul me-2 text-primary"></i>Subject Breakdown</h5>
+          <div class="subjects-list">
+            {% for sub in r.subjects %}
+              {% set spct = (sub.obtained / sub.total * 100) if sub.total > 0 else 0 %}
+              {% set g = 'O' if spct >= 90 else 'A' if spct >= 75 else 'B' if spct >= 60 else 'C' if spct >= 50 else 'D' if spct >= 35 else 'F' %}
+              {% set gcol = '#15803d' if g=='O' else '#1d4ed8' if g=='A' else '#0369a1' if g=='B' else '#a16207' if g=='C' else '#c2410c' if g=='D' else '#b91c1c' %}
+              {% set gbg = '#dcfce7' if g=='O' else '#dbeafe' if g=='A' else '#e0f2fe' if g=='B' else '#fef9c3' if g=='C' else '#ffedd5' if g=='D' else '#fee2e2' %}
+              <div class="subject-card">
+                <div class="subject-name">{{ sub.name }}</div>
+                <div class="d-flex align-items-center gap-3">
+                  <div class="subject-marks">{{ sub.obtained }} / {{ sub.total }}</div>
+                  <span class="grade-pill" style="background:{{ gbg }};color:{{ gcol }}">{{ g }} ({{ spct|round(1) }}%)</span>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+          
+          <div class="text-center mt-4">
+            {% set pct = r.percentage %}
+            {% if pct >= 75 %}{% set res_label='Distinction 🏆' %}{% set res_cls='distinction' %}
+            {% elif pct >= 60 %}{% set res_label='First Class 🎖️' %}{% set res_cls='first-class' %}
+            {% elif pct >= 35 %}{% set res_label='Pass ✅' %}{% set res_cls='pass' %}
+            {% else %}{% set res_label='Fail ❌' %}{% set res_cls='fail' %}{% endif %}
+            <span class="result-badge {{ res_cls }} px-4 py-2" style="font-size: 1.1rem; margin-top: 0;">Result: {{ res_label }}</span>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="res-card">
+        <div class="res-card-body text-center py-5">
+          <i class="fas fa-folder-open fa-4x mb-3" style="color: #cbd5e1;"></i>
+          <h4 style="color: #64748b;">No Exam Results Found</h4>
+          <p class="text-muted">Your exam results will appear here once published by your teachers.</p>
+        </div>
+      </div>
+    {% endif %}
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if session.get("user_id") or session.get("staff_id") %}
+<script>
+const allStudents = {{ all_students|tojson|safe if all_students else '[]' }};
+
+function gradeFromPct(pct) {
+  if (pct >= 90) return 'O';
+  if (pct >= 75) return 'A';
+  if (pct >= 60) return 'B';
+  if (pct >= 50) return 'C';
+  if (pct >= 35) return 'D';
+  return 'F';
+}
+const GRADE_COLORS = { O:'#15803d',A:'#1d4ed8',B:'#0369a1',C:'#a16207',D:'#c2410c',F:'#b91c1c' };
+const GRADE_BG     = { O:'#dcfce7',A:'#dbeafe',B:'#e0f2fe',C:'#fef9c3',D:'#ffedd5',F:'#fee2e2' };
+
+function loadStudents() {
+  const classId = document.getElementById('entryClass').value;
+  const tbody = document.getElementById('marksBody');
+  tbody.innerHTML = '';
+  
+  if (!classId) {
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">Please select a class to load students.</td></tr>';
+    return;
+  }
+  
+  const classStudents = allStudents.filter(function(s){ return s.class_id == classId; });
+  if (classStudents.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">No students found in this class.</td></tr>';
+    return;
+  }
+  
+  classStudents.forEach(function(student, index) {
+    const tr = document.createElement('tr');
+    tr.dataset.studentId = student.id;
+    tr.innerHTML = 
+      '<td>' + (index + 1) + '</td>' +
+      '<td><strong>' + student.name + '</strong></td>' +
+      '<td>' + student.roll_number + '</td>' +
+      '<td><input type="number" min="0" class="sub-total" oninput="liveGrade(this)"></td>' +
+      '<td><input type="number" min="0" class="sub-obtained" oninput="liveGrade(this)"></td>' +
+      '<td class="grade-cell"><span style="color:#94a3b8">—</span></td>';
+    tbody.appendChild(tr);
+  });
+}
+
+function applyMasterTotal() {
+    const masterTotal = document.getElementById('masterTotal').value;
+    const inputs = document.querySelectorAll('.sub-total');
+    inputs.forEach(function(input) {
+        input.value = masterTotal;
+        liveGrade(input);
+    });
+}
+
+function liveGrade(inputElement) {
+  const row = inputElement.closest('tr');
+  const t = parseFloat(row.querySelector('.sub-total').value)    || 0;
+  const o = parseFloat(row.querySelector('.sub-obtained').value) || 0;
+  const gradeCell = row.querySelector('.grade-cell');
+  
+  if (t === 0 || row.querySelector('.sub-obtained').value === '') {
+      gradeCell.innerHTML = '<span style="color:#94a3b8">—</span>';
+      return;
+  }
+  
+  const pct = (o / t * 100);
+  const g = gradeFromPct(pct);
+  gradeCell.innerHTML = '<span class="grade-pill" style="background:' + GRADE_BG[g] + ';color:' + GRADE_COLORS[g] + '">' + g + ' (' + pct.toFixed(1) + '%)</span>';
+}
+
+async function saveSubjectMarks() {
+  const classId = document.getElementById('entryClass') ? document.getElementById('entryClass').value : '';
+  if (!classId) { alert('Please select a class.'); return; }
+  
+  const subjectName = document.getElementById('entrySubject') ? document.getElementById('entrySubject').value.trim() : '';
+  if (!subjectName) { alert('Please enter a subject name.'); return; }
+  
+  const examName = document.getElementById('entryExamName') ? document.getElementById('entryExamName').value.trim() : 'General Exam';
+  const semester = document.getElementById('entrySemester') ? document.getElementById('entrySemester').value.trim() : '';
+  
+  const rows = document.querySelectorAll('#marksBody tr[data-student-id]');
+  if (!rows.length) { alert('No students to save marks for.'); return; }
+  
+  let hasError = false;
+  const studentMarks = [];
+  
+  rows.forEach(function(r) {
+    const studentId = r.dataset.studentId;
+    const t = parseFloat(r.querySelector('.sub-total') ? r.querySelector('.sub-total').value : NaN);
+    const o = parseFloat(r.querySelector('.sub-obtained') ? r.querySelector('.sub-obtained').value : NaN);
+    
+    // Only save if marks are entered
+    if (!isNaN(t) && !isNaN(o)) {
+        if (o > t) {
+            alert('Obtained marks cannot exceed total marks for student ' + r.cells[1].innerText + '.');
+            hasError = true;
+            return;
+        }
+        studentMarks.push({
+            student_id: studentId,
+            total: t,
+            obtained: o
+        });
+    }
+  });
+  
+  if (hasError) return;
+  if (studentMarks.length === 0) { alert('Please enter marks for at least one student.'); return; }
+
+  const payload = {
+    class_id: classId,
+    subject_name: subjectName,
+    exam_name: examName,
+    semester: semester,
+    student_marks: studentMarks
+  };
+
+  const msg  = document.getElementById('saveMsg');
+  try {
+    const res  = await fetch('/campus/exam-results/save-subject', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+    const data = await res.json();
+    if (data.success) {
+      msg.innerHTML = '<div class="alert alert-success py-2 px-3" style="border-radius:10px;"><i class="fas fa-check-circle me-2"></i>' + data.success + '</div>';
+      setTimeout(function() { location.reload(); }, 1500);
+    } else {
+      msg.innerHTML = '<div class="alert alert-warning py-2 px-3" style="border-radius:10px;"><i class="fas fa-exclamation-triangle me-2"></i>' + (data.error || 'Could not save marks.') + '</div>';
+    }
+  } catch(e) {
+    msg.innerHTML = '<div class="alert alert-warning py-2 px-3" style="border-radius:10px;"><i class="fas fa-wifi me-2"></i>Error: ' + e.message + '</div>';
+  }
+}
+
+function filterResults() {
+  const cls = document.getElementById('filterClass') ? document.getElementById('filterClass').value : '';
+  document.querySelectorAll('#savedTable tbody tr').forEach(function(tr){
+    var mc = !cls || tr.dataset['class'] === cls;
+    tr.style.display = mc ? '' : 'none';
+  });
+}
+</script>
+{% endif %}
+{% endblock %}

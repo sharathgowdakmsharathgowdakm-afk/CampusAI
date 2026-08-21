@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Fee Structure - College{% endblock %}
+{% block navbar_title %}Fee Structure{% endblock %}
+{% block extra_css %}
+<style>
+.fee-card { border-left: 4px solid #667eea; transition: transform 0.2s; }
+.fee-card:hover { transform: translateX(4px); }
+.badge-due { background: linear-gradient(135deg,#f093fb,#f5576c); }
+.amount-pill { font-size: 1.2rem; font-weight: 700; color: #667eea; }
+.section-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:white; border-radius:12px; padding: 20px 25px; margin-bottom: 25px; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-title">Fee Structure</div>
+
+<div class="row">
+  <!-- Add Fee Form -->
+  <div class="col-lg-4 mb-4">
+    <div class="card h-100">
+      <div class="card-header"><i class="fas fa-plus-circle"></i> Add New Fee</div>
+      <div class="card-body">
+        <form method="POST">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Fee Type <span class="text-danger">*</span></label>
+            <input type="text" name="fee_type" class="form-control" placeholder="e.g. Tuition Fee, Exam Fee" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Amount (₹) <span class="text-danger">*</span></label>
+            <input type="number" name="amount" class="form-control" placeholder="0.00" min="0" step="0.01" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Due Date <span class="text-danger">*</span></label>
+            <input type="date" name="due_date" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Applicable Course (Optional)</label>
+            <select name="course_id" class="form-select">
+              <option value="">-- All Courses --</option>
+              {% for course in courses %}
+              <option value="{{ course.id }}">{{ course.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Description</label>
+            <textarea name="description" class="form-control" rows="2" placeholder="Optional details..."></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary w-100"><i class="fas fa-save me-2"></i>Save Fee</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fees List -->
+  <div class="col-lg-8">
+    <div class="section-header d-flex align-items-center justify-content-between">
+      <div>
+        <h5 class="mb-1"><i class="fas fa-list me-2"></i>All Fee Items</h5>
+        <small style="opacity:0.8">{{ fees|length }} fee(s) defined</small>
+      </div>
+      <span class="badge bg-white text-dark fs-6">Total: ₹{{ "%.2f"|format(fees|sum(attribute='amount')) }}</span>
+    </div>
+    {% if fees %}
+    <div class="row g-3">
+      {% for fee in fees %}
+      <div class="col-md-6">
+        <div class="card fee-card mb-0">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+              <h6 class="mb-0 fw-bold">{{ fee.fee_type }}</h6>
+              <a href="/college/fees/delete/{{ fee.id }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this fee item?')"><i class="fas fa-trash"></i></a>
+            </div>
+            <div class="amount-pill mb-2">₹{{ "%.2f"|format(fee.amount) }}</div>
+            <div class="d-flex gap-2 flex-wrap">
+              <span class="badge badge-due"><i class="fas fa-calendar me-1"></i>Due: {{ fee.due_date.strftime('%d %b %Y') }}</span>
+              {% if fee.course_id %}<span class="badge bg-info">Course-specific</span>{% else %}<span class="badge bg-secondary">All Courses</span>{% endif %}
+            </div>
+            {% if fee.description %}<p class="text-muted small mt-2 mb-0">{{ fee.description }}</p>{% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="card">
+      <div class="card-body text-center py-5">
+        <i class="fas fa-money-bill-wave fa-3x text-muted mb-3"></i>
+        <h5 class="text-muted">No Fee Items Yet</h5>
+        <p class="text-muted">Use the form on the left to add your first fee item.</p>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

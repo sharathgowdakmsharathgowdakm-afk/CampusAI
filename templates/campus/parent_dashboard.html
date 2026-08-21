@@ -1,0 +1,155 @@
+{% extends "campus/base_campus.html" %}
+
+{% block title %}Parent Dashboard{% endblock %}
+{% block page_title %}Parent Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-header flex-between">
+    <div>
+        <h1>Welcome, {{ session.get('parent_name') }}</h1>
+        <p>Student: <strong>{{ student.name }}</strong> (Roll No: {{ student.roll_number }})</p>
+    </div>
+    <a href="{{ url_for('campus.parent_logout') }}" class="btn-campus btn-ghost"><i class="fas fa-sign-out-alt"></i> Logout</a>
+</div>
+
+<!-- Stats -->
+<div class="stat-grid stagger">
+    <div class="stat-card primary">
+        <div class="stat-icon"><i class="fas fa-chart-line"></i></div>
+        <div class="stat-value" data-count="{{ att_pct }}" data-suffix="%">{{ att_pct }}%</div>
+        <div class="stat-label">Total Attendance</div>
+        <div class="stat-trend {% if att_pct >= 75 %}up{% else %}down{% endif %}">
+            {% if att_pct >= 75 %}On Track{% else %}Attention Needed{% endif %}
+        </div>
+    </div>
+    
+    <div class="stat-card success">
+        <div class="stat-icon"><i class="fas fa-calendar-check"></i></div>
+        <div class="stat-value" data-count="{{ present_att }}">{{ present_att }}</div>
+        <div class="stat-label">Classes Attended</div>
+    </div>
+    
+    <div class="stat-card warning">
+        <div class="stat-icon"><i class="fas fa-tasks"></i></div>
+        <div class="stat-value" data-count="{{ assignments|length }}">{{ assignments|length }}</div>
+        <div class="stat-label">Total Assignments</div>
+    </div>
+</div>
+
+<div class="grid-2 stagger">
+    <!-- Today's Timetable -->
+    <div class="glass-card mb-4">
+        <div class="card-header-gradient">
+            <h5 style="margin:0;"><i class="fas fa-clock"></i> Today's Timetable</h5>
+        </div>
+        <div class="card-body-p" style="padding:15px;">
+            {% for c in today_classes %}
+            <div class="flex-between" style="padding:10px; border-bottom:1px solid var(--border);">
+                <div>
+                    <div style="font-weight:600; font-size:0.9rem; color:var(--text-primary);">{{ c.subject_name }}</div>
+                    <div style="font-size:0.75rem; color:var(--text-muted);">{{ c.start_time }} - {{ c.end_time }}</div>
+                </div>
+                <span class="badge-campus badge-light" style="font-size:0.7rem; border:1px solid var(--border);">Room: {{ c.room }}</span>
+            </div>
+            {% else %}
+            <div class="text-center" style="padding:20px; color:var(--text-muted); font-size:0.85rem;">No classes scheduled for today.</div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <!-- Recent Notifications -->
+    <div class="glass-card mb-4">
+        <div class="card-header-gradient">
+            <h5 style="margin:0;"><i class="fas fa-bell"></i> Recent Alerts</h5>
+        </div>
+        <div class="card-body-p" style="padding:15px;">
+            {% for n in notifications %}
+            <div style="padding:10px; border-bottom:1px solid var(--border);">
+                <div style="font-weight:600; font-size:0.85rem; color: {% if n.notif_type == 'danger' %}#ef4444{% elif n.notif_type == 'warning' %}#f59e0b{% else %}var(--primary){% endif %};">
+                    {{ n.title }}
+                </div>
+                <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:5px;">{{ n.message }}</div>
+                <div style="font-size:0.7rem; color:var(--text-muted); margin-top:5px;">{{ n.created_at.strftime('%d %b, %H:%M') }}</div>
+            </div>
+            {% else %}
+            <div class="text-center" style="padding:20px; color:var(--text-muted); font-size:0.85rem;">No new notifications.</div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<div class="grid-2 stagger">
+    <!-- Academic Performance -->
+    <div class="campus-table-wrap mb-4">
+        <div class="card-header-gradient" style="background:var(--gradient-secondary);">
+            <h5 style="margin:0;"><i class="fas fa-graduation-cap"></i> Academic Performance</h5>
+        </div>
+        <div style="overflow-x: auto;">
+            <table class="campus-table">
+                <thead>
+                    <tr>
+                        <th>Exam</th>
+                        <th>Marks</th>
+                        <th>Grade</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in marks_data %}
+                    <tr>
+                        <td>{{ m.exam }}</td>
+                        <td>{{ m.marks }}</td>
+                        <td><strong>{{ m.grade }}</strong></td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="3" style="text-align:center; padding:15px; color:var(--text-muted); font-size:0.85rem;">No exam marks recorded yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Assignments Status -->
+    <div class="campus-table-wrap mb-4">
+        <div class="card-header-gradient" style="background:var(--gradient-secondary);">
+            <h5 style="margin:0;"><i class="fas fa-tasks"></i> Assignments</h5>
+        </div>
+        <div style="overflow-x: auto;">
+            <table class="campus-table">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Deadline</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for a in assignments %}
+                    {% set sub = sub_map.get(a.id) %}
+                    <tr>
+                        <td>{{ a.title }}</td>
+                        <td style="font-size:0.75rem;">{% if a.deadline %}{{ a.deadline.strftime('%d %b') }}{% else %}-{% endif %}</td>
+                        <td>
+                            {% if sub %}
+                                {% if sub.status == 'graded' %}
+                                    <span class="badge-campus badge-success">Graded ({{ sub.marks }})</span>
+                                {% else %}
+                                    <span class="badge-campus badge-info">Submitted</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="badge-campus badge-warning">Pending</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="3" style="text-align:center; padding:15px; color:var(--text-muted); font-size:0.85rem;">No assignments found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

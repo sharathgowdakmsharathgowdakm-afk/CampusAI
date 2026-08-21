@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}Add Student - Smart Attendance{% endblock %}
+{% block navbar_title %}Add New Student{% endblock %}
+
+{% block content %}
+<div class="page-title">Add New Student</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-user-plus"></i> Student Registration
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <div class="mb-3">
+                        <label class="form-label">Full Name *</label>
+                        <input type="text" name="name" class="form-control" placeholder="Enter student name" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Select Class *</label>
+                        <select name="class_id" class="form-select" required>
+                            <option value="">-- Select Class --</option>
+                            {% for class in classes %}
+                            <option value="{{ class.id }}">{{ class.name }} ({{ class.academic_year }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Roll Number *</label>
+                        <input type="text" name="roll_number" class="form-control" placeholder="e.g., A001" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Phone Number *</label>
+                        <input type="tel" name="phone" class="form-control" placeholder="e.g., 9876543210" required>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Add Student
+                    </button>
+                    <a href="/school/students" class="btn btn-secondary ms-2">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

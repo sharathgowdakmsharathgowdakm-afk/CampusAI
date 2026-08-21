@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Institution Dashboard - Select Semester{% endblock %}
+{% block navbar_title %}Institution Dashboard{% endblock %}
+{% block content %}
+<div class="page-title">Welcome to Institution Dashboard</div>
+<div class="row">
+    <div class="col-md-7">
+        <div class="card">
+            <div class="card-header"><i class="fas fa-layer-group"></i> Select Semester for {{ course.name }} - {{ branch }} - {{ year }}</div>
+            <div class="card-body">
+                <form action="/institution/dashboard" method="GET">
+                    <input type="hidden" name="course_id" value="{{ course.id }}">
+                    <input type="hidden" name="branch" value="{{ branch }}">
+                    <input type="hidden" name="year" value="{{ year }}">
+                    <div class="mb-3">
+                        <label class="form-label">Semester</label>
+                        <select name="sem" class="form-select" required>
+                            <option value="">-- Select Semester --</option>
+                            {% for s in sems %}
+                            <option value="{{ s.name }}">{{ s.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-arrow-right"></i> Go to Dashboard</button>
+                    <a href="/institution/add-sem?course_id={{ course.id }}&branch={{ branch }}&year={{ year }}" class="btn btn-success ms-2"><i class="fas fa-plus"></i> Add Semester</a>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-5">
+        <div class="card">
+            <div class="card-header"><i class="fas fa-trash-alt text-danger"></i> Manage Semesters</div>
+            <div class="card-body">
+                {% if sems %}
+                <ul class="list-group">
+                    {% for s in sems %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <strong>{{ s.name }}</strong>
+                        <a href="/institution/delete-sem/{{ s.id }}?branch={{ branch }}&year={{ year }}" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this semester?');" title="Delete Semester">
+                            <i class="fas fa-trash"></i>
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <div class="alert alert-warning py-2 mb-0">No semesters created yet for this course.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,181 @@
+{% extends "campus/base_campus.html" %}
+
+{% block title %}AI Attendance Prediction{% endblock %}
+{% block page_title %}AI Attendance Prediction{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>AI Attendance Prediction</h1>
+    <p>Predict future attendance and identify students at risk of shortage using machine learning.</p>
+</div>
+
+<!-- Filters -->
+<div class="glass-card mb-4" style="margin-bottom: 24px;">
+    <div class="card-body-p flex-between">
+        <div>
+            <form class="flex-center gap-12" method="GET" action="{{ url_for('campus.ai_attendance_prediction') }}">
+                <select name="class_id" class="campus-form-control" style="width: auto;">
+                    <option value="">All Classes</option>
+                    {% for c in classes %}
+                        <option value="{{ c.id }}" {% if class_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="btn-campus btn-primary-c">Filter</button>
+            </form>
+        </div>
+        <div class="flex-center gap-16">
+            <div class="badge-campus badge-danger">
+                <i class="fas fa-exclamation-triangle" style="margin-right:5px;"></i> {{ at_risk_count }} At Risk
+            </div>
+            <div class="badge-campus badge-primary">
+                <i class="fas fa-chart-line" style="margin-right:5px;"></i> Avg: {{ avg_attendance }}%
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="grid-2" style="margin-bottom: 24px;">
+    <div class="chart-container">
+        <div class="chart-title">
+            <i class="fas fa-chart-area" style="color:var(--primary);"></i> Weekly Trend (Last 7 Days)
+        </div>
+        <div style="height: 250px;">
+            <canvas id="weeklyChart"></canvas>
+        </div>
+    </div>
+    
+    <div class="chart-container">
+        <div class="chart-title">
+            <i class="fas fa-chart-bar" style="color:var(--primary);"></i> Monthly Trend (Last 4 Weeks)
+        </div>
+        <div style="height: 250px;">
+            <canvas id="monthlyChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Predictions Table -->
+<div class="campus-table-wrap">
+    <div class="card-header-gradient flex-between">
+        <h5 style="margin:0;"><i class="fas fa-table"></i> Student Risk Analysis</h5>
+        <button class="btn-campus btn-ghost btn-sm" onclick="window.print()" style="background:rgba(255,255,255,0.2); color:white; border:none;">
+            <i class="fas fa-print"></i> Export
+        </button>
+    </div>
+    <div style="overflow-x: auto;">
+        <table class="campus-table">
+            <thead>
+                <tr>
+                    <th>Roll No</th>
+                    <th>Student Name</th>
+                    <th>Current %</th>
+                    <th>Predicted (Next 7 days)</th>
+                    <th>Detention Probability</th>
+                    <th>Risk Level</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in predictions %}
+                <tr>
+                    <td><strong>{{ p.roll }}</strong></td>
+                    <td>{{ p.name }}</td>
+                    <td>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span style="width:45px;">{{ p.current }}%</span>
+                            <div class="progress-campus" style="width: 80px;">
+                                <div class="progress-bar-c {% if p.current >= 75 %}success{% elif p.current >= 60 %}warning{% else %}danger{% endif %}" style="width: {{ p.current }}%;"></div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <strong>{{ p.predicted }}%</strong>
+                        {% if p.predicted > p.current %}
+                            <i class="fas fa-arrow-up stat-trend up" style="margin-left:5px;"></i>
+                        {% elif p.predicted < p.current %}
+                            <i class="fas fa-arrow-down stat-trend down" style="margin-left:5px;"></i>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span>{{ p.detention_prob }}%</span>
+                            <div class="progress-campus" style="width: 80px;">
+                                <div class="progress-bar-c {% if p.detention_prob < 30 %}success{% elif p.detention_prob < 60 %}warning{% else %}danger{% endif %}" style="width: {{ p.detention_prob }}%;"></div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        {% if p.risk == 'high' %}
+                            <span class="badge-campus badge-danger"><i class="fas fa-exclamation-circle" style="margin-right:4px;"></i> HIGH</span>
+                        {% elif p.risk == 'medium' %}
+                            <span class="badge-campus badge-warning"><i class="fas fa-exclamation-triangle" style="margin-right:4px;"></i> MEDIUM</span>
+                        {% else %}
+                            <span class="badge-campus badge-success"><i class="fas fa-check-circle" style="margin-right:4px;"></i> LOW</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" style="text-align:center; padding:30px;">
+                        <i class="fas fa-box-open" style="font-size:30px; color:var(--text-muted); margin-bottom:10px; display:block;"></i>
+                        No students found.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // Weekly Chart
+        const weeklyLabels = JSON.parse('{{ weekly_labels | safe }}');
+        const weeklyData = JSON.parse('{{ weekly_data | safe }}');
+        
+        const wCanvas = document.getElementById('weeklyChart');
+        if (wCanvas) {
+            const ctx = wCanvas.getContext('2d');
+            const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+            gradient.addColorStop(0, 'rgba(102, 126, 234, 0.4)');
+            gradient.addColorStop(1, 'rgba(102, 126, 234, 0)');
+
+            ChartManager.line('weeklyChart', weeklyLabels, [
+                {
+                    label: 'Attendance %',
+                    data: weeklyData,
+                    borderColor: '#667eea',
+                    backgroundColor: gradient,
+                    borderWidth: 2,
+                    pointBackgroundColor: '#667eea',
+                    pointBorderColor: '#fff',
+                    pointRadius: 4,
+                    fill: true,
+                    tension: 0.4
+                }
+            ], {
+                yAxis: { min: 0, max: 100 }
+            });
+        }
+
+        // Monthly Chart
+        const monthlyLabels = JSON.parse('{{ monthly_labels | safe }}');
+        const monthlyData = JSON.parse('{{ monthly_data | safe }}');
+        
+        ChartManager.bar('monthlyChart', monthlyLabels, [
+            {
+                label: 'Attendance %',
+                data: monthlyData,
+                backgroundColor: 'rgba(118, 75, 162, 0.7)',
+                borderColor: '#764ba2',
+                borderWidth: 1,
+                borderRadius: 4
+            }
+        ], {
+            yAxis: { min: 0, max: 100 }
+        });
+    });
+</script>
+{% endblock %}

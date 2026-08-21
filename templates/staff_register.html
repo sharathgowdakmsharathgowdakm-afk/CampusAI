@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Staff Registration - Smart Attendance</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+        body {
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            display: flex; align-items: center; justify-content: center;
+            padding: 30px 16px;
+        }
+
+        .card-wrap { width:100%; max-width:480px; }
+        .glass-card {
+            background: rgba(255,255,255,0.08);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            border: 1px solid rgba(255,255,255,0.18);
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow: 0 25px 60px rgba(0,0,0,0.5);
+            animation: fadeUp .5s ease both;
+        }
+        @keyframes fadeUp {
+            from { opacity:0; transform: translateY(30px); }
+            to   { opacity:1; transform: translateY(0); }
+        }
+
+        .card-header-custom {
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            padding: 36px 32px 28px; text-align: center;
+        }
+        .icon-ring {
+            width:68px; height:68px; border-radius:50%;
+            background: rgba(255,255,255,0.2);
+            border: 2px solid rgba(255,255,255,0.35);
+            display: flex; align-items:center; justify-content:center;
+            font-size:28px; color:white; margin: 0 auto 14px;
+        }
+        .card-header-custom h2 { color:#fff; font-weight:800; font-size:1.6rem; margin-bottom:4px; }
+        .card-header-custom p  { color:rgba(255,255,255,0.75); font-size:.9rem; }
+
+        .card-body-custom { padding:36px 32px 24px; }
+
+        .form-group-custom { margin-bottom: 20px; }
+        .form-label-dark {
+            display:block; color:rgba(255,255,255,0.65);
+            font-size:.8rem; font-weight:600; margin-bottom:7px; letter-spacing:.04em;
+        }
+        .input-wrap { position:relative; }
+        .input-icon {
+            position:absolute; left:14px; top:50%; transform:translateY(-50%);
+            color:rgba(255,255,255,0.35); font-size:.9rem; pointer-events:none;
+        }
+        .form-control-dark {
+            background: rgba(255,255,255,0.07);
+            border: 1.5px solid rgba(255,255,255,0.18);
+            border-radius: 10px; color:#fff;
+            padding: 12px 14px 12px 42px;
+            font-size:.93rem; width:100%;
+            transition: border-color .25s, box-shadow .25s;
+        }
+        .form-control-dark:focus {
+            outline:none; border-color:#a78bfa;
+            box-shadow: 0 0 0 3px rgba(167,139,250,0.25);
+            background: rgba(255,255,255,0.1); color:#fff;
+        }
+        .form-control-dark::placeholder { color:rgba(255,255,255,0.3); }
+
+        .pw-toggle {
+            position:absolute; right:12px; top:50%; transform:translateY(-50%);
+            background:none; border:none; color:rgba(255,255,255,0.35);
+            cursor:pointer; font-size:.9rem; padding:0;
+        }
+        .pw-toggle:hover { color:#a78bfa; }
+
+        .btn-submit {
+            width:100%; padding:14px;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            border:none; border-radius:10px; color:#fff;
+            font-weight:700; font-size:1rem; cursor:pointer;
+            transition: transform .2s, box-shadow .2s; margin-top:10px;
+        }
+        .btn-submit:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(30,60,114,0.45); }
+
+        .card-footer-custom {
+            text-align:center; padding:18px 32px;
+            border-top:1px solid rgba(255,255,255,0.1);
+        }
+        .card-footer-custom p { color:rgba(255,255,255,0.5); font-size:.88rem; margin-bottom:6px; }
+        .card-footer-custom a { color:#a78bfa; text-decoration:none; font-weight:600; }
+        .card-footer-custom a:hover { text-decoration:underline; }
+
+        .alert { border-radius:10px; border:none; font-size:.9rem; }
+        .alert-danger  { background:rgba(239,68,68,.18); color:#fca5a5; }
+        .alert-success { background:rgba(34,197,94,.18); color:#86efac; }
+    </style>
+</head>
+<body>
+<div class="card-wrap">
+    <div class="glass-card">
+
+        <div class="card-header-custom">
+            <div class="icon-ring"><i class="fas fa-user-plus"></i></div>
+            <h2>Staff Registration</h2>
+            <p>Join your organization</p>
+        </div>
+
+        <div class="card-body-custom">
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for cat, msg in messages %}
+                    <div class="alert alert-{{ cat }} alert-dismissible fade show mb-4">
+                        <i class="fas fa-{{ 'check-circle' if cat == 'success' else 'exclamation-circle' }} me-2"></i>{{ msg }}
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert"></button>
+                    </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <form method="POST" novalidate>
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+                <div class="form-group-custom">
+                    <label class="form-label-dark">Staff Name</label>
+                    <div class="input-wrap">
+                        <i class="fas fa-user input-icon"></i>
+                        <input type="text" name="name" class="form-control-dark"
+                               placeholder="Enter your full name" required autofocus>
+                    </div>
+                </div>
+
+                <div class="form-group-custom">
+                    <label class="form-label-dark">Phone Number</label>
+                    <div class="input-wrap">
+                        <i class="fas fa-phone input-icon"></i>
+                        <input type="text" name="phone" class="form-control-dark"
+                               placeholder="Enter your phone number" required>
+                    </div>
+                </div>
+
+                <div class="form-group-custom">
+                    <label class="form-label-dark">Email Address</label>
+                    <div class="input-wrap">
+                        <i class="fas fa-envelope input-icon"></i>
+                        <input type="email" name="email" class="form-control-dark"
+                               placeholder="Enter your personal email" required>
+                    </div>
+                </div>
+
+                <div class="form-group-custom">
+                    <label class="form-label-dark">Organization Email</label>
+                    <div class="input-wrap">
+                        <i class="fas fa-building input-icon"></i>
+                        <input type="email" name="org_email" class="form-control-dark"
+                               placeholder="Enter admin/org email (e.g., smvit_school@example.com)" required>
+                    </div>
+                </div>
+
+                <div class="form-group-custom">
+                    <label class="form-label-dark">Password</label>
+                    <div class="input-wrap">
+                        <i class="fas fa-lock input-icon"></i>
+                        <input type="password" name="password" id="pw" class="form-control-dark"
+                               placeholder="Create password" required>
+                        <button type="button" class="pw-toggle" onclick="togglePw('pw', 'eyeIcon1')">
+                            <i class="fas fa-eye" id="eyeIcon1"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-group-custom">
+                    <label class="form-label-dark">Confirm Password</label>
+                    <div class="input-wrap">
+                        <i class="fas fa-lock input-icon"></i>
+                        <input type="password" name="confirm_password" id="pw-confirm" class="form-control-dark"
+                               placeholder="Confirm password" required>
+                        <button type="button" class="pw-toggle" onclick="togglePw('pw-confirm', 'eyeIcon2')">
+                            <i class="fas fa-eye" id="eyeIcon2"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-submit">
+                    <i class="fas fa-user-plus me-2"></i>Register
+                </button>
+            </form>
+        </div>
+
+        <div class="card-footer-custom">
+            <p>Already have an account? <a href="/staff/login">Login here</a></p>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    function togglePw(inputId, iconId) {
+        const input = document.getElementById(inputId);
+        const icon = document.getElementById(iconId);
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.className = 'fas fa-eye-slash';
+        } else {
+            input.type = 'password';
+            icon.className = 'fas fa-eye';
+        }
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Apply for Leave – Student</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary:#4f46e5; --primary-dark:#4338ca; --secondary:#7c3aed;
+      --success:#10b981; --warning:#f59e0b; --danger:#ef4444;
+      --bg:#f8fafc; --card-bg:#fff; --text-main:#0f172a; --text-muted:#64748b; --border:#e2e8f0;
+    }
+    body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--text-main); min-height:100vh; }
+    .navbar-custom { background:linear-gradient(135deg,#1e1b4b 0%,#312e81 100%); padding:1rem 0; box-shadow:0 4px 20px rgba(0,0,0,.1); }
+    .brand-logo { display:flex; align-items:center; gap:10px; color:#fff; font-weight:700; font-size:1.25rem; text-decoration:none; }
+    .brand-icon { width:40px; height:40px; background:linear-gradient(135deg,#4f46e5,#7c3aed); border-radius:10px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:1rem; }
+    .main-container { max-width:900px; margin:2.5rem auto; padding:0 1rem; }
+    .page-header { background:linear-gradient(135deg,#4f46e5,#7c3aed); color:#fff; border-radius:20px; padding:32px 36px; margin-bottom:28px; }
+    .page-header h2 { font-weight:800; margin-bottom:4px; }
+    .form-card { background:#fff; border-radius:18px; box-shadow:0 4px 24px rgba(0,0,0,.06); padding:32px; margin-bottom:24px; border:1px solid var(--border); }
+    .form-label { font-weight:600; color:var(--text-main); font-size:.875rem; margin-bottom:6px; }
+    .form-control, .form-select { border:1.5px solid var(--border); border-radius:10px; padding:11px 14px; font-size:.93rem; transition:border-color .2s,box-shadow .2s; }
+    .form-control:focus, .form-select:focus { border-color:var(--primary); box-shadow:0 0 0 3px rgba(79,70,229,.12); }
+    .btn-primary-custom { background:linear-gradient(135deg,#4f46e5,#7c3aed); border:none; border-radius:10px; color:#fff; font-weight:600; padding:12px 28px; transition:transform .2s,box-shadow .2s; }
+    .btn-primary-custom:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(79,70,229,.35); color:#fff; }
+    .leave-table td, .leave-table th { vertical-align:middle; }
+    .badge-pending  { background:linear-gradient(135deg,#f6d365,#fda085); color:#fff; }
+    .badge-approved { background:linear-gradient(135deg,#11998e,#38ef7d); color:#fff; }
+    .badge-rejected { background:linear-gradient(135deg,#ee0979,#ff6a00); color:#fff; }
+    .section-title { font-size:1.1rem; font-weight:700; color:var(--primary); margin-bottom:16px; }
+    .back-link { color:rgba(255,255,255,.8); text-decoration:none; font-size:.9rem; }
+    .back-link:hover { color:#fff; }
+  </style>
+</head>
+<body>
+  <nav class="navbar-custom">
+    <div class="container d-flex justify-content-between align-items-center">
+      <a class="brand-logo" href="/student/dashboard">
+        <div class="brand-icon"><i class="fas fa-graduation-cap"></i></div>
+        CampusAI Student
+      </a>
+      <div class="d-flex align-items-center gap-3">
+        <a href="/student/dashboard" class="back-link"><i class="fas fa-arrow-left me-1"></i>Back to Dashboard</a>
+        <a href="/logout" class="btn btn-sm btn-outline-light">Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="main-container">
+    <div class="page-header">
+      <h2><i class="fas fa-file-alt me-2"></i>Leave Application</h2>
+      <p class="mb-0 opacity-75">Submit a leave request to your institution admin</p>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}{% for cat,msg in messages %}
+        <div class="alert alert-{{ 'success' if cat=='success' else 'danger' }} alert-dismissible fade show" role="alert">
+          {{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+      {% endfor %}{% endif %}
+    {% endwith %}
+
+    <!-- Apply Form -->
+    <div class="form-card">
+      <div class="section-title"><i class="fas fa-plus-circle me-2"></i>New Leave Request</div>
+      <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Start Date <span class="text-danger">*</span></label>
+            <input type="date" name="start_date" class="form-control" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">End Date <span class="text-danger">*</span></label>
+            <input type="date" name="end_date" class="form-control" required>
+          </div>
+          <div class="col-12">
+            <label class="form-label">Reason <span class="text-danger">*</span></label>
+            <textarea name="reason" class="form-control" rows="3" placeholder="Explain the reason for your leave..." required></textarea>
+          </div>
+          <div class="col-12">
+            <button type="submit" class="btn btn-primary-custom"><i class="fas fa-paper-plane me-2"></i>Submit Application</button>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <!-- History -->
+    <div class="form-card">
+      <div class="section-title"><i class="fas fa-history me-2"></i>My Leave History</div>
+      {% if leaves %}
+      <div class="table-responsive">
+        <table class="table leave-table">
+          <thead class="table-light">
+            <tr>
+              <th>#</th><th>From</th><th>To</th><th>Reason</th><th>Applied On</th><th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for leave in leaves %}
+            <tr>
+              <td>{{ loop.index }}</td>
+              <td>{{ leave.start_date.strftime('%d %b %Y') }}</td>
+              <td>{{ leave.end_date.strftime('%d %b %Y') }}</td>
+              <td style="max-width:200px">{{ leave.reason }}</td>
+              <td>{{ leave.applied_on.strftime('%d %b %Y') }}</td>
+              <td><span class="badge badge-{{ leave.status|lower }}">{{ leave.status }}</span></td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+        <div class="text-center py-4 text-muted"><i class="fas fa-inbox fa-2x mb-2 d-block"></i>No leave applications yet.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // Ensure end_date >= start_date
+    document.querySelector('[name="start_date"]').addEventListener('change', function() {
+      document.querySelector('[name="end_date"]').min = this.value;
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}Staff Dashboard - Smart Attendance{% endblock %}
+{% block navbar_title %}Staff Dashboard{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="page-title mb-0">Welcome, {{ session.username }}</div>
+    <div class="d-flex gap-2">
+        <a href="/staff/leave" class="btn btn-outline-secondary" style="border-radius:8px;">
+            <i class="fas fa-file-alt me-1"></i> Apply for Leave
+        </a>
+        <a href="/campus/assistant" class="btn btn-primary" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none;">
+            <i class="fas fa-robot"></i> Smart Campus AI
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="stat-card">
+            <i class="fas fa-chalkboard-teacher"></i>
+            <div class="stat-number">{{ total_classes }}</div>
+            <div class="stat-label">Assigned Classes</div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="stat-card">
+            <i class="fas fa-users"></i>
+            <div class="stat-number">{{ total_students }}</div>
+            <div class="stat-label">Total Students</div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="stat-card">
+            <i class="fas fa-check-circle"></i>
+            <div class="stat-number">{{ today_attendance }}</div>
+            <div class="stat-label">Today's Attendance</div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-list"></i> My Classes
+            </div>
+            <div class="card-body">
+                {% if classes %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Class Name</th>
+                                <th>Academic Year</th>
+                                <th>Students</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for class in classes %}
+                            <tr>
+                                <td><strong>{{ class.name }}</strong></td>
+                                <td>{{ class.academic_year }}</td>
+                                <td><span class="badge bg-primary">{{ class.students|length }}</span></td>
+                                <td>
+                                    <!-- Use existing org routes to view students and mark attendance, 
+                                         passing the specific class_id -->
+                                    <a href="/{{ session.org_type }}/students?class_id={{ class.id }}" class="btn btn-sm btn-info" title="View Students">
+                                        <i class="fas fa-users"></i> View
+                                    </a>
+                                    <a href="/{{ session.org_type }}/mark-attendance?class_id={{ class.id }}" class="btn btn-sm btn-success" title="Mark Attendance">
+                                        <i class="fas fa-user-check"></i> Attendance
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> You are not assigned as a class teacher to any classes yet.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

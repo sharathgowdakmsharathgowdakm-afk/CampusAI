@@ -1,0 +1,12 @@
+body {background:#0f1724; color:#e6eef8}
+.bg-gradient{background: linear-gradient(135deg,#f6d365 0%,#fda085 100%);}
+.card.bg-gradient{color:#0b1320}
+.list-group-item{border:none}
+.navbar-brand{font-weight:700}
+body, html { height:100%; }
+.splash-bg{ position:relative; height:100vh; background-image: url('https://via.placeholder.com/1600x900'); background-size:cover; background-position:center }
+.splash-bg .overlay{ position:absolute; inset:0; background:rgba(0,0,0,0.6); }
+.splash-content{ position:relative; z-index:2; color:white }
+.sidebar{ width:240px; min-height:100vh }
+.gradient-card{ background: linear-gradient(135deg,#f7b7a3,#ffd89b); border-radius:10px; padding:20px }
+.card.gradient-card h5{ color:#222 }

@@ -1,0 +1,198 @@
+{% extends "campus/base_campus.html" %}
+
+{% block title %}Notifications{% endblock %}
+{% block page_title %}Smart Notifications{% endblock %}
+
+{% block content %}
+<div class="page-header flex-between">
+    <div>
+        <h1>Notifications Center</h1>
+        <p>Stay updated with alerts, deadlines, and announcements.</p>
+    </div>
+    {% if session.get('user_id') or session.get('staff_id') %}
+    <button class="btn-campus btn-primary-c" onclick="openModal('sendNotificationModal')">
+        <i class="fas fa-paper-plane"></i> Send Alert
+    </button>
+    {% endif %}
+</div>
+
+<div class="grid-2 stagger">
+    <!-- Unread Notifications -->
+    <div>
+        <div class="flex-between mb-3" style="margin-bottom:15px;">
+            <h4 style="margin:0;">Recent Alerts</h4>
+            {% if unread > 0 %}
+            <button class="btn-campus btn-ghost btn-sm" onclick="markAllRead()" id="mark-read-btn">
+                <i class="fas fa-check-double"></i> Mark all read
+            </button>
+            {% endif %}
+        </div>
+        
+        <div class="stagger" id="notif-list">
+            {% for n in notifications %}
+            <div class="glass-card" style="margin-bottom:12px; {% if not n.is_read %}border-left: 4px solid {% if n.notif_type == 'danger' %}#ef4444{% elif n.notif_type == 'warning' %}#f59e0b{% elif n.notif_type == 'success' %}#22c55e{% else %}var(--primary){% endif %};{% endif %}">
+                <div class="card-body-p" style="padding:15px 20px;">
+                    <div class="flex-between">
+                        <h6 style="margin:0 0 5px 0; font-size:1rem; color: {% if n.notif_type == 'danger' %}#ef4444{% elif n.notif_type == 'warning' %}#f59e0b{% elif n.notif_type == 'success' %}#22c55e{% else %}var(--primary){% endif %};">
+                            {% if n.notif_type == 'danger' %}<i class="fas fa-exclamation-circle"></i>
+                            {% elif n.notif_type == 'warning' %}<i class="fas fa-exclamation-triangle"></i>
+                            {% elif n.notif_type == 'success' %}<i class="fas fa-check-circle"></i>
+                            {% else %}<i class="fas fa-info-circle"></i>{% endif %}
+                            {{ n.title }}
+                        </h6>
+                        <span style="font-size:0.7rem; color:var(--text-muted);">{{ n.created_at.strftime('%d %b, %H:%M') }}</span>
+                    </div>
+                    <p style="margin:0; font-size:0.85rem; color:var(--text-primary); line-height:1.4;">{{ n.message }}</p>
+                </div>
+            </div>
+            {% else %}
+            <div class="glass-card text-center" style="padding: 40px;">
+                <i class="fas fa-bell-slash" style="font-size:30px; color:var(--text-muted); margin-bottom:15px;"></i>
+                <p style="color:var(--text-secondary); margin:0;">You have no notifications.</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <!-- Info Panel -->
+    <div>
+        <div class="glass-card">
+            <div class="card-header-gradient" style="background:var(--gradient-secondary);">
+                <h5 style="margin:0;"><i class="fas fa-cog"></i> Notification Settings</h5>
+            </div>
+            <div class="card-body-p">
+                <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:20px;">Choose how you want to receive notifications from the campus platform.</p>
+                
+                <div class="flex-between" style="margin-bottom:15px; padding-bottom:15px; border-bottom:1px solid var(--border);">
+                    <div>
+                        <div style="font-weight:600; font-size:0.9rem;">Email Notifications</div>
+                        <div style="font-size:0.75rem; color:var(--text-muted);">Receive alerts directly in your inbox.</div>
+                    </div>
+                    <label style="position:relative; display:inline-block; width:40px; height:20px;">
+                        <input type="checkbox" checked style="opacity:0; width:0; height:0;">
+                        <span style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:var(--primary); transition:.4s; border-radius:34px;"></span>
+                        <span style="position:absolute; content:''; height:14px; width:14px; left:23px; bottom:3px; background-color:white; transition:.4s; border-radius:50%;"></span>
+                    </label>
+                </div>
+                
+                <div class="flex-between" style="margin-bottom:15px; padding-bottom:15px; border-bottom:1px solid var(--border);">
+                    <div>
+                        <div style="font-weight:600; font-size:0.9rem;">Push Notifications (Mobile App)</div>
+                        <div style="font-size:0.75rem; color:var(--text-muted);">Receive native push alerts on your phone.</div>
+                    </div>
+                    <label style="position:relative; display:inline-block; width:40px; height:20px;">
+                        <input type="checkbox" checked style="opacity:0; width:0; height:0;">
+                        <span style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:var(--primary); transition:.4s; border-radius:34px;"></span>
+                        <span style="position:absolute; content:''; height:14px; width:14px; left:23px; bottom:3px; background-color:white; transition:.4s; border-radius:50%;"></span>
+                    </label>
+                </div>
+                
+                <button class="btn-campus btn-primary-c" style="width:100%; justify-content:center;" onclick="requestPushPermission()">Enable Push Notifications</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if session.get('user_id') or session.get('staff_id') %}
+<!-- Send Notification Modal -->
+<div id="sendNotificationModal" class="campus-modal-backdrop" style="display:none;">
+    <div class="campus-modal">
+        <div class="modal-header-c">
+            <h5>Send New Alert</h5>
+            <button class="modal-close" onclick="closeModal('sendNotificationModal')">&times;</button>
+        </div>
+        <div class="modal-body-c">
+            <form method="POST" action="{{ url_for('campus.send_notification') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="form-group">
+                    <label class="campus-form-label">Alert Title</label>
+                    <input type="text" name="title" class="campus-form-control" required placeholder="e.g. Tomorrow's class canceled">
+                </div>
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label class="campus-form-label">Target Audience</label>
+                        <select name="user_type" class="campus-form-control" required>
+                            <option value="all">All Users</option>
+                            <option value="student">Students Only</option>
+                            <option value="staff">Staff Only</option>
+                            <option value="parent">Parents Only</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="campus-form-label">Priority/Color</label>
+                        <select name="notif_type" class="campus-form-control" required>
+                            <option value="info">Info (Blue)</option>
+                            <option value="warning">Warning (Yellow)</option>
+                            <option value="danger">Urgent (Red)</option>
+                            <option value="success">Success (Green)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="campus-form-label">Message Details</label>
+                    <textarea name="message" class="campus-form-control" rows="4" required></textarea>
+                </div>
+                
+                <div class="form-group mt-3" style="margin-top:15px; padding:15px; background:rgba(239,68,68,0.05); border:1px solid rgba(239,68,68,0.2); border-radius:8px;">
+                    <label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+                        <input type="checkbox" name="auto_low_attendance" value="1">
+                        <span style="font-weight:600; font-size:0.85rem; color:#ef4444;">Auto-notify students with < 75% attendance</span>
+                    </label>
+                </div>
+                
+                <div style="text-align: right; margin-top: 20px;">
+                    <button type="button" class="btn-campus btn-ghost" onclick="closeModal('sendNotificationModal')">Cancel</button>
+                    <button type="submit" class="btn-campus btn-primary-c">Send Alert Now</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function markAllRead() {
+        const csrfToken = document.querySelector('input[name="csrf_token"]')?.value;
+        if (!csrfToken) return;
+        
+        fetch('{{ url_for("campus.mark_notifications_read") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            }
+        }).then(res => res.json()).then(data => {
+            if (data.success) {
+                // Update UI visually
+                document.querySelectorAll('#notif-list .glass-card').forEach(card => {
+                    card.style.borderLeft = 'none';
+                });
+                const btn = document.getElementById('mark-read-btn');
+                if (btn) btn.style.display = 'none';
+                
+                const badge = document.getElementById('notif-badge-count');
+                if (badge) badge.style.display = 'none';
+                
+                const dot = document.querySelector('.notif-badge .dot');
+                if (dot) dot.style.display = 'none';
+            }
+        });
+    }
+
+    function requestPushPermission() {
+        if (!('Notification' in window)) {
+            alert('This browser does not support desktop notification');
+        } else if (Notification.permission === 'granted') {
+            alert('Push notifications are already enabled!');
+        } else if (Notification.permission !== 'denied') {
+            Notification.requestPermission().then(permission => {
+                if (permission === 'granted') {
+                    alert('Push notifications enabled!');
+                }
+            });
+        }
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}Reports - Smart Attendance{% endblock %}
+{% block navbar_title %}Generate Reports{% endblock %}
+
+{% block content %}
+<div class="page-title">Generate Attendance Report</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-chart-bar"></i> Student Attendance Report
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <div class="mb-3">
+                        <label class="form-label">Report Type *</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="report_type" id="reportStudent" value="student" checked onchange="toggleReportType()">
+                            <label class="form-check-label" for="reportStudent">Student-wise</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="report_type" id="reportClass" value="class" onchange="toggleReportType()">
+                            <label class="form-check-label" for="reportClass">Class-wise</label>
+                        </div>
+                    </div>
+
+                    <div class="mb-3" id="classSelectDiv">
+                        <label class="form-label">Select Class *</label>
+                        <select name="class_id" id="classSelectReport" class="form-select" onchange="filterReportStudents()" required>
+                            <option value="">-- Select Class --</option>
+                            {% for class in classes %}
+                            <option value="{{ class.id }}">{{ class.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3" id="studentSelectDiv">
+                        <label class="form-label">Select Student *</label>
+                        <select name="student_id" id="studentSelect" class="form-select" required>
+                            <option value="">-- Select Student --</option>
+                            {% for student in students %}
+                            <option value="{{ student.id }}" data-class-id="{{ student.class_id }}">{{ student.name }} ({{ student.roll_number }}) - {{ student.class_.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Start Date</label>
+                            <input type="date" name="start_date" class="form-control">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">End Date</label>
+                            <input type="date" name="end_date" class="form-control">
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-download"></i> Generate PDF Report
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function filterReportStudents() {
+    const classId = document.getElementById('classSelectReport').value;
+    const studentSelect = document.querySelector('select[name="student_id"]');
+    studentSelect.value = ''; // Reset
+    const options = studentSelect.querySelectorAll('option[data-class-id]');
+    
+    options.forEach(option => {
+        if (!classId || option.getAttribute('data-class-id') === classId) {
+            option.style.display = '';
+        } else {
+            option.style.display = 'none';
+        }
+    });
+}
+
+function toggleReportType() {
+    const isClassWise = document.getElementById('reportClass').checked;
+    const studentSelectDiv = document.getElementById('studentSelectDiv');
+    const studentSelect = document.getElementById('studentSelect');
+    
+    if (isClassWise) {
+        studentSelectDiv.style.display = 'none';
+        studentSelect.removeAttribute('required');
+    } else {
+        studentSelectDiv.style.display = 'block';
+        studentSelect.setAttribute('required', 'required');
+    }
+}
+
+// Call on load to set initial state
+document.addEventListener('DOMContentLoaded', function() {
+    toggleReportType();
+});
+
+</script>
+{% endblock %}

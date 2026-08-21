@@ -1,0 +1,248 @@
+{% extends "campus/base_campus.html" %}
+
+{% block title %}LMS{% endblock %}
+{% block page_title %}Learning Management System{% endblock %}
+
+{% block content %}
+<div class="page-header flex-between">
+    <div>
+        <h1>Study Materials & Quizzes</h1>
+        <p>Access your course materials, recorded lectures, and online quizzes.</p>
+    </div>
+    {% if is_admin %}
+    <div class="flex-center gap-12">
+        <button class="btn-campus btn-primary-c" onclick="openModal('uploadMaterialModal')">
+            <i class="fas fa-upload"></i> Upload Material
+        </button>
+        <button class="btn-campus btn-primary-c" onclick="openModal('createQuizModal')" style="background:var(--gradient-secondary);">
+            <i class="fas fa-question-circle"></i> Create Quiz
+        </button>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Filters -->
+<div class="glass-card mb-4" style="margin-bottom: 24px;">
+    <div class="card-body-p flex-between">
+        <form method="GET" action="{{ url_for('campus.lms') }}" class="flex-center gap-12">
+            <select name="class_id" class="campus-form-control" style="width: auto;" onchange="this.form.submit()">
+                <option value="">All Classes</option>
+                {% for c in classes %}
+                    <option value="{{ c.id }}" {% if class_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+                {% endfor %}
+            </select>
+            <select name="type" class="campus-form-control" style="width: auto;" onchange="this.form.submit()">
+                <option value="">All Types</option>
+                <option value="video" {% if content_type == 'video' %}selected{% endif %}>Videos</option>
+                <option value="pdf" {% if content_type == 'pdf' %}selected{% endif %}>PDFs</option>
+                <option value="ppt" {% if content_type == 'ppt' %}selected{% endif %}>Presentations</option>
+                <option value="link" {% if content_type == 'link' %}selected{% endif %}>External Links</option>
+            </select>
+        </form>
+    </div>
+</div>
+
+<div class="grid-2">
+    <!-- Study Materials Column -->
+    <div>
+        <h4 style="margin-bottom:15px; color:var(--text-primary);"><i class="fas fa-book" style="color:var(--primary);"></i> Study Materials</h4>
+        <div class="stagger">
+            {% for c in content %}
+            <div class="lms-card">
+                <div class="lms-icon {{ c.content_type }}">
+                    {% if c.content_type == 'video' or c.content_type == 'recorded' %}<i class="fas fa-video"></i>
+                    {% elif c.content_type == 'pdf' %}<i class="fas fa-file-pdf"></i>
+                    {% elif c.content_type == 'ppt' %}<i class="fas fa-file-powerpoint"></i>
+                    {% else %}<i class="fas fa-link"></i>{% endif %}
+                </div>
+                <div style="flex:1;">
+                    <div class="flex-between">
+                        <h5 style="margin:0; font-size:1rem; color:var(--text-primary);">{{ c.title }}</h5>
+                        {% if is_admin %}
+                        <form method="POST" action="{{ url_for('campus.lms_delete', content_id=c.id) }}" onsubmit="return confirm('Delete this material?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" style="background:none; border:none; color:var(--text-muted); cursor:pointer;"><i class="fas fa-trash hover-danger"></i></button>
+                        </form>
+                        {% endif %}
+                    </div>
+                    <p style="font-size:0.8rem; color:var(--text-secondary); margin:5px 0;">{{ c.description }}</p>
+                    <div class="flex-between mt-2" style="font-size:0.75rem; color:var(--text-muted);">
+                        <span><i class="far fa-clock"></i> {{ c.created_at.strftime('%d %b %Y') }}</span>
+                        {% if c.duration %}<span><i class="fas fa-stopwatch"></i> {{ c.duration }}</span>{% endif %}
+                    </div>
+                    
+                    <div style="margin-top:10px;">
+                        {% if c.file_path %}
+                            <a href="/{{ c.file_path }}" target="_blank" class="btn-campus btn-ghost btn-sm" style="padding:4px 10px; font-size:0.75rem;">View File</a>
+                        {% endif %}
+                        {% if c.external_url %}
+                            <a href="{{ c.external_url }}" target="_blank" class="btn-campus btn-ghost btn-sm" style="padding:4px 10px; font-size:0.75rem;">Open Link <i class="fas fa-external-link-alt" style="font-size:0.6rem; margin-left:3px;"></i></a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="glass-card text-center" style="padding: 30px;">
+                <p style="color:var(--text-muted); margin:0;">No materials found.</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Quizzes Column -->
+    <div>
+        <h4 style="margin-bottom:15px; color:var(--text-primary);"><i class="fas fa-tasks" style="color:var(--secondary);"></i> Online Quizzes</h4>
+        <div class="stagger">
+            {% for q in quizzes %}
+            <div class="glass-card" style="margin-bottom:16px;">
+                <div class="card-body-p flex-between" style="padding:15px 20px;">
+                    <div>
+                        <h5 style="margin:0 0 5px 0; font-size:1rem; color:var(--text-primary);">{{ q.title }}</h5>
+                        <div style="font-size:0.75rem; color:var(--text-muted); display:flex; gap:15px;">
+                            <span><i class="fas fa-stopwatch"></i> {{ q.duration_minutes }} mins</span>
+                            <span><i class="fas fa-star"></i> {{ q.max_marks }} marks</span>
+                            <span><i class="fas fa-calendar-alt"></i> {{ q.created_at.strftime('%d %b') }}</span>
+                        </div>
+                    </div>
+                    {% if not is_admin %}
+                    <a href="{{ url_for('campus.take_quiz', quiz_id=q.id) }}" class="btn-campus btn-primary-c btn-sm">Start Quiz</a>
+                    {% else %}
+                    <span class="badge-campus badge-light" style="border:1px solid var(--border);">{{ q.quiz_submissions|length }} attempts</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% else %}
+            <div class="glass-card text-center" style="padding: 30px;">
+                <p style="color:var(--text-muted); margin:0;">No quizzes available.</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+{% if is_admin %}
+<!-- Upload Modal -->
+<div id="uploadMaterialModal" class="campus-modal-backdrop" style="display:none;">
+    <div class="campus-modal">
+        <div class="modal-header-c">
+            <h5>Upload Study Material</h5>
+            <button class="modal-close" onclick="closeModal('uploadMaterialModal')">&times;</button>
+        </div>
+        <div class="modal-body-c">
+            <form method="POST" action="{{ url_for('campus.lms_upload') }}" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="form-group">
+                    <label class="campus-form-label">Title</label>
+                    <input type="text" name="title" class="campus-form-control" required>
+                </div>
+                <div class="form-group">
+                    <label class="campus-form-label">Class</label>
+                    <select name="class_id" class="campus-form-control" required>
+                        {% for c in classes %}
+                            <option value="{{ c.id }}">{{ c.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label class="campus-form-label">Content Type</label>
+                        <select name="content_type" class="campus-form-control" required>
+                            <option value="pdf">PDF Document</option>
+                            <option value="ppt">Presentation</option>
+                            <option value="video">Video File</option>
+                            <option value="link">External Link</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="campus-form-label">Duration (e.g. 45:00) Optional</label>
+                        <input type="text" name="duration" class="campus-form-control">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="campus-form-label">Description</label>
+                    <textarea name="description" class="campus-form-control" rows="2"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="campus-form-label">File Upload</label>
+                    <input type="file" name="file" class="campus-form-control" style="padding: 8px;">
+                </div>
+                <div class="form-group">
+                    <label class="campus-form-label">OR External Link (YouTube, Drive)</label>
+                    <input type="url" name="external_url" class="campus-form-control">
+                </div>
+                <div style="text-align: right; margin-top: 20px;">
+                    <button type="button" class="btn-campus btn-ghost" onclick="closeModal('uploadMaterialModal')">Cancel</button>
+                    <button type="submit" class="btn-campus btn-primary-c">Upload</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Create Quiz Modal (Simplified for prototype) -->
+<div id="createQuizModal" class="campus-modal-backdrop" style="display:none;">
+    <div class="campus-modal" style="max-width:700px;">
+        <div class="modal-header-c">
+            <h5>Create Quiz</h5>
+            <button class="modal-close" onclick="closeModal('createQuizModal')">&times;</button>
+        </div>
+        <div class="modal-body-c">
+            <form method="POST" action="{{ url_for('campus.create_quiz') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="grid-3">
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label class="campus-form-label">Quiz Title</label>
+                        <input type="text" name="title" class="campus-form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="campus-form-label">Class</label>
+                        <select name="class_id" class="campus-form-control" required>
+                            {% for c in classes %}
+                                <option value="{{ c.id }}">{{ c.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label class="campus-form-label">Duration (mins)</label>
+                        <input type="number" name="duration" class="campus-form-control" value="30">
+                    </div>
+                    <div class="form-group">
+                        <label class="campus-form-label">Total Marks</label>
+                        <input type="number" name="max_marks" class="campus-form-control" value="10">
+                    </div>
+                </div>
+                
+                <hr class="divider">
+                <h6 style="margin-bottom:15px;">Questions (Add up to 3 for now)</h6>
+                
+                <div id="questions-container">
+                    <!-- Q1 -->
+                    <div style="background:rgba(102,126,234,0.05); padding:15px; border-radius:8px; margin-bottom:15px;">
+                        <input type="text" name="question[]" class="campus-form-control mb-2" placeholder="Question 1 text" required style="margin-bottom:10px;">
+                        <div class="grid-2" style="gap:10px;">
+                            <input type="text" name="opt_a[]" class="campus-form-control" placeholder="Option A" required>
+                            <input type="text" name="opt_b[]" class="campus-form-control" placeholder="Option B" required>
+                            <input type="text" name="opt_c[]" class="campus-form-control" placeholder="Option C" required>
+                            <input type="text" name="opt_d[]" class="campus-form-control" placeholder="Option D" required>
+                        </div>
+                        <select name="answer[]" class="campus-form-control mt-2" style="margin-top:10px; width:150px;">
+                            <option value="a">Correct: A</option>
+                            <option value="b">Correct: B</option>
+                            <option value="c">Correct: C</option>
+                            <option value="d">Correct: D</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div style="text-align: right; margin-top: 20px;">
+                    <button type="button" class="btn-campus btn-ghost" onclick="closeModal('createQuizModal')">Cancel</button>
+                    <button type="submit" class="btn-campus btn-primary-c">Save Quiz</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

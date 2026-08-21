@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Add Year - Smart Attendance{% endblock %}
+{% block navbar_title %}Add Year{% endblock %}
+{% block content %}
+<div class="page-title">Add New Study Year</div>
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header"><i class="fas fa-plus"></i> Add Year</div>
+            <div class="card-body">
+                <form method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <div class="mb-3">
+                        <label class="form-label">Year Name</label>
+                        <input type="text" name="year_name" class="form-control" required placeholder="e.g. 1st Year, 2nd Year">
+                    </div>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Year</button>
+                    <a href="/institution/dashboard?course_id={{ course_id }}&branch={{ branch }}" class="btn btn-secondary"><i class="fas fa-times"></i> Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
