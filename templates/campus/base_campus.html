@@ -80,7 +80,13 @@
                     <div class="nav-icon"><i class="fas fa-graduation-cap"></i></div> Exam Results
                 </a>
             </li>
-
+            {% if session.get('user_id') %}
+            <li>
+                <a href="{{ url_for('campus.grading_scheme') }}" class="{% if request.endpoint == 'campus.grading_scheme' %}active{% endif %}">
+                    <div class="nav-icon"><i class="fas fa-sliders-h"></i></div> Grading Schemes
+                </a>
+            </li>
+            {% endif %}
 
             <!-- Analytics & Comm -->
             <li class="nav-header">Communication & More</li>

@@ -47,12 +47,13 @@ def _select_ranges(max_marks: int):
     # the obtained marks to a percentage and then applying the 100‑scale.
     return GRADE_RANGES_100, True
 
-def calculate_grade(max_marks: int, obtained: float):
+def calculate_grade(max_marks: int, obtained: float, org_id: int = None):
     """Calculate overall grading details.
 
     Args:
         max_marks: The total maximum marks for the exam (e.g., 5, 10, 100, 600).
         obtained: The total marks obtained by the student.
+        org_id: Organization ID to fetch custom grading schemes.
 
     Returns:
         dict with percentage, grade, grade_point, and result_label.
@@ -63,7 +64,34 @@ def calculate_grade(max_marks: int, obtained: float):
     pct = (obtained / max_marks) * 100 if max_marks else 0.0
     pct = round(pct, 2)
 
-    # Determine grade using the selected range list
+    # Result label based on percentage (common across scales)
+    if pct >= 75:
+        result_label = "Distinction"
+    elif pct >= 60:
+        result_label = "First Class"
+    elif pct >= 35:
+        result_label = "Pass"
+    else:
+        result_label = "Fail"
+
+    # Try to get custom scheme from DB if org_id is provided
+    if org_id:
+        from app import GradingScheme
+        try:
+            scheme = GradingScheme.query.filter_by(max_marks=int(max_marks), organization_id=org_id).first()
+            if scheme and scheme.ranges:
+                for r in sorted(scheme.ranges, key=lambda x: -x.min_pct):
+                    if pct >= r.min_pct and pct <= r.max_pct:
+                        return {
+                            "percentage": pct,
+                            "grade": r.grade,
+                            "grade_point": r.grade_point,
+                            "result_label": result_label,
+                        }
+        except Exception:
+            pass
+
+    # Determine grade using the selected fallback range list
     grade_ranges, use_percentage = _select_ranges(max_marks)
     grade = "C"  # fallback default
     if use_percentage:
@@ -78,16 +106,6 @@ def calculate_grade(max_marks: int, obtained: float):
                 break
 
     grade_point = GRADE_POINT_MAP.get(grade, 1)
-
-    # Result label based on percentage (common across scales)
-    if pct >= 75:
-        result_label = "Distinction"
-    elif pct >= 60:
-        result_label = "First Class"
-    elif pct >= 35:
-        result_label = "Pass"
-    else:
-        result_label = "Fail"
 
     return {
         "percentage": pct,

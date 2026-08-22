@@ -204,6 +204,9 @@ def get_lms_content():
     q = LMSContent.query
     if class_id:
         q = q.filter_by(class_id=class_id)
+    
+    # Grading routes moved to top-level
+
     content = q.order_by(LMSContent.created_at.desc()).limit(50).all()
 
     return jsonify({'content': [{
@@ -215,6 +218,124 @@ def get_lms_content():
         'duration': c.duration,
         'created_at': c.created_at.isoformat()
     } for c in content]})
+
+@campus_api_bp.route('/grading/<int:max_marks>', methods=['GET'])
+@jwt_required()
+def get_grading_scheme(max_marks):
+    """Return JSON of grade ranges for the given max_marks within the user's organization."""
+    from app import GradingScheme, GradeRange, Organization
+    identity = get_jwt_identity()
+    # Only admin or staff can access
+    if not identity.startswith('admin:') and not identity.startswith('staff:'):
+        return jsonify({'error': 'Admin or staff access required'}), 403
+    # Determine org from token – assuming org_id is encoded elsewhere; fallback to session org_id
+    org_id = session.get('org_id')
+    scheme = GradingScheme.query.filter_by(max_marks=max_marks, organization_id=org_id).first()
+    if not scheme:
+        return jsonify({'ranges': []})
+    ranges = [{'grade': r.grade,
+               'grade_point': r.grade_point,
+               'min_pct': r.min_pct,
+               'max_pct': r.max_pct} for r in scheme.ranges]
+    return jsonify({'ranges': ranges})
+
+@campus_api_bp.route('/grading/scheme', methods=['POST'])
+@jwt_required()
+def create_grading_scheme():
+    """Create a new grading scheme.
+    Expected JSON: {"max_marks": int, "ranges": [{"grade": str, "grade_point": int, "min_pct": float, "max_pct": float}, ...]}
+    """
+    from app import GradingScheme, GradeRange, db
+    identity = get_jwt_identity()
+    if not identity.startswith('admin:') and not identity.startswith('staff:'):
+        return jsonify({'error': 'Admin or staff access required'}), 403
+    data = request.get_json() or {}
+    max_marks = data.get('max_marks')
+    ranges = data.get('ranges', [])
+    if not max_marks or not isinstance(ranges, list):
+        return jsonify({'error': 'Invalid payload'}), 400
+    org_id = session.get('org_id')
+    scheme = GradingScheme(max_marks=max_marks, organization_id=org_id)
+    db.session.add(scheme)
+    db.session.flush()  # get scheme.id
+    for r in ranges:
+        grade = r.get('grade')
+        grade_point = r.get('grade_point')
+        min_pct = r.get('min_pct')
+        max_pct = r.get('max_pct')
+        if None in (grade, grade_point, min_pct, max_pct):
+            continue
+        gr = GradeRange(scheme_id=scheme.id, grade=grade, grade_point=grade_point,
+                         min_pct=min_pct, max_pct=max_pct)
+        db.session.add(gr)
+    db.session.commit()
+    return jsonify({'message': 'Scheme created', 'scheme_id': scheme.id})
+
+@campus_api_bp.route('/grading/scheme/<int:scheme_id>', methods=['PUT'])
+@jwt_required()
+def edit_grading_scheme(scheme_id):
+    """Edit an existing scheme's ranges. Full replacement of ranges.
+    Expected JSON: {"ranges": [{...}]}
+    """
+    from app import GradingScheme, GradeRange, db
+    identity = get_jwt_identity()
+    if not identity.startswith('admin:') and not identity.startswith('staff:'):
+        return jsonify({'error': 'Admin or staff access required'}), 403
+    scheme = GradingScheme.query.get_or_404(scheme_id)
+    data = request.get_json() or {}
+    ranges = data.get('ranges', [])
+    # Delete existing ranges
+    GradeRange.query.filter_by(scheme_id=scheme.id).delete()
+    for r in ranges:
+        grade = r.get('grade')
+        grade_point = r.get('grade_point')
+        min_pct = r.get('min_pct')
+        max_pct = r.get('max_pct')
+        if None in (grade, grade_point, min_pct, max_pct):
+            continue
+        gr = GradeRange(scheme_id=scheme.id, grade=grade, grade_point=grade_point,
+                         min_pct=min_pct, max_pct=max_pct)
+        db.session.add(gr)
+    db.session.commit()
+    return jsonify({'message': 'Scheme updated'})
+
+@campus_api_bp.route('/grading/scheme/<int:scheme_id>', methods=['DELETE'])
+@jwt_required()
+def delete_grading_scheme(scheme_id):
+    from app import GradingScheme, db
+    identity = get_jwt_identity()
+    if not identity.startswith('admin:'):
+        return jsonify({'error': 'Admin access required'}), 403
+    scheme = GradingScheme.query.get_or_404(scheme_id)
+    db.session.delete(scheme)
+    db.session.commit()
+    return jsonify({'message': 'Scheme deleted'})
+
+@campus_api_bp.route('/grading/scheme/<int:scheme_id>/duplicate', methods=['POST'])
+@jwt_required()
+def duplicate_grading_scheme(scheme_id):
+    """Duplicate an existing scheme with a new max_marks value provided in JSON.
+    Expected JSON: {"new_max_marks": int}
+    """
+    from app import GradingScheme, GradeRange, db
+    identity = get_jwt_identity()
+    if not identity.startswith('admin:') and not identity.startswith('staff:'):
+        return jsonify({'error': 'Admin or staff access required'}), 403
+    original = GradingScheme.query.get_or_404(scheme_id)
+    data = request.get_json() or {}
+    new_max = data.get('new_max_marks')
+    if not new_max:
+        return jsonify({'error': 'new_max_marks required'}), 400
+    org_id = original.organization_id
+    new_scheme = GradingScheme(max_marks=new_max, organization_id=org_id)
+    db.session.add(new_scheme)
+    db.session.flush()
+    for r in original.ranges:
+        dup = GradeRange(scheme_id=new_scheme.id, grade=r.grade, grade_point=r.grade_point,
+                         min_pct=r.min_pct, max_pct=r.max_pct)
+        db.session.add(dup)
+    db.session.commit()
+    return jsonify({'message': 'Scheme duplicated', 'new_scheme_id': new_scheme.id})
 
 
 # ─────────────────────────────────────────────

@@ -653,7 +653,20 @@ def save_marks():
 
 
 def _compute_grade(marks, max_marks):
-    pct = (marks / max_marks) * 100
+    """Compute grade from DB grading scheme if available, otherwise use defaults."""
+    from app import GradingScheme
+    org_id = session.get('org_id')
+    pct = (marks / max_marks) * 100 if max_marks else 0
+    if org_id:
+        scheme = GradingScheme.query.filter_by(
+            max_marks=int(max_marks), organization_id=org_id
+        ).first()
+        if scheme and scheme.ranges:
+            for r in sorted(scheme.ranges, key=lambda x: -x.min_pct):
+                if pct >= r.min_pct and pct <= r.max_pct:
+                    return r.grade
+            return 'F'
+    # Fallback defaults
     if pct >= 90: return 'O'
     elif pct >= 80: return 'A+'
     elif pct >= 70: return 'A'
@@ -661,6 +674,78 @@ def _compute_grade(marks, max_marks):
     elif pct >= 50: return 'B'
     elif pct >= 40: return 'C'
     return 'F'
+
+
+# ─────────────────────────────────────────────
+# GRADING SCHEME MANAGEMENT (Admin)
+# ─────────────────────────────────────────────
+
+@campus_bp.route('/academic/grading-scheme')
+@admin_required
+def grading_scheme():
+    from app import GradingScheme
+    org_id = session.get('org_id')
+    schemes = GradingScheme.query.filter_by(organization_id=org_id).order_by(
+        GradingScheme.created_at.desc()
+    ).all()
+    total_ranges = sum(len(s.ranges) for s in schemes)
+    org_name = session.get('org_name', 'My Organization')
+    return render_template('campus/grading_scheme.html',
+        schemes=schemes, total_ranges=total_ranges, org_name=org_name)
+
+
+@campus_bp.route('/academic/grading-scheme/save', methods=['POST'])
+@admin_required
+def grading_scheme_save():
+    from app import db, GradingScheme, GradeRange
+    org_id = session.get('org_id')
+    scheme_id = request.form.get('scheme_id', '').strip()
+    max_marks = int(request.form.get('max_marks', 100))
+    range_count = int(request.form.get('range_count', 0))
+
+    if scheme_id:
+        # Edit existing
+        scheme = GradingScheme.query.get_or_404(int(scheme_id))
+        scheme.max_marks = max_marks
+        # Clear old ranges
+        GradeRange.query.filter_by(scheme_id=scheme.id).delete()
+    else:
+        # Create new
+        scheme = GradingScheme(max_marks=max_marks, organization_id=org_id)
+        db.session.add(scheme)
+        db.session.flush()
+
+    for i in range(range_count):
+        grade = request.form.get(f'range_grade_{i}', '').strip()
+        gp = request.form.get(f'range_gp_{i}', '0')
+        min_pct = request.form.get(f'range_min_{i}', '0')
+        max_pct = request.form.get(f'range_max_{i}', '0')
+        if grade:
+            db.session.add(GradeRange(
+                scheme_id=scheme.id,
+                grade=grade,
+                grade_point=int(float(gp)),
+                min_pct=float(min_pct),
+                max_pct=float(max_pct)
+            ))
+
+    db.session.commit()
+    log_audit(f"{'Updated' if scheme_id else 'Created'} grading scheme (max={max_marks})")
+    flash(f'Grading scheme {"updated" if scheme_id else "created"} successfully!', 'success')
+    return redirect(url_for('campus.grading_scheme'))
+
+
+@campus_bp.route('/academic/grading-scheme/delete', methods=['POST'])
+@admin_required
+def grading_scheme_delete():
+    from app import db, GradingScheme
+    scheme_id = int(request.form.get('scheme_id', 0))
+    scheme = GradingScheme.query.get_or_404(scheme_id)
+    db.session.delete(scheme)
+    db.session.commit()
+    log_audit(f"Deleted grading scheme #{scheme_id}")
+    flash('Grading scheme deleted.', 'success')
+    return redirect(url_for('campus.grading_scheme'))
 
 
 # ─────────────────────────────────────────────
@@ -1604,11 +1689,28 @@ def exam_results():
             'student_id':   r.get('student_id', ''),
         })
 
+    from app import GradingScheme
+    schemes = GradingScheme.query.filter_by(organization_id=org_id).all()
+    grading_schemes = [
+        {
+            'max_marks': s.max_marks,
+            'ranges': [
+                {
+                    'grade': r.grade,
+                    'grade_point': r.grade_point,
+                    'min_pct': r.min_pct,
+                    'max_pct': r.max_pct
+                } for r in s.ranges
+            ]
+        } for s in schemes
+    ]
+
     return render_template('campus/exam_results.html',
                            classes=classes,
                            all_students=serialized_students,
                            exams=exams,
-                           saved_results=saved_results)
+                           saved_results=saved_results,
+                           grading_schemes=grading_schemes)
 
 
 @campus_bp.route('/exam-results/save-subject', methods=['POST'])
@@ -1669,7 +1771,7 @@ def save_exam_subject():
             existing_record['total_marks'] = sum(s['total'] for s in existing_record['subjects'])
             existing_record['obtained'] = sum(s['obtained'] for s in existing_record['subjects'])
             
-            grade_info = calculate_grade(existing_record['total_marks'], existing_record['obtained'])
+            grade_info = calculate_grade(existing_record['total_marks'], existing_record['obtained'], org_id=org_id)
             existing_record['percentage'] = grade_info['percentage']
             existing_record['cgpa'] = round(grade_info['percentage'] / 9.5, 2)
             existing_record['result_label'] = grade_info['result_label']
@@ -1685,7 +1787,7 @@ def save_exam_subject():
             except Exception:
                 pass
                 
-            grade_info = calculate_grade(total, obtained)
+            grade_info = calculate_grade(total, obtained, org_id=org_id)
             percentage = grade_info['percentage']
             result_label = grade_info['result_label']
             grade = grade_info['grade']

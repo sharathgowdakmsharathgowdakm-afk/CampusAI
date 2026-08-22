@@ -1,0 +1,371 @@
+{% extends "campus/base_campus.html" %}
+{% block title %}Grading Schemes — Smart Campus{% endblock %}
+{% block title_header %}Grading Schemes{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* ── Page wrapper ────────────────────────── */
+  .gs-page { display: grid; gap: 28px; }
+
+  /* ── Glass card ───────────────────────────── */
+  .gs-card {
+    background: var(--glass-bg, rgba(255,255,255,0.92));
+    border-radius: 18px;
+    box-shadow: 0 8px 32px rgba(102,126,234,.13);
+    border: 1px solid rgba(102,126,234,.12);
+    overflow: hidden;
+    animation: fadeUp .45s ease both;
+  }
+  @keyframes fadeUp { from { opacity:0; transform:translateY(18px); } to { opacity:1; transform:translateY(0); } }
+  .gs-card-hdr {
+    background: linear-gradient(135deg,#667eea,#764ba2);
+    color:#fff; padding:16px 24px;
+    font-size:1rem; font-weight:700;
+    display:flex; align-items:center; gap:10px;
+  }
+  .gs-card-body { padding:24px; }
+
+  /* ── Stat ribbon ─────────────────────────── */
+  .gs-stat-row { display:flex; gap:18px; flex-wrap:wrap; margin-bottom:24px; }
+  .gs-stat {
+    flex:1; min-width:140px;
+    background: linear-gradient(135deg,#667eea,#764ba2);
+    color:#fff; border-radius:14px; padding:18px 22px;
+    box-shadow: 0 6px 22px rgba(102,126,234,.22);
+    text-align:center;
+  }
+  .gs-stat .val { font-size:2rem; font-weight:800; line-height:1; }
+  .gs-stat .lbl { font-size:.78rem; font-weight:600; opacity:.85; text-transform:uppercase; letter-spacing:.04em; margin-top:4px; }
+  .gs-stat.green { background:linear-gradient(135deg,#22c55e,#16a34a); }
+  .gs-stat.blue  { background:linear-gradient(135deg,#3b82f6,#2563eb); }
+
+  /* ── Existing schemes table ──────────────── */
+  .gs-table { width:100%; border-collapse:separate; border-spacing:0; margin-top:14px; }
+  .gs-table thead tr { background:linear-gradient(135deg,#667eea,#764ba2); color:#fff; }
+  .gs-table thead th { padding:13px 16px; font-size:.82rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; }
+  .gs-table thead th:first-child { border-radius:12px 0 0 0; }
+  .gs-table thead th:last-child  { border-radius:0 12px 0 0; }
+  .gs-table tbody tr:nth-child(even) { background:#f8f7ff; }
+  .gs-table tbody tr { transition:background .2s; }
+  .gs-table tbody tr:hover { background:#eef0ff; }
+  .gs-table td { padding:11px 16px; border-bottom:1px solid #e9eaf5; vertical-align:middle; font-size:.9rem; }
+
+  /* ── Grade pill ──────────────────────────── */
+  .grade-pill {
+    display:inline-block; padding:3px 14px; border-radius:20px;
+    font-size:.78rem; font-weight:700; letter-spacing:.03em;
+    background:linear-gradient(135deg,#667eea22,#764ba222); color:#667eea;
+  }
+
+  /* ── Form area ───────────────────────────── */
+  .gs-form { display:grid; gap:16px; }
+  .gs-form label { font-size:.82rem; font-weight:600; color:var(--text-muted,#666); text-transform:uppercase; letter-spacing:.04em; margin-bottom:4px; display:block; }
+  .gs-form input, .gs-form select {
+    border:1.5px solid #e2e8f0; border-radius:9px; padding:10px 13px;
+    font-size:.9rem; background:#fff; outline:none; color:#334155; transition:border .2s; width:100%;
+  }
+  .gs-form input:focus, .gs-form select:focus { border-color:#667eea; box-shadow:0 0 0 3px rgba(102,126,234,.12); }
+
+  .gs-row { display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; }
+  .gs-row .field { display:flex; flex-direction:column; flex:1; min-width:100px; }
+
+  /* ── Dynamic range rows ──────────────────── */
+  .range-row {
+    display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+    background:#f8f7ff; border-radius:10px; padding:10px 14px; margin-bottom:8px;
+    border:1px solid #e9eaf5;
+    animation: fadeUp .3s ease both;
+  }
+  .range-row .field { display:flex; flex-direction:column; flex:1; min-width:80px; }
+  .range-row label { font-size:.72rem; }
+  .range-row input { padding:8px 10px; font-size:.85rem; }
+  .range-remove {
+    background:#ef4444; color:#fff; border:none; border-radius:8px;
+    width:34px; height:34px; cursor:pointer; font-size:1rem;
+    display:flex; align-items:center; justify-content:center;
+    transition:transform .15s;
+  }
+  .range-remove:hover { transform:scale(1.1); }
+
+  /* ── Buttons ─────────────────────────────── */
+  .btn-gs {
+    background:linear-gradient(135deg,#667eea,#764ba2); color:#fff;
+    border:none; border-radius:10px; padding:10px 22px;
+    font-weight:700; font-size:.92rem; cursor:pointer;
+    transition:transform .15s,box-shadow .15s; white-space:nowrap;
+  }
+  .btn-gs:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(102,126,234,.4); }
+  .btn-gs.outline {
+    background:transparent; border:2px solid #667eea; color:#667eea;
+  }
+  .btn-gs.outline:hover { background:rgba(102,126,234,.08); }
+  .btn-gs.danger { background:linear-gradient(135deg,#ef4444,#dc2626); }
+  .btn-gs.danger:hover { box-shadow:0 6px 20px rgba(239,68,68,.4); }
+
+  .btn-row { display:flex; gap:12px; flex-wrap:wrap; margin-top:16px; }
+
+  /* ── Grade calculator ────────────────────── */
+  .calc-box {
+    background:linear-gradient(135deg,#f0f9ff,#ede9fe); border-radius:14px;
+    padding:20px 24px; border:1px solid #c7d2fe; margin-top:18px;
+  }
+  .calc-result {
+    margin-top:12px; font-size:1.3rem; font-weight:800; color:#667eea;
+    display:flex; align-items:center; gap:12px;
+  }
+
+  /* ── Empty state ─────────────────────────── */
+  .empty-msg { text-align:center; padding:40px; color:#94a3b8; font-size:.95rem; }
+
+  /* ── Action icons ────────────────────────── */
+  .act-btn {
+    background:none; border:none; cursor:pointer; font-size:1rem; padding:5px 8px;
+    border-radius:6px; transition:background .15s;
+  }
+  .act-btn:hover { background:rgba(102,126,234,.12); }
+  .act-btn.del:hover { background:rgba(239,68,68,.12); color:#ef4444; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="gs-page">
+  <!-- ── Stat ribbon ────────────────────────── -->
+  <div class="gs-stat-row">
+    <div class="gs-stat">
+      <div class="val" id="stat-total">{{ schemes|length }}</div>
+      <div class="lbl">Total Schemes</div>
+    </div>
+    <div class="gs-stat green">
+      <div class="val" id="stat-ranges">{{ total_ranges }}</div>
+      <div class="lbl">Grade Ranges</div>
+    </div>
+    <div class="gs-stat blue">
+      <div class="val">{{ org_name }}</div>
+      <div class="lbl">Organization</div>
+    </div>
+  </div>
+
+  <!-- ── Existing Schemes ───────────────────── -->
+  <div class="gs-card">
+    <div class="gs-card-hdr"><i class="fas fa-list-ol"></i> Existing Grading Schemes</div>
+    <div class="gs-card-body">
+      {% if schemes %}
+      <table class="gs-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Max Marks</th>
+            <th>Grades Defined</th>
+            <th>Created</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in schemes %}
+          <tr id="scheme-row-{{ s.id }}">
+            <td>{{ loop.index }}</td>
+            <td><strong>{{ s.max_marks }}</strong></td>
+            <td>
+              {% for r in s.ranges %}
+              <span class="grade-pill">{{ r.grade }} ({{ r.min_pct|int }}–{{ r.max_pct|int }}%)</span>
+              {% endfor %}
+            </td>
+            <td>{{ s.created_at.strftime('%d %b %Y') if s.created_at else '—' }}</td>
+            <td>
+              <button class="act-btn" title="Edit" onclick="editScheme({{ s.id }}, {{ s.max_marks }}, {{ s.ranges|map(attribute='grade')|list|tojson }}, {{ s.ranges|map(attribute='grade_point')|list|tojson }}, {{ s.ranges|map(attribute='min_pct')|list|tojson }}, {{ s.ranges|map(attribute='max_pct')|list|tojson }})"><i class="fas fa-edit"></i></button>
+              <button class="act-btn del" title="Delete" onclick="deleteScheme({{ s.id }})"><i class="fas fa-trash-alt"></i></button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-msg"><i class="fas fa-inbox" style="font-size:2rem;display:block;margin-bottom:10px;"></i>No grading schemes yet. Create one below!</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ── Create / Edit Scheme ───────────────── -->
+  <div class="gs-card" id="form-card">
+    <div class="gs-card-hdr" id="form-hdr"><i class="fas fa-plus-circle"></i> <span id="form-title">Create New Grading Scheme</span></div>
+    <div class="gs-card-body">
+      <form id="scheme-form" method="POST" action="{{ url_for('campus.grading_scheme_save') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="scheme_id" id="scheme_id" value="">
+
+        <div class="gs-form">
+          <div class="gs-row">
+            <div class="field">
+              <label for="max_marks">Max Marks (Total)</label>
+              <input type="number" id="max_marks" name="max_marks" min="1" max="1000" required placeholder="e.g. 100">
+            </div>
+          </div>
+
+          <div style="margin-top:8px;">
+            <label style="font-size:.82rem;font-weight:600;color:var(--text-muted,#666);text-transform:uppercase;letter-spacing:.04em;">Grade Ranges</label>
+            <div id="ranges-container">
+              <!-- dynamic range rows inserted here -->
+            </div>
+            <button type="button" class="btn-gs outline" style="margin-top:8px;" onclick="addRangeRow()"><i class="fas fa-plus"></i> Add Grade Range</button>
+          </div>
+
+          <div class="btn-row">
+            <button type="submit" class="btn-gs"><i class="fas fa-save"></i> Save Scheme</button>
+            <button type="button" class="btn-gs outline" onclick="resetForm()"><i class="fas fa-undo"></i> Reset</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Grade Calculator ───────────────────── -->
+  <div class="gs-card">
+    <div class="gs-card-hdr"><i class="fas fa-calculator"></i> Grade Calculator (Live Preview)</div>
+    <div class="gs-card-body">
+      <div class="calc-box">
+        <div class="gs-row">
+          <div class="field">
+            <label for="calc-scheme">Select Scheme</label>
+            <select id="calc-scheme">
+              <option value="">-- Pick a scheme --</option>
+              {% for s in schemes %}
+              <option value="{{ s.id }}" data-max="{{ s.max_marks }}" data-ranges='{{ s.ranges|map(attribute="grade")|list|tojson }}' data-min='{{ s.ranges|map(attribute="min_pct")|list|tojson }}' data-maxp='{{ s.ranges|map(attribute="max_pct")|list|tojson }}' data-gp='{{ s.ranges|map(attribute="grade_point")|list|tojson }}'>Max {{ s.max_marks }} marks</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label for="calc-marks">Marks Obtained</label>
+            <input type="number" id="calc-marks" min="0" placeholder="Enter marks">
+          </div>
+        </div>
+        <div class="calc-result" id="calc-result" style="display:none;">
+          <i class="fas fa-award"></i>
+          <span id="calc-grade">—</span>
+          <span style="font-size:.85rem;font-weight:400;color:#64748b;" id="calc-detail"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* ── Range row management ──────────────────── */
+let rangeIdx = 0;
+
+function addRangeRow(grade='', gp='', minP='', maxP='') {
+  const c = document.getElementById('ranges-container');
+  const idx = rangeIdx++;
+  const div = document.createElement('div');
+  div.className = 'range-row';
+  div.id = 'range-' + idx;
+  div.innerHTML = `
+    <div class="field"><label>Grade</label><input type="text" name="grade_${idx}" value="${grade}" placeholder="e.g. A+" required></div>
+    <div class="field"><label>Grade Point</label><input type="number" name="gp_${idx}" value="${gp}" min="0" max="10" placeholder="e.g. 5" required></div>
+    <div class="field"><label>Min %</label><input type="number" name="min_${idx}" value="${minP}" min="0" max="100" step="0.1" placeholder="e.g. 90" required></div>
+    <div class="field"><label>Max %</label><input type="number" name="max_${idx}" value="${maxP}" min="0" max="100" step="0.1" placeholder="e.g. 100" required></div>
+    <button type="button" class="range-remove" onclick="this.parentElement.remove()"><i class="fas fa-times"></i></button>
+  `;
+  c.appendChild(div);
+}
+
+function resetForm() {
+  document.getElementById('scheme_id').value = '';
+  document.getElementById('max_marks').value = '';
+  document.getElementById('ranges-container').innerHTML = '';
+  document.getElementById('form-title').textContent = 'Create New Grading Scheme';
+  rangeIdx = 0;
+  addRangeRow('O', 10, 90, 100);
+  addRangeRow('A+', 9, 80, 89.9);
+  addRangeRow('A', 8, 70, 79.9);
+  addRangeRow('B+', 7, 60, 69.9);
+  addRangeRow('B', 6, 50, 59.9);
+  addRangeRow('C', 5, 40, 49.9);
+  addRangeRow('F', 0, 0, 39.9);
+}
+
+function editScheme(id, maxMarks, grades, gps, mins, maxes) {
+  document.getElementById('scheme_id').value = id;
+  document.getElementById('max_marks').value = maxMarks;
+  document.getElementById('form-title').textContent = 'Edit Grading Scheme #' + id;
+  document.getElementById('ranges-container').innerHTML = '';
+  rangeIdx = 0;
+  for (let i = 0; i < grades.length; i++) {
+    addRangeRow(grades[i], gps[i], mins[i], maxes[i]);
+  }
+  document.getElementById('form-card').scrollIntoView({ behavior: 'smooth' });
+}
+
+function deleteScheme(id) {
+  if (!confirm('Delete this grading scheme? This cannot be undone.')) return;
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = '{{ url_for("campus.grading_scheme_delete") }}';
+  const csrf = document.createElement('input');
+  csrf.type = 'hidden'; csrf.name = 'csrf_token'; csrf.value = '{{ csrf_token() }}';
+  const sid = document.createElement('input');
+  sid.type = 'hidden'; sid.name = 'scheme_id'; sid.value = id;
+  form.appendChild(csrf);
+  form.appendChild(sid);
+  document.body.appendChild(form);
+  form.submit();
+}
+
+/* ── Form submit — collect dynamic range rows ── */
+document.getElementById('scheme-form').addEventListener('submit', function(e) {
+  // Gather range rows into hidden inputs
+  const rows = document.querySelectorAll('.range-row');
+  // Remove old hidden range data
+  document.querySelectorAll('.range-hidden').forEach(el => el.remove());
+  let i = 0;
+  rows.forEach(row => {
+    const inputs = row.querySelectorAll('input');
+    if (inputs.length < 4) return;
+    const names = ['range_grade', 'range_gp', 'range_min', 'range_max'];
+    inputs.forEach((inp, j) => {
+      if (j >= 4) return;
+      const h = document.createElement('input');
+      h.type = 'hidden'; h.name = names[j] + '_' + i; h.value = inp.value; h.className = 'range-hidden';
+      this.appendChild(h);
+    });
+    i++;
+  });
+  const countInp = document.createElement('input');
+  countInp.type = 'hidden'; countInp.name = 'range_count'; countInp.value = i; countInp.className = 'range-hidden';
+  this.appendChild(countInp);
+});
+
+/* ── Live grade calculator ─────────────────── */
+document.getElementById('calc-marks').addEventListener('input', calcGrade);
+document.getElementById('calc-scheme').addEventListener('change', calcGrade);
+
+function calcGrade() {
+  const sel = document.getElementById('calc-scheme');
+  const opt = sel.options[sel.selectedIndex];
+  const marks = parseFloat(document.getElementById('calc-marks').value);
+  const res = document.getElementById('calc-result');
+  if (!opt || !opt.value || isNaN(marks)) { res.style.display = 'none'; return; }
+  const maxMarks = parseFloat(opt.dataset.max);
+  const grades = JSON.parse(opt.dataset.ranges);
+  const mins = JSON.parse(opt.dataset.min);
+  const maxes = JSON.parse(opt.dataset.maxp);
+  const gps = JSON.parse(opt.dataset.gp);
+  const pct = (marks / maxMarks) * 100;
+  let grade = 'N/A', gp = 0;
+  for (let i = 0; i < grades.length; i++) {
+    if (pct >= mins[i] && pct <= maxes[i]) { grade = grades[i]; gp = gps[i]; break; }
+  }
+  res.style.display = 'flex';
+  document.getElementById('calc-grade').innerHTML = `<span class="grade-pill" style="font-size:1.1rem;padding:6px 18px;">${grade}</span>`;
+  document.getElementById('calc-detail').textContent = `${marks}/${maxMarks} = ${pct.toFixed(1)}% — Grade Point: ${gp}`;
+}
+
+/* ── Init with default ranges ──────────────── */
+document.addEventListener('DOMContentLoaded', function() {
+  if (document.querySelectorAll('.range-row').length === 0 && !document.getElementById('scheme_id').value) {
+    resetForm();
+  }
+});
+</script>
+{% endblock %}

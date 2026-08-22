@@ -318,20 +318,38 @@
 {% if session.get("user_id") or session.get("staff_id") %}
 <script>
 const allStudents = {{ all_students|tojson|safe if all_students else '[]' }};
+const gradingSchemes = {{ grading_schemes|tojson|safe if grading_schemes else '[]' }};
 
-function gradeFromPct(pct) {
+function gradeFromPct(pct, maxMarks) {
+  let matchedScheme = gradingSchemes.find(s => s.max_marks === parseInt(maxMarks));
+  if (matchedScheme && matchedScheme.ranges && matchedScheme.ranges.length > 0) {
+    let sortedRanges = [...matchedScheme.ranges].sort((a, b) => b.min_pct - a.min_pct);
+    for (let r of sortedRanges) {
+      if (pct >= r.min_pct && pct <= r.max_pct) {
+        return r.grade;
+      }
+    }
+    return 'F';
+  }
+
+  // Fallback defaults
   if (pct >= 90) return 'A+';
   if (pct >= 70) return 'A';
   if (pct >= 50) return 'B+';
   if (pct >= 30) return 'B';
   return 'C';
 }
-function gradePointFromGrade(g) {
+function gradePointFromGrade(g, maxMarks) {
+  let matchedScheme = gradingSchemes.find(s => s.max_marks === parseInt(maxMarks));
+  if (matchedScheme && matchedScheme.ranges && matchedScheme.ranges.length > 0) {
+    let match = matchedScheme.ranges.find(r => r.grade === g);
+    return match ? match.grade_point : 0;
+  }
   const map = {'A+':5,'A':4,'B+':3,'B':2,'C':1};
   return map[g] || 1;
 }
-const GRADE_COLORS = { 'A+':'#15803d','A':'#1d4ed8','B+':'#0369a1','B':'#a16207','C':'#b91c1c' };
-const GRADE_BG     = { 'A+':'#dcfce7','A':'#dbeafe','B+':'#e0f2fe','B':'#fef9c3','C':'#fee2e2' };
+const GRADE_COLORS = { 'A+':'#15803d','A':'#1d4ed8','B+':'#0369a1','B':'#a16207','C':'#b91c1c', 'O':'#15803d', 'F':'#b91c1c' };
+const GRADE_BG     = { 'A+':'#dcfce7','A':'#dbeafe','B+':'#e0f2fe','B':'#fef9c3','C':'#fee2e2', 'O':'#dcfce7', 'F':'#fee2e2' };
 
 function loadStudents() {
   const classId = document.getElementById('entryClass').value;
@@ -413,9 +431,11 @@ function liveGrade(inputElement) {
   }
   
   const pct = (o / t * 100);
-  const g = gradeFromPct(pct);
-  const gp = gradePointFromGrade(g);
-  gradeCell.innerHTML = '<span class="grade-pill" style="background:' + GRADE_BG[g] + ';color:' + GRADE_COLORS[g] + '">' + g + ' (GP: ' + gp + ', ' + pct.toFixed(1) + '%)</span>';
+  const g = gradeFromPct(pct, t);
+  const gp = gradePointFromGrade(g, t);
+  const bg = GRADE_BG[g] || '#e2e8f0';
+  const color = GRADE_COLORS[g] || '#475569';
+  gradeCell.innerHTML = '<span class="grade-pill" style="background:' + bg + ';color:' + color + '">' + g + ' (GP: ' + gp + ', ' + pct.toFixed(1) + '%)</span>';
 }
 
 async function saveSubjectMarks() {
