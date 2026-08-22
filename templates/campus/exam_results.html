@@ -117,7 +117,7 @@
           <thead>
             <tr>
               <th>#</th><th>Student</th><th>Roll No.</th><th>Exam</th><th>Class</th>
-              <th>Total Marks</th><th>Obtained</th><th>Percentage</th><th>CGPA</th><th>Overall Result</th>
+              <th>Total Marks</th><th>Obtained</th><th>Percentage</th><th>Grade</th><th>Grade Point</th><th>CGPA</th><th>Overall Result</th>
             </tr>
           </thead>
           <tbody>
@@ -137,6 +137,8 @@
               <td>{{ r.total_marks }}</td>
               <td>{{ r.obtained }}</td>
               <td><strong>{{ pct }}%</strong></td>
+              <td><span class="grade-pill" style="background:{% if r.grade == 'A+' %}#dcfce7{% elif r.grade == 'A' %}#dbeafe{% elif r.grade == 'B+' %}#e0f2fe{% elif r.grade == 'B' %}#fef9c3{% else %}#fee2e2{% endif %};color:{% if r.grade == 'A+' %}#15803d{% elif r.grade == 'A' %}#1d4ed8{% elif r.grade == 'B+' %}#0369a1{% elif r.grade == 'B' %}#a16207{% else %}#b91c1c{% endif %}">{{ r.grade }}</span></td>
+              <td><strong>{{ r.grade_point }}</strong></td>
               <td>{{ cgpa_val }}</td>
               <td><span class="result-badge {{ res_cls }}" style="padding:4px 12px;font-size:.78rem;margin-top:0;">{{ res_label }}</span></td>
             </tr>
@@ -184,6 +186,32 @@
           <label>Semester / Term</label>
           <input type="text" id="entrySemester" placeholder="e.g. Sem 3">
         </div>
+        <div class="field" style="flex:0 0 auto; min-width:160px;">
+          <label>Max Marks (Total)</label>
+          <select id="entryMaxMarks" onchange="applyMasterTotal()">
+            <option value="">-- Select --</option>
+            <option value="5">5 Marks</option>
+            <option value="10">10 Marks</option>
+            <option value="15">15 Marks</option>
+            <option value="20">20 Marks</option>
+            <option value="25">25 Marks</option>
+            <option value="30">30 Marks</option>
+            <option value="40">40 Marks</option>
+            <option value="50">50 Marks</option>
+            <option value="60">60 Marks</option>
+            <option value="80">80 Marks</option>
+            <option value="100">100 Marks</option>
+            <option value="125">125 Marks</option>
+            <option value="200">200 Marks</option>
+            <option value="600">600 Marks</option>
+            <option value="625">625 Marks</option>
+            <option value="custom">Custom...</option>
+          </select>
+        </div>
+        <div class="field" id="customMaxField" style="flex:0 0 auto; min-width:100px; display:none;">
+          <label>Custom Max</label>
+          <input type="number" id="customMaxMarks" min="1" placeholder="Enter" oninput="applyCustomMax()">
+        </div>
       </div>
 
       <div class="table-responsive">
@@ -193,7 +221,7 @@
               <th style="width: 50px;">#</th>
               <th>Student Name</th>
               <th>Roll Number</th>
-              <th style="width: 150px;">Total Marks <input type="number" id="masterTotal" placeholder="Set All" style="padding: 2px 5px; margin-left: 10px; width: 60px; font-size: .8rem;" oninput="applyMasterTotal()"></th>
+              <th style="width: 150px;">Total Marks</th>
               <th style="width: 150px;">Obtained Marks</th>
               <th style="width: 120px;">Grade</th>
             </tr>
@@ -248,9 +276,9 @@
           <div class="subjects-list">
             {% for sub in r.subjects %}
               {% set spct = (sub.obtained / sub.total * 100) if sub.total > 0 else 0 %}
-              {% set g = 'O' if spct >= 90 else 'A' if spct >= 75 else 'B' if spct >= 60 else 'C' if spct >= 50 else 'D' if spct >= 35 else 'F' %}
-              {% set gcol = '#15803d' if g=='O' else '#1d4ed8' if g=='A' else '#0369a1' if g=='B' else '#a16207' if g=='C' else '#c2410c' if g=='D' else '#b91c1c' %}
-              {% set gbg = '#dcfce7' if g=='O' else '#dbeafe' if g=='A' else '#e0f2fe' if g=='B' else '#fef9c3' if g=='C' else '#ffedd5' if g=='D' else '#fee2e2' %}
+              {% set g = 'A+' if spct >= 90 else 'A' if spct >= 70 else 'B+' if spct >= 50 else 'B' if spct >= 30 else 'C' %}
+              {% set gcol = '#15803d' if g=='A+' else '#1d4ed8' if g=='A' else '#0369a1' if g=='B+' else '#a16207' if g=='B' else '#b91c1c' %}
+              {% set gbg = '#dcfce7' if g=='A+' else '#dbeafe' if g=='A' else '#e0f2fe' if g=='B+' else '#fef9c3' if g=='B' else '#fee2e2' %}
               <div class="subject-card">
                 <div class="subject-name">{{ sub.name }}</div>
                 <div class="d-flex align-items-center gap-3">
@@ -292,15 +320,18 @@
 const allStudents = {{ all_students|tojson|safe if all_students else '[]' }};
 
 function gradeFromPct(pct) {
-  if (pct >= 90) return 'O';
-  if (pct >= 75) return 'A';
-  if (pct >= 60) return 'B';
-  if (pct >= 50) return 'C';
-  if (pct >= 35) return 'D';
-  return 'F';
+  if (pct >= 90) return 'A+';
+  if (pct >= 70) return 'A';
+  if (pct >= 50) return 'B+';
+  if (pct >= 30) return 'B';
+  return 'C';
 }
-const GRADE_COLORS = { O:'#15803d',A:'#1d4ed8',B:'#0369a1',C:'#a16207',D:'#c2410c',F:'#b91c1c' };
-const GRADE_BG     = { O:'#dcfce7',A:'#dbeafe',B:'#e0f2fe',C:'#fef9c3',D:'#ffedd5',F:'#fee2e2' };
+function gradePointFromGrade(g) {
+  const map = {'A+':5,'A':4,'B+':3,'B':2,'C':1};
+  return map[g] || 1;
+}
+const GRADE_COLORS = { 'A+':'#15803d','A':'#1d4ed8','B+':'#0369a1','B':'#a16207','C':'#b91c1c' };
+const GRADE_BG     = { 'A+':'#dcfce7','A':'#dbeafe','B+':'#e0f2fe','B':'#fef9c3','C':'#fee2e2' };
 
 function loadStudents() {
   const classId = document.getElementById('entryClass').value;
@@ -318,6 +349,9 @@ function loadStudents() {
     return;
   }
   
+  const selMax = document.getElementById('entryMaxMarks').value;
+  const maxVal = (selMax && selMax !== 'custom') ? selMax : (document.getElementById('customMaxMarks') ? document.getElementById('customMaxMarks').value : '');
+
   classStudents.forEach(function(student, index) {
     const tr = document.createElement('tr');
     tr.dataset.studentId = student.id;
@@ -325,7 +359,7 @@ function loadStudents() {
       '<td>' + (index + 1) + '</td>' +
       '<td><strong>' + student.name + '</strong></td>' +
       '<td>' + student.roll_number + '</td>' +
-      '<td><input type="number" min="0" class="sub-total" oninput="liveGrade(this)"></td>' +
+      '<td><input type="number" min="0" class="sub-total" value="' + (maxVal || '') + '" ' + (maxVal ? 'readonly style="background:#f1f5f9;cursor:not-allowed;"' : '') + ' oninput="liveGrade(this)"></td>' +
       '<td><input type="number" min="0" class="sub-obtained" oninput="liveGrade(this)"></td>' +
       '<td class="grade-cell"><span style="color:#94a3b8">—</span></td>';
     tbody.appendChild(tr);
@@ -333,10 +367,36 @@ function loadStudents() {
 }
 
 function applyMasterTotal() {
-    const masterTotal = document.getElementById('masterTotal').value;
+    const sel = document.getElementById('entryMaxMarks').value;
+    const customField = document.getElementById('customMaxField');
+    
+    if (sel === 'custom') {
+        customField.style.display = '';
+        return;
+    } else {
+        customField.style.display = 'none';
+    }
+    
+    if (!sel) return;
     const inputs = document.querySelectorAll('.sub-total');
     inputs.forEach(function(input) {
-        input.value = masterTotal;
+        input.value = sel;
+        input.readOnly = true;
+        input.style.background = '#f1f5f9';
+        input.style.cursor = 'not-allowed';
+        liveGrade(input);
+    });
+}
+
+function applyCustomMax() {
+    const val = document.getElementById('customMaxMarks').value;
+    if (!val) return;
+    const inputs = document.querySelectorAll('.sub-total');
+    inputs.forEach(function(input) {
+        input.value = val;
+        input.readOnly = true;
+        input.style.background = '#f1f5f9';
+        input.style.cursor = 'not-allowed';
         liveGrade(input);
     });
 }
@@ -354,7 +414,8 @@ function liveGrade(inputElement) {
   
   const pct = (o / t * 100);
   const g = gradeFromPct(pct);
-  gradeCell.innerHTML = '<span class="grade-pill" style="background:' + GRADE_BG[g] + ';color:' + GRADE_COLORS[g] + '">' + g + ' (' + pct.toFixed(1) + '%)</span>';
+  const gp = gradePointFromGrade(g);
+  gradeCell.innerHTML = '<span class="grade-pill" style="background:' + GRADE_BG[g] + ';color:' + GRADE_COLORS[g] + '">' + g + ' (GP: ' + gp + ', ' + pct.toFixed(1) + '%)</span>';
 }
 
 async function saveSubjectMarks() {

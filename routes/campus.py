@@ -1594,6 +1594,14 @@ def exam_results():
             'exam_id':      r.get('exam_id', ''),
             'total_marks':  r.get('total_marks', 0),
             'obtained':     r.get('obtained', 0),
+            'percentage':   r.get('percentage', 0),
+            'cgpa':         r.get('cgpa', 0),
+            'grade':        r.get('grade', 'N/A'),
+            'grade_point':  r.get('grade_point', 0),
+            'result_label': r.get('result_label', ''),
+            'subjects':     r.get('subjects', []),
+            'semester':     r.get('semester', ''),
+            'student_id':   r.get('student_id', ''),
         })
 
     return render_template('campus/exam_results.html',
@@ -1607,6 +1615,7 @@ def exam_results():
 @campus_login_required
 def save_exam_subject():
     from app import Student, Class_
+    from utils.grading_engine import calculate_grade
     org_id = session.get('org_id')
     data   = request.get_json(silent=True) or {}
 
@@ -1660,14 +1669,12 @@ def save_exam_subject():
             existing_record['total_marks'] = sum(s['total'] for s in existing_record['subjects'])
             existing_record['obtained'] = sum(s['obtained'] for s in existing_record['subjects'])
             
-            pct = (existing_record['obtained'] / existing_record['total_marks'] * 100) if existing_record['total_marks'] > 0 else 0
-            existing_record['percentage'] = round(pct, 2)
-            existing_record['cgpa'] = round(pct / 9.5, 2)
-            
-            if pct >= 75: existing_record['result_label'] = 'Distinction'
-            elif pct >= 60: existing_record['result_label'] = 'First Class'
-            elif pct >= 35: existing_record['result_label'] = 'Pass'
-            else: existing_record['result_label'] = 'Fail'
+            grade_info = calculate_grade(existing_record['total_marks'], existing_record['obtained'])
+            existing_record['percentage'] = grade_info['percentage']
+            existing_record['cgpa'] = round(grade_info['percentage'] / 9.5, 2)
+            existing_record['result_label'] = grade_info['result_label']
+            existing_record['grade'] = grade_info['grade']
+            existing_record['grade_point'] = grade_info['grade_point']
             
         else:
             # Create new record
@@ -1678,11 +1685,11 @@ def save_exam_subject():
             except Exception:
                 pass
                 
-            pct = (obtained / total * 100) if total > 0 else 0
-            if pct >= 75: result_label = 'Distinction'
-            elif pct >= 60: result_label = 'First Class'
-            elif pct >= 35: result_label = 'Pass'
-            else: result_label = 'Fail'
+            grade_info = calculate_grade(total, obtained)
+            percentage = grade_info['percentage']
+            result_label = grade_info['result_label']
+            grade = grade_info['grade']
+            grade_point = grade_info['grade_point']
             
             ExamResultRecord.add({
                 'org_id':       org_id,
@@ -1695,9 +1702,11 @@ def save_exam_subject():
                 'subjects':     [{'name': subject_name, 'total': total, 'obtained': obtained}],
                 'total_marks':  total,
                 'obtained':     obtained,
-                'percentage':   round(pct, 2),
-                'cgpa':         round(pct / 9.5, 2),
+                'percentage':   percentage,
+                'cgpa':         round(percentage / 9.5, 2),
                 'result_label': result_label,
+                'grade':        grade,
+                'grade_point':  grade_point,
                 'created_at':   datetime.now().isoformat(),
             })
             

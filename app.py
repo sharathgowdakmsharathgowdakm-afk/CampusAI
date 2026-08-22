@@ -97,6 +97,27 @@ class Organization(db.Model):
     classes = db.relationship('Class_', backref='organization', lazy=True)
     students = db.relationship('Student', backref='organization', lazy=True)
     courses = db.relationship('Course', backref='organization', lazy=True)
+    grading_schemes = db.relationship('GradingScheme', backref='organization', lazy=True)
+
+# Grading scheme models
+class GradingScheme(db.Model):
+    __tablename__ = 'grading_scheme'
+    id = db.Column(db.Integer, primary_key=True)
+    organization_id = db.Column(db.Integer, db.ForeignKey('organization.id'), nullable=False)
+    max_marks = db.Column(db.Integer, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    ranges = db.relationship('GradeRange', backref='scheme', cascade='all, delete-orphan', lazy=True)
+
+class GradeRange(db.Model):
+    __tablename__ = 'grade_range'
+    id = db.Column(db.Integer, primary_key=True)
+    scheme_id = db.Column(db.Integer, db.ForeignKey('grading_scheme.id'), nullable=False)
+    grade = db.Column(db.String(5), nullable=False)          # e.g., 'A+', 'A', 'B+'
+    grade_point = db.Column(db.Integer, nullable=False)     # 5,4,3,2,1
+    min_pct = db.Column(db.Float, nullable=False)           # inclusive lower bound
+    max_pct = db.Column(db.Float, nullable=False)           # inclusive upper bound
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
 
 class Course(db.Model):
     __tablename__ = 'course'
