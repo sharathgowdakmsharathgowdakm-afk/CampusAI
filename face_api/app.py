@@ -3,6 +3,7 @@ import face_recognition
 import numpy as np
 import base64
 import io
+import os
 from PIL import Image
 
 app = Flask(__name__)

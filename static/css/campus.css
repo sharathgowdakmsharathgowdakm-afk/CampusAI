@@ -834,7 +834,7 @@ body {
   .sidebar-overlay.visible { display: block; }
 }
 
-/* ── Smart Attendance Topbar Button ── */
+/* ── CampusAI App Topbar Button ── */
 .att-dash-btn {
   display: inline-flex;
   align-items: center;

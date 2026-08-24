@@ -141,11 +141,11 @@
             {% else %}
             <li>
                 {% if session.get('org_type') == 'school' %}
-                    <a href="/school/dashboard"><div class="nav-icon"><i class="fas fa-fingerprint"></i></div> Smart Attendance</a>
+                    <a href="/school/dashboard"><div class="nav-icon"><i class="fas fa-fingerprint"></i></div> CampusAI App</a>
                 {% elif session.get('org_type') == 'college' %}
-                    <a href="/college/dashboard"><div class="nav-icon"><i class="fas fa-fingerprint"></i></div> Smart Attendance</a>
+                    <a href="/college/dashboard"><div class="nav-icon"><i class="fas fa-fingerprint"></i></div> CampusAI App</a>
                 {% elif session.get('org_type') == 'institution' %}
-                    <a href="/institution/dashboard"><div class="nav-icon"><i class="fas fa-fingerprint"></i></div> Smart Attendance</a>
+                    <a href="/institution/dashboard"><div class="nav-icon"><i class="fas fa-fingerprint"></i></div> CampusAI App</a>
                 {% else %}
                     <a href="/logout"><div class="nav-icon"><i class="fas fa-sign-out-alt"></i></div> Logout</a>
                 {% endif %}
@@ -173,15 +173,15 @@
                     <i class="fas fa-user-graduate"></i> <span>Student Portal</span>
                 </a>
                 {% elif session.get('org_type') == 'school' %}
-                <a href="/school/dashboard" class="att-dash-btn" title="Smart Attendance Dashboard">
+                <a href="/school/dashboard" class="att-dash-btn" title="CampusAI App Dashboard">
                     <i class="fas fa-fingerprint"></i> <span>Attendance</span>
                 </a>
                 {% elif session.get('org_type') == 'college' %}
-                <a href="/college/dashboard" class="att-dash-btn" title="Smart Attendance Dashboard">
+                <a href="/college/dashboard" class="att-dash-btn" title="CampusAI App Dashboard">
                     <i class="fas fa-fingerprint"></i> <span>Attendance</span>
                 </a>
                 {% elif session.get('org_type') == 'institution' %}
-                <a href="/institution/dashboard" class="att-dash-btn" title="Smart Attendance Dashboard">
+                <a href="/institution/dashboard" class="att-dash-btn" title="CampusAI App Dashboard">
                     <i class="fas fa-fingerprint"></i> <span>Attendance</span>
                 </a>
                 {% endif %}

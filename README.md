@@ -1,4 +1,4 @@
-# Smart Attendance System
+# CampusAI App
 
 An advanced, production-ready Educational ERP that leverages modern **Face Recognition (MTCNN + dlib)** to automate attendance tracking for schools, colleges, and institutions.
 
@@ -16,7 +16,7 @@ An advanced, production-ready Educational ERP that leverages modern **Face Recog
 ## Installation
 
 ### Windows (Recommended for end-users)
-The easiest way to install the Smart Attendance System on Windows is by using the official installer.
+The easiest way to install the CampusAI App on Windows is by using the official installer.
 
 1. Go to the **Releases** page on GitHub.
 2. Download the latest `SmartAttendanceSetup.exe`.

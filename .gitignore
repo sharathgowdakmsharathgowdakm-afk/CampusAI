@@ -4,7 +4,7 @@ __pycache__/
 venv/
 .env
 .env.*
-!.env.template
+.env.template
 instance/
 *.db
 face_encodings/

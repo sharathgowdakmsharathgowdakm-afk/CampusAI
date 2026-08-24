@@ -1,2 +1,2 @@
 // Placeholder for global JS
-console.log('Smart Attendance System loaded');
+console.log('CampusAI App loaded');

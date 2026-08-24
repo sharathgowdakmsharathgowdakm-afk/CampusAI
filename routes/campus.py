@@ -1,6 +1,6 @@
 """
 Smart Campus Platform — Main Blueprint
-All new AI Campus modules integrated with the existing Smart Attendance System.
+All new AI Campus modules integrated with the existing CampusAI App.
 The existing attendance engine and routes are completely untouched.
 """
 from flask import Blueprint, render_template, request, redirect, url_for, session, jsonify, flash, send_file
@@ -1555,7 +1555,7 @@ def generate_report():
 
     # Recommendations footer
     elements.append(Paragraph("<b>Recommendations:</b>", ParagraphStyle('RecH', parent=styles['Normal'], fontSize=9, fontName='Helvetica-Bold', textColor=rl_colors.HexColor('#1f2937'))))
-    elements.append(Paragraph("• Coordinate parent-teacher alerts for all students identified under the Critical or At-Risk tier.<br/>• Use the Smart Attendance Face Engine for consistent period-wise tracking across all daily timetable slots.", summary_style))
+    elements.append(Paragraph("• Coordinate parent-teacher alerts for all students identified under the Critical or At-Risk tier.<br/>• Use the CampusAI App Face Engine for consistent period-wise tracking across all daily timetable slots.", summary_style))
 
     doc.build(elements)
     buffer.seek(0)
