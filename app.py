@@ -8,6 +8,7 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from werkzeug.utils import secure_filename
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 import os
 import numpy as np
 import pickle
@@ -25,6 +26,13 @@ from functools import wraps
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# India Standard Time (IST)
+IST = ZoneInfo("Asia/Kolkata")
+
+def india_now():
+    return datetime.now(IST).replace(tzinfo=None)
+
 
 app = Flask(__name__)
 import sys
@@ -458,7 +466,7 @@ def _jinja2_filter_datetime(date, fmt='%Y-%m-%d'):
     if not date:
         return ''
     if date == 'now':
-        date = datetime.now()
+        date = india_now()
     try:
         return date.strftime(fmt)
     except Exception:
@@ -563,7 +571,7 @@ def school_dashboard():
     classes = Class_.query.filter_by(organization_id=org_id).all()
     total_classes = len(classes)
     total_students = Student.query.filter_by(organization_id=org_id).count()
-    today_attendance = Attendance.query.filter_by(date=datetime.now().date()).join(Student).filter_by(organization_id=org_id).count()
+    today_attendance = Attendance.query.filter_by(date=india_now().date()).join(Student).filter_by(organization_id=org_id).count()
 
     return render_template('school/dashboard.html',
                          classes=classes,
@@ -630,7 +638,7 @@ def analytics_data():
     org_id = session['org_id']
     
     # Last 7 days attendance trend
-    today = datetime.now().date()
+    today = india_now().date()
     labels = []
     data = []
     
@@ -892,15 +900,15 @@ def school_mark_attendance():
                         if not already_recognized:
                             existing = Attendance.query.filter_by(
                                 student_id=best_match_student.id,
-                                date=datetime.now().date()
+                                date=india_now().date()
                             ).first()
 
                             if not existing:
                                 attendance = Attendance(
                                     student_id=best_match_student.id,
                                     class_id=int(class_id),
-                                    date=datetime.now().date(),
-                                    time=datetime.now().time(),
+                                    date=india_now().date(),
+                                    time=india_now().time(),
                                     status='present',
                                 )
                                 db.session.add(attendance)
@@ -922,7 +930,7 @@ def school_mark_attendance():
             
             # --- SMS Notification for Absent Students ---
             absent_students = []
-            today = datetime.now().date()
+            today = india_now().date()
             # Use Session.get for SQLAlchemy 2.0 compatibility
             class_info = db.session.get(Class_, int(class_id))
             class_name = class_info.name if class_info else ''
@@ -1295,7 +1303,7 @@ def college_dashboard():
     total_classes = len(classes)
     class_ids = [c.id for c in classes]
     total_students = Student.query.filter(Student.class_id.in_(class_ids)).count() if class_ids else 0
-    today_attendance = Attendance.query.filter_by(date=datetime.now().date()).filter(Attendance.class_id.in_(class_ids)).count() if class_ids else 0
+    today_attendance = Attendance.query.filter_by(date=india_now().date()).filter(Attendance.class_id.in_(class_ids)).count() if class_ids else 0
     
     return render_template('college/dashboard.html',
                            total_classes=total_classes,
@@ -1672,11 +1680,11 @@ def college_mark_attendance():
                     already_recognized = any(s['roll_number'] == best_match_student.roll_number for s in recognized_students)
                     if not already_recognized:
                         existing = Attendance.query.filter_by(
-                            student_id=best_match_student.id, date=datetime.now().date(), subject_id=int(subject_id)).first()
+                            student_id=best_match_student.id, date=india_now().date(), subject_id=int(subject_id)).first()
                         if not existing:
                             attendance = Attendance(
                                 student_id=best_match_student.id, class_id=int(class_id), subject_id=int(subject_id),
-                                date=datetime.now().date(), time=datetime.now().time(),
+                                date=india_now().date(), time=india_now().time(),
                                 status='present')
                             db.session.add(attendance)
                             status_str = attendance.status
@@ -1690,7 +1698,7 @@ def college_mark_attendance():
                         })
             db.session.commit()
             # --- SMS Notification for Absent Students ---
-            today = datetime.now().date()
+            today = india_now().date()
             class_info = Class_.query.get(int(class_id))
             class_name = class_info.name if class_info else ''
             recognized_roll_numbers = {s['roll_number'] for s in recognized_students}
@@ -2063,7 +2071,7 @@ def institution_dashboard():
     total_classes = len(classes)
     class_ids = [c.id for c in classes]
     total_students = Student.query.filter(Student.class_id.in_(class_ids)).count() if class_ids else 0
-    today_attendance = Attendance.query.filter_by(date=datetime.now().date()).filter(Attendance.class_id.in_(class_ids)).count() if class_ids else 0
+    today_attendance = Attendance.query.filter_by(date=india_now().date()).filter(Attendance.class_id.in_(class_ids)).count() if class_ids else 0
     
     return render_template('institution/dashboard.html',
                            total_classes=total_classes,
@@ -2491,11 +2499,11 @@ def institution_mark_attendance():
                     already_recognized = any(s['roll_number'] == best_match_student.roll_number for s in recognized_students)
                     if not already_recognized:
                         existing = Attendance.query.filter_by(
-                            student_id=best_match_student.id, date=datetime.now().date(), subject_id=int(subject_id)).first()
+                            student_id=best_match_student.id, date=india_now().date(), subject_id=int(subject_id)).first()
                         if not existing:
                             attendance = Attendance(
                                 student_id=best_match_student.id, class_id=int(class_id), subject_id=int(subject_id),
-                                date=datetime.now().date(), time=datetime.now().time(),
+                                date=india_now().date(), time=india_now().time(),
                                 status='present')
                             db.session.add(attendance)
                             status_str = attendance.status
@@ -2509,7 +2517,7 @@ def institution_mark_attendance():
                         })
             db.session.commit()
             # --- SMS Notification for Absent Students ---
-            today = datetime.now().date()
+            today = india_now().date()
             class_info = Class_.query.get(int(class_id))
             class_name = class_info.name if class_info else ''
             recognized_roll_numbers = {s['roll_number'] for s in recognized_students}
@@ -2922,7 +2930,7 @@ def student_register():
         if not class_:
             class_ = Class_(
                 name='General Class',
-                academic_year=datetime.now().strftime('%Y'),
+                academic_year=india_now().strftime('%Y'),
                 organization_id=org.id
             )
             db.session.add(class_)
@@ -2931,7 +2939,7 @@ def student_register():
         # Generate a unique roll number
         import random
         random_suffix = ''.join(random.choices('0123456789', k=4))
-        roll_number = f"STU-{datetime.now().strftime('%y')}-{random_suffix}"
+        roll_number = f"STU-{india_now().strftime('%y')}-{random_suffix}"
 
         student = Student(
             name=name,
@@ -3014,7 +3022,7 @@ def student_dashboard():
     attendance_pct = round((present_count / total_attendance * 100), 1) if total_attendance > 0 else 0
     
     # Calculate monthly statistics
-    today = datetime.now().date()
+    today = india_now().date()
     start_of_month = today.replace(day=1)
     
     monthly_total = 0
@@ -3028,7 +3036,7 @@ def student_dashboard():
     recent_history = history[:30]
 
     # Today's timetable slots in chronological order
-    today_day = datetime.now().strftime('%A')
+    today_day = india_now().strftime('%A')
     today_slots = Timetable.query.filter_by(
         class_id=class_id, 
         day_of_week=today_day
@@ -3037,7 +3045,7 @@ def student_dashboard():
     # Upcoming Assignments for student's class
     upcoming_assignments = Assignment.query.filter(
         Assignment.class_id == class_id,
-        Assignment.deadline >= datetime.now()
+        Assignment.deadline >= india_now()
     ).order_by(Assignment.deadline).limit(5).all() if class_id else []
 
     return render_template('student/dashboard.html',
@@ -3157,7 +3165,7 @@ def staff_dashboard():
     total_students = sum(len(c.students) for c in classes)
     
     # Calculate today's attendance for these classes
-    today = datetime.now().date()
+    today = india_now().date()
     today_attendance = 0
     for class_ in classes:
         today_attendance += Attendance.query.filter_by(class_id=class_.id, date=today).count()
