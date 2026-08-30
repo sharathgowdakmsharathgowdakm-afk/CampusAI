@@ -15,3 +15,4 @@ reportlab==4.1.0
 requests==2.31.0
 scikit-learn==1.4.2
 tensorflow==2.15.0
+Flask-Limiter==3.7.0

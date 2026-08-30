@@ -4,6 +4,8 @@ from flask_talisman import Talisman
 from flask_wtf.csrf import CSRFProtect
 from flask_jwt_extended import JWTManager
 from werkzeug.security import generate_password_hash, check_password_hash
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from werkzeug.utils import secure_filename
 from datetime import datetime, timedelta
 import os
@@ -42,10 +44,21 @@ if flask_env == 'production':
     app.config['SECRET_KEY'] = secret_key
     # Enforce HTTPS and secure headers in production
     Talisman(app, content_security_policy=None)
+    app.config['SESSION_COOKIE_SECURE'] = True
 else:
     app.config['SECRET_KEY'] = secret_key or 'dev-fallback-secret-key-for-local-testing'
+    Talisman(app, content_security_policy=None, force_https=False)
+
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 csrf = CSRFProtect(app)
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri="memory://"
+)
 
 # Support production Postgres, MySQL, or SQLite locally
 database_url = os.environ.get('DATABASE_URL', 'sqlite:///attendance.db')
@@ -58,6 +71,12 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 app.config['JWT_SECRET_KEY'] = secret_key or 'jwt-secret-key-fallback'
+
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 db = SQLAlchemy(app)
 jwt = JWTManager(app)
@@ -474,6 +493,7 @@ def splash():
     return render_template('splash.html')
 
 @app.route('/login', methods=['GET', 'POST'])
+@limiter.limit("10 per minute")
 def login():
     if request.method == 'POST':
         org_type = request.form.get('org_type')
@@ -737,6 +757,8 @@ def school_face_register():
             for file in files:
                 if file.filename == '':
                     continue
+                if not allowed_file(file.filename):
+                    continue
                 filename = secure_filename(file.filename)
                 filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
                 file.save(filepath)
@@ -803,6 +825,9 @@ def school_mark_attendance():
             return jsonify({'error': 'No image provided'}), 400
 
         file = request.files['attendance_image']
+        if file.filename == '' or not allowed_file(file.filename):
+            return jsonify({'error': 'Invalid file type'}), 400
+            
         try:
             temp_path = os.path.join(app.config['UPLOAD_FOLDER'], 'temp_attendance.jpg')
             file.save(temp_path)
@@ -1587,6 +1612,9 @@ def college_mark_attendance():
         if 'attendance_image' not in request.files:
             return jsonify({'error': 'No image provided'}), 400
         file = request.files['attendance_image']
+        if file.filename == '' or not allowed_file(file.filename):
+            return jsonify({'error': 'Invalid file type'}), 400
+            
         try:
             temp_path = os.path.join(app.config['UPLOAD_FOLDER'], 'temp_attendance.jpg')
             file.save(temp_path)
@@ -2403,6 +2431,9 @@ def institution_mark_attendance():
         if 'attendance_image' not in request.files:
             return jsonify({'error': 'No image provided'}), 400
         file = request.files['attendance_image']
+        if file.filename == '' or not allowed_file(file.filename):
+            return jsonify({'error': 'Invalid file type'}), 400
+            
         try:
             temp_path = os.path.join(app.config['UPLOAD_FOLDER'], 'temp_attendance.jpg')
             file.save(temp_path)
@@ -2800,6 +2831,7 @@ def institution_reports():
 
 # Student Portal
 @app.route('/student/login', methods=['GET', 'POST'])
+@limiter.limit("10 per minute")
 def student_login():
     if request.method == 'POST':
         identifier = (request.form.get('roll_number') or request.form.get('identifier') or request.form.get('phone') or '').strip()
@@ -3079,6 +3111,7 @@ def staff_register():
     return render_template('staff_register.html')
 
 @app.route('/staff/login', methods=['GET', 'POST'])
+@limiter.limit("10 per minute")
 def staff_login():
     if request.method == 'POST':
         email = request.form.get('email')
