@@ -399,7 +399,7 @@
             {% if record.status == 'present' and record.time %}
               <span style="font-weight:500; color:#0f766e;">
                 <i class="fas fa-clock" style="color:#0d9488; font-size:.72rem; margin-right:3px;"></i>
-                {{ record.time.strftime('%I:%M %p') }}
+                {{ record.time.strftime('%I:%M:%S %p') }}
               </span>
             {% else %}
               <span style="color:#cbd5e1;">—</span>

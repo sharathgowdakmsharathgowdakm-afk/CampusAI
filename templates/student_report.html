@@ -200,7 +200,7 @@
                     <tr>
                         <td>{{ record.date.strftime('%d-%m-%Y') }}</td>
                         <td>{{ record.day }}</td>
-                        <td>{{ record.time.strftime('%H:%M') if record.time else '-' }}</td>
+                        <td>{{ record.time.strftime('%H:%M:%S') if record.time else '-' }}</td>
                         <td>
                             {% if record.status == 'present' %}
                             <span class="attendance-status-present"><i class="fas fa-check-circle"></i> Present</span>

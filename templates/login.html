@@ -239,7 +239,7 @@
                             <span class="input-group-text">
                                 <i class="fas fa-user"></i>
                             </span>
-                            <input type="text" name="username" class="form-control" placeholder="Enter username or email" value="smvit_school@example.com" required>
+                            <input type="text" name="username" class="form-control" placeholder="Enter username or email" required>
                         </div>
                     </div>
                     
@@ -249,7 +249,7 @@
                             <span class="input-group-text">
                                 <i class="fas fa-lock"></i>
                             </span>
-                            <input type="password" name="password" class="form-control" placeholder="Enter password" value="school123" required>
+                            <input type="password" name="password" class="form-control" placeholder="Enter password" required>
                             <button class="btn btn-outline-secondary bg-white border-start-0" type="button" onclick="togglePassword(this)">
                                 <i class="fas fa-eye"></i>
                             </button>
@@ -289,25 +289,7 @@
             }
         }
 
-        document.querySelector('select[name="org_type"]').addEventListener('change', function(e) {
-            const orgType = e.target.value;
-            const usernameInput = document.querySelector('input[name="username"]');
-            const passwordInput = document.querySelector('input[name="password"]');
-            
-            if (orgType === 'school') {
-                usernameInput.value = 'smvit_school@example.com';
-                passwordInput.value = 'school123';
-            } else if (orgType === 'college') {
-                usernameInput.value = 'smvit_college@example.com';
-                passwordInput.value = 'college123';
-            } else if (orgType === 'institution') {
-                usernameInput.value = 'smvit_institution@example.com';
-                passwordInput.value = 'institution123';
-            } else {
-                usernameInput.value = '';
-                passwordInput.value = '';
-            }
-        });
+
     </script>
 </body>
 </html>

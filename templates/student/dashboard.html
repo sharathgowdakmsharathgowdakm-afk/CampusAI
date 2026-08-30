@@ -395,7 +395,7 @@
                         <td>{{ record.day }}</td>
                         <td>
                             {% if record.time %}
-                                <i class="far fa-clock me-1 text-muted"></i> {{ record.time.strftime('%H:%M') }}
+                                <i class="far fa-clock me-1 text-muted"></i> {{ record.time.strftime('%I:%M:%S %p') }}
                             {% else %}
                                 <span class="text-muted">-</span>
                             {% endif %}
