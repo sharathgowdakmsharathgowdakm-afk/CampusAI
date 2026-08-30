@@ -902,7 +902,8 @@ def school_mark_attendance():
             # --- SMS Notification for Absent Students ---
             absent_students = []
             today = datetime.now().date()
-            class_info = Class_.query.get(int(class_id))
+            # Use Session.get for SQLAlchemy 2.0 compatibility
+            class_info = db.session.get(Class_, int(class_id))
             class_name = class_info.name if class_info else ''
             for student in students:
                 is_present = Attendance.query.filter_by(student_id=student.id, date=today).\
@@ -916,7 +917,8 @@ def school_mark_attendance():
                             roll_number=student.roll_number,
                             phone=student.phone or '',
                             class_name=class_name,
-                            absence_date=today
+                            absence_date=today,
+                            student_email=student.email or ''
                         )
                     except Exception as sms_err:
                         print(f"[SMS ERROR] Could not send for {student.name}: {sms_err}")
@@ -1677,7 +1679,8 @@ def college_mark_attendance():
                             roll_number=student.roll_number,
                             phone=student.phone or '',
                             class_name=class_name,
-                            absence_date=today
+                            absence_date=today,
+                            student_email=student.email or ''
                         )
                     except Exception as sms_err:
                         print(f"[SMS ERROR] Could not send for {student.name}: {sms_err}")
@@ -2492,7 +2495,8 @@ def institution_mark_attendance():
                             roll_number=student.roll_number,
                             phone=student.phone or '',
                             class_name=class_name,
-                            absence_date=today
+                            absence_date=today,
+                            student_email=student.email or ''
                         )
                     except Exception as sms_err:
                         print(f"[SMS ERROR] Could not send for {student.name}: {sms_err}")
@@ -3171,29 +3175,43 @@ def forgot_password():
 
         # Send OTP email
         smtp_server = os.environ.get('SMTP_SERVER', 'smtp.gmail.com').strip()
-        smtp_port = int(os.environ.get('SMTP_PORT', 587))
+        smtp_port = int(os.environ.get('SMTP_PORT', 465))
         smtp_username = os.environ.get('SMTP_USERNAME', '').strip()
         smtp_password = os.environ.get('SMTP_PASSWORD', '').strip()
 
         if smtp_username and smtp_password:
             try:
+                import ssl
                 msg = EmailMessage()
                 msg.set_content(f'Your password reset OTP is: {otp}\nPlease use this OTP to reset your password.')
-                msg['Subject'] = 'Password Reset OTP'
+                msg['Subject'] = 'CampusAI App - Password Reset OTP'
                 msg['From'] = smtp_username
                 msg['To'] = email
 
-                server = smtplib.SMTP(smtp_server, smtp_port)
-                server.starttls()
-                server.login(smtp_username, smtp_password)
-                server.send_message(msg)
-                server.quit()
-                flash(f'An OTP has been sent to your email.', 'success')
+                context = ssl.create_default_context()
+                # Try SMTP_SSL (port 465) first, fall back to STARTTLS (port 587)
+                try:
+                    server = smtplib.SMTP_SSL(smtp_server, 465, context=context)
+                    server.login(smtp_username, smtp_password)
+                    server.send_message(msg)
+                    server.quit()
+                except Exception:
+                    server = smtplib.SMTP(smtp_server, 587)
+                    server.ehlo()
+                    server.starttls(context=context)
+                    server.ehlo()
+                    server.login(smtp_username, smtp_password)
+                    server.send_message(msg)
+                    server.quit()
+                flash('An OTP has been sent to your email.', 'success')
+            except smtplib.SMTPAuthenticationError:
+                print(f"SMTP Auth Error: App Password is invalid or expired. Generate a new one at https://myaccount.google.com/apppasswords")
+                flash('Email authentication failed. Please contact the admin to update the SMTP App Password.', 'danger')
             except Exception as e:
                 print(f"Error sending email: {e}")
-                flash(f'Failed to send email. For testing, your OTP is: {otp}', 'warning')
+                flash(f'Failed to send email. Please try again later.', 'danger')
         else:
-            flash(f'An OTP has been sent to your email. (For testing, your OTP is: {otp})', 'success')
+            flash('Email service is not configured. Please contact the admin.', 'danger')
 
         session['reset_email'] = email
         return redirect(url_for('verify_otp'))
