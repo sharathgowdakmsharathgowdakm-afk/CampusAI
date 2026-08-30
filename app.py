@@ -23,7 +23,6 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.lib import colors
 from functools import wraps
 from dotenv import load_dotenv
-from mtcnn import MTCNN
 
 load_dotenv()
 
@@ -32,8 +31,6 @@ import sys
 if __name__ == '__main__':
     sys.modules['app'] = sys.modules[__name__]
 
-# Initialize MTCNN detector
-detector = MTCNN()
 
 secret_key = os.environ.get('SECRET_KEY')
 flask_env = os.environ.get('FLASK_ENV', 'development')
@@ -766,19 +763,23 @@ def school_face_register():
                 # Load image using face_recognition
                 image = face_recognition.load_image_file(filepath)
                 
-                # Detect faces using MTCNN
-                results = detector.detect_faces(image)
-                
-                if not results:
+                # Detect faces using face_recognition HOG detector
+                face_locations = face_recognition.face_locations(
+                    image,
+                    model='hog'
+                )
+
+                if not face_locations:
                     continue
-                    
-                # Use the first face detected
-                x, y, w, h = results[0]['box']
-                x, y = max(0, x), max(0, y)
-                face_location = (y, x + w, y + h, x)
-                
-                # Find face encodings using the MTCNN bounding box
-                face_encodings = face_recognition.face_encodings(image, [face_location])
+
+                # Use the first detected face
+                face_location = face_locations[0]
+
+                # Find face encoding
+                face_encodings = face_recognition.face_encodings(
+                    image,
+                    [face_location]
+                )
 
                 if len(face_encodings) == 0:
                     continue
@@ -835,16 +836,11 @@ def school_mark_attendance():
             # Load image using face_recognition
             image = face_recognition.load_image_file(temp_path)
             
-            # Find all faces using MTCNN
-            results = detector.detect_faces(image)
-            
-            face_locations = []
-            for res in results:
-                # MTCNN returns [x, y, width, height], we need (top, right, bottom, left)
-                x, y, w, h = res['box']
-                # Sometimes x or y can be negative
-                x, y = max(0, x), max(0, y)
-                face_locations.append((y, x + w, y + h, x))
+            # Find all faces using face_recognition HOG detector
+            face_locations = face_recognition.face_locations(
+                image,
+                model='hog'
+            )
                 
             face_encodings = face_recognition.face_encodings(image, face_locations)
 
@@ -1551,19 +1547,23 @@ def college_face_register():
                 # Load image using face_recognition
                 image = face_recognition.load_image_file(filepath)
                 
-                # Detect faces using MTCNN
-                results = detector.detect_faces(image)
-                
-                if not results:
+                # Detect faces using face_recognition HOG detector
+                face_locations = face_recognition.face_locations(
+                    image,
+                    model='hog'
+                )
+
+                if not face_locations:
                     continue
-                    
-                # Use the first face detected
-                x, y, w, h = results[0]['box']
-                x, y = max(0, x), max(0, y)
-                face_location = (y, x + w, y + h, x)
-                
-                # Find face encodings using the MTCNN bounding box
-                face_encodings = face_recognition.face_encodings(image, [face_location])
+
+                # Use the first detected face
+                face_location = face_locations[0]
+
+                # Find face encoding
+                face_encodings = face_recognition.face_encodings(
+                    image,
+                    [face_location]
+                )
 
                 if len(face_encodings) == 0:
                     continue
@@ -1621,15 +1621,11 @@ def college_mark_attendance():
             # Load image using face_recognition
             image = face_recognition.load_image_file(temp_path)
             
-            # Find all faces using MTCNN (replaces old HOG-based face_locations)
-            mtcnn_results = detector.detect_faces(image)
-            
-            face_locations = []
-            for res in mtcnn_results:
-                x, y, w, h = res['box']
-                x, y = max(0, x), max(0, y)
-                # Convert MTCNN [x, y, w, h] to face_recognition (top, right, bottom, left)
-                face_locations.append((y, x + w, y + h, x))
+            # Find all faces using face_recognition HOG detector
+            face_locations = face_recognition.face_locations(
+                image,
+                model='hog'
+            )
             
             face_encodings = face_recognition.face_encodings(image, face_locations)
 
@@ -2370,19 +2366,23 @@ def institution_face_register():
                 # Load image using face_recognition
                 image = face_recognition.load_image_file(filepath)
                 
-                # Detect faces using MTCNN
-                results = detector.detect_faces(image)
-                
-                if not results:
+                # Detect faces using face_recognition HOG detector
+                face_locations = face_recognition.face_locations(
+                    image,
+                    model='hog'
+                )
+
+                if not face_locations:
                     continue
-                    
-                # Use the first face detected
-                x, y, w, h = results[0]['box']
-                x, y = max(0, x), max(0, y)
-                face_location = (y, x + w, y + h, x)
-                
-                # Find face encodings using the MTCNN bounding box
-                face_encodings = face_recognition.face_encodings(image, [face_location])
+
+                # Use the first detected face
+                face_location = face_locations[0]
+
+                # Find face encoding
+                face_encodings = face_recognition.face_encodings(
+                    image,
+                    [face_location]
+                )
 
                 if len(face_encodings) == 0:
                     continue
@@ -2440,15 +2440,11 @@ def institution_mark_attendance():
             # Load image using face_recognition
             image = face_recognition.load_image_file(temp_path)
             
-            # Find all faces using MTCNN (replaces old HOG-based face_locations)
-            mtcnn_results = detector.detect_faces(image)
-            
-            face_locations = []
-            for res in mtcnn_results:
-                x, y, w, h = res['box']
-                x, y = max(0, x), max(0, y)
-                # Convert MTCNN [x, y, w, h] to face_recognition (top, right, bottom, left)
-                face_locations.append((y, x + w, y + h, x))
+            # Find all faces using face_recognition HOG detector
+            face_locations = face_recognition.face_locations(
+                image,
+                model='hog'
+            )
             
             face_encodings = face_recognition.face_encodings(image, face_locations)
 
@@ -4026,4 +4022,4 @@ if __name__ == '__main__':
         db.create_all()
     port = int(os.environ.get('PORT', 5000))
     debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
-    app.run(debug=debug_mode, host='0.0.0.0', port=port)
+    app.run(debug=debug_mode, host='0.0.0.0', port=port)
