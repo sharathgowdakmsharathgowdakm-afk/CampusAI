@@ -865,6 +865,9 @@ body {
 
 /* Mobile Responsiveness Additions */
 @media (max-width: 768px) {
+  .user-name {
+    display: none;
+  }
   .grid-2, .grid-3, .grid-4, .stat-grid, .analytics-grid {
     grid-template-columns: 1fr !important;
   }
