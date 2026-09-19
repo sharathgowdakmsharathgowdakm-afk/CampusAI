@@ -1,0 +1,90 @@
+{% extends "campus/base_campus.html" %}
+
+{% block title %}Submissions - {{ asgn.title }}{% endblock %}
+{% block page_title %}Submissions{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="flex-between">
+        <div>
+            <h1>{{ asgn.title }} - Submissions</h1>
+            <p style="color: var(--text-secondary); margin-top: 5px;">Max Marks: {{ asgn.max_marks }} | Due: {% if asgn.deadline %}{{ asgn.deadline.strftime('%d %b %Y, %H:%M') }}{% else %}No deadline{% endif %}</p>
+        </div>
+        <a href="{{ url_for('campus.assignments') }}" class="btn-campus btn-ghost">
+            <i class="fas fa-arrow-left"></i> Back to Assignments
+        </a>
+    </div>
+</div>
+
+<div class="glass-card mt-4" style="margin-top: 24px;">
+    <div class="table-responsive">
+        <table class="campus-table w-100">
+            <thead>
+                <tr>
+                    <th>Roll No</th>
+                    <th>Student Name</th>
+                    <th>Status</th>
+                    <th>Submission</th>
+                    <th>Marks</th>
+                    <th>Grade / Feedback</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for student in students %}
+                {% set sub = sub_map.get(student.id) %}
+                <tr>
+                    <td>{{ student.roll_number }}</td>
+                    <td>{{ student.name }}</td>
+                    <td>
+                        {% if sub %}
+                            {% if sub.status == 'graded' %}
+                                <span class="badge-campus badge-success" style="background: rgba(46, 213, 115, 0.2); color: #2ed573;">Graded</span>
+                            {% elif sub.status == 'late' %}
+                                <span class="badge-campus badge-warning" style="background: rgba(255, 165, 2, 0.2); color: #ffa502;">Late</span>
+                            {% else %}
+                                <span class="badge-campus badge-primary" style="background: rgba(55, 66, 250, 0.2); color: #3742fa;">Submitted</span>
+                            {% endif %}
+                        {% else %}
+                            <span class="badge-campus badge-danger" style="background: rgba(255, 71, 87, 0.2); color: #ff4757;">Not Submitted</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if sub and sub.file_path %}
+                            <a href="/{{ sub.file_path }}" target="_blank" class="btn-campus btn-sm btn-ghost"><i class="fas fa-file-download"></i> View File</a>
+                        {% elif sub and sub.text_content %}
+                            <button class="btn-campus btn-sm btn-ghost" onclick="alert('{{ sub.text_content | replace('\n', '\\n') | escape }}')"><i class="fas fa-eye"></i> View Text</button>
+                        {% else %}
+                            <span style="color: var(--text-muted);">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if sub %}
+                            <span style="font-weight: 600;">{{ sub.marks if sub.marks is not none else '-' }}</span> / {{ asgn.max_marks }}
+                        {% else %}
+                            <span style="color: var(--text-muted);">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if sub %}
+                        <form method="POST" action="{{ url_for('campus.grade_submission', asgn_id=asgn.id) }}" class="flex-center gap-12" style="justify-content: flex-start; margin: 0;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="submission_id" value="{{ sub.id }}">
+                            <input type="number" name="marks" class="campus-form-control" style="width: 80px; padding: 4px 8px; font-size: 0.9rem;" placeholder="Marks" value="{{ sub.marks or '' }}" required max="{{ asgn.max_marks }}">
+                            <input type="text" name="feedback" class="campus-form-control" style="width: 150px; padding: 4px 8px; font-size: 0.9rem;" placeholder="Feedback" value="{{ sub.feedback or '' }}">
+                            <button type="submit" class="btn-campus btn-primary-c btn-sm">Save</button>
+                        </form>
+                        {% else %}
+                            <span style="color: var(--text-muted);">-</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" style="text-align: center; padding: 20px; color: var(--text-muted);">No students found in this class.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,14 +1,14 @@
 {% extends "base.html" %}
-{% block title %}Institution Dashboard - Select Course{% endblock %}
-{% block navbar_title %}Institution Dashboard{% endblock %}
+{% block title %}School Dashboard - Select Course{% endblock %}
+{% block navbar_title %}School Dashboard{% endblock %}
 {% block content %}
-<div class="page-title">Welcome to Institution Dashboard</div>
+<div class="page-title">Welcome to School Dashboard</div>
 <div class="row">
     <div class="col-md-6">
         <div class="card">
             <div class="card-header"><i class="fas fa-book"></i> Select a Course</div>
             <div class="card-body">
-                <form action="/institution/dashboard" method="GET">
+                <form action="/school/dashboard" method="GET">
                     <div class="mb-3">
                         <label class="form-label">Course</label>
                         <select name="course_id" class="form-select" required>
@@ -19,7 +19,7 @@
                         </select>
                     </div>
                     <button type="submit" class="btn btn-primary"><i class="fas fa-arrow-right"></i> Next</button>
-                    <a href="/institution/add-course" class="btn btn-success ms-2"><i class="fas fa-plus"></i> Add Course</a>
+                    <a href="/school/add-course" class="btn btn-success ms-2"><i class="fas fa-plus"></i> Add Course</a>
                 </form>
             </div>
         </div>
@@ -42,7 +42,7 @@
                             <button class="btn btn-sm btn-warning me-1" title="Edit Course" data-bs-toggle="modal" data-bs-target="#editCourseModal{{ course.id }}">
                                 <i class="fas fa-edit"></i>
                             </button>
-                            <a href="/institution/delete-course/{{ course.id }}" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this course? All associated data (classes, students, years, subjects, attendance) under this course will be deleted.');" title="Delete Course">
+                            <a href="/school/delete-course/{{ course.id }}" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this course? All associated data (classes, students, years, subjects, attendance) under this course will be deleted.');" title="Delete Course">
                                 <i class="fas fa-trash"></i>
                             </a>
                         </div>
@@ -56,7 +56,7 @@
                                     <h5 class="modal-title">Edit Course</h5>
                                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                 </div>
-                                <form action="/institution/edit-course/{{ course.id }}" method="POST">
+                                <form action="/school/edit-course/{{ course.id }}" method="POST">
                                     <div class="modal-body">
                                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                                         <div class="mb-3">

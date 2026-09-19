@@ -1,39 +1,90 @@
 {% extends "base.html" %}
-
-{% block title %}Add Class - CampusAI App{% endblock %}
+{% block title %}Add Class - Smart Campus Portal{% endblock %}
 {% block navbar_title %}Add New Class{% endblock %}
 
-{% block content %}
-<div class="page-title">Add New Class</div>
+{% block extra_css %}
+<style>
+    .form-card {
+        background: var(--glass-bg);
+        backdrop-filter: var(--glass-blur);
+        border: var(--glass-border);
+        border-radius: var(--radius-xl);
+        overflow: hidden;
+    }
+    .form-card-header {
+        background: rgba(108,92,231,0.12);
+        border-bottom: 1px solid var(--border-color);
+        padding: 20px 28px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .form-card-header .icon-wrap {
+        width: 40px; height: 40px;
+        background: var(--accent-gradient);
+        border-radius: var(--radius-sm);
+        display: flex; align-items: center; justify-content: center;
+        color: #fff; font-size: 1rem;
+    }
+    .form-card-header h5 {
+        margin: 0; font-weight: 700; color: var(--text-primary); font-size: 1.05rem;
+    }
+    .form-card-body {
+        padding: 28px;
+    }
+    .form-card-body .form-label {
+        color: var(--text-secondary);
+        font-weight: 600;
+        font-size: 0.82rem;
+        margin-bottom: 6px;
+    }
+    .form-card-body .form-control,
+    .form-card-body .form-select {
+        padding: 12px 16px;
+        font-size: 0.9rem;
+    }
+    .form-actions {
+        display: flex;
+        gap: 12px;
+        padding-top: 12px;
+    }
+</style>
+{% endblock %}
 
+{% block content %}
+<div class="page-title"><i class="fas fa-plus-square me-2 text-gradient"></i>Add New Class</div>
 <div class="row">
-    <div class="col-md-8">
-        <div class="card">
-            <div class="card-header">
-                <i class="fas fa-plus"></i> Create Class
+    <div class="col-lg-8">
+        <div class="form-card">
+            <div class="form-card-header">
+                <div class="icon-wrap"><i class="fas fa-plus"></i></div>
+                <h5>Create Class</h5>
             </div>
-            <div class="card-body">
+            <div class="form-card-body">
                 <form method="POST">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                    <div class="mb-3">
-                        <label class="form-label">Class Name *</label>
-                        <input type="text" name="class_name" class="form-control" placeholder="e.g., A1, Section A, Class 10-A" required>
-                    </div>
                     
                     <div class="mb-3">
-                        <label class="form-label">Academic Year *</label>
-                        <input type="text" name="academic_year" class="form-control" placeholder="e.g., 2023-2024" required>
+                        <label class="form-label">Course <span class="text-danger">*</span></label>
+                        <select name="course_id" class="form-select" required>
+                            <option value="">-- Select Course --</option>
+                            {% for course in courses %}
+                            <option value="{{ course.id }}" {% if selected_course == course.id|string %}selected{% endif %}>{{ course.name }}</option>
+                            {% endfor %}
+                        </select>
                     </div>
-                    
                     <div class="mb-3">
-                        <label class="form-label">Class Teacher Name</label>
-                        <input type="text" name="class_teacher" class="form-control" placeholder="e.g., John Doe">
+                        <label class="form-label">Class Name <span class="text-danger">*</span></label>
+                        <input type="text" name="class_name" class="form-control" placeholder="e.g., Section A" required>
                     </div>
-                    
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-save"></i> Create Class
-                    </button>
-                    <a href="/school/classes" class="btn btn-secondary ms-2">Cancel</a>
+                    <div class="mb-3">
+                        <label class="form-label">Study Year <span class="text-danger">*</span></label>
+                        <input type="text" name="study_year" class="form-control" placeholder="e.g., First PUC" value="{{ selected_year or '' }}" required>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i> Create Class</button>
+                        <a href="/school/classes" class="btn btn-secondary">Cancel</a>
+                    </div>
                 </form>
             </div>
         </div>

@@ -226,16 +226,16 @@
         <div class="gs-row">
           <div class="field">
             <label for="calc-scheme">Select Scheme</label>
-            <select id="calc-scheme">
+            <select id="calc-scheme" class="campus-form-control">
               <option value="">-- Pick a scheme --</option>
               {% for s in schemes %}
-              <option value="{{ s.id }}" data-max="{{ s.max_marks }}" data-ranges='{{ s.ranges|map(attribute="grade")|list|tojson }}' data-min='{{ s.ranges|map(attribute="min_pct")|list|tojson }}' data-maxp='{{ s.ranges|map(attribute="max_pct")|list|tojson }}' data-gp='{{ s.ranges|map(attribute="grade_point")|list|tojson }}'>Max {{ s.max_marks }} marks</option>
+              <option value="{{ s.id }}" data-max="{{ s.max_marks }}" data-ranges='{{ s.ranges|map(attribute="grade")|list|tojson }}' data-min='{{ s.ranges|map(attribute="min_pct")|list|tojson }}' data-maxp='{{ s.ranges|map(attribute="max_pct")|list|tojson }}' data-gp='{{ s.ranges|map(attribute="grade_point")|list|tojson }}'>Scheme #{{ loop.index }} (Max {{ s.max_marks }} marks)</option>
               {% endfor %}
             </select>
           </div>
           <div class="field">
             <label for="calc-marks">Marks Obtained</label>
-            <input type="number" id="calc-marks" min="0" placeholder="Enter marks">
+            <input type="number" id="calc-marks" min="0" placeholder="Enter marks" class="campus-form-control">
           </div>
         </div>
         <div class="calc-result" id="calc-result" style="display:none;">

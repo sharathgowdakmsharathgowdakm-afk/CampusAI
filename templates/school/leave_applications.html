@@ -1,28 +1,54 @@
 {% extends "base.html" %}
-{% block title %}Leave Applications - School{% endblock %}
+{% block title %}Leave Applications - Smart Campus Portal{% endblock %}
 {% block navbar_title %}Leave Applications{% endblock %}
 {% block extra_css %}
 <style>
-.leave-card { transition: transform 0.2s; }
-.leave-card:hover { transform: translateY(-3px); }
-.status-pending  { background: linear-gradient(135deg,#f6d365,#fda085); color:#fff; }
-.status-approved { background: linear-gradient(135deg,#11998e,#38ef7d); color:#fff; }
-.status-rejected { background: linear-gradient(135deg,#ee0979,#ff6a00); color:#fff; }
-.section-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:white; border-radius:12px; padding: 18px 24px; margin-bottom: 22px; }
+.leave-card { 
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    border: var(--glass-border);
+    border-radius: var(--radius-lg);
+    transition: all var(--transition-normal); 
+}
+.leave-card:hover { 
+    transform: translateY(-3px); 
+    background: var(--bg-card-hover);
+    box-shadow: var(--shadow-md);
+}
+.status-pending  { background: rgba(253,203,110,0.15); border: 1px solid rgba(253,203,110,0.3); color: var(--warning); }
+.status-approved { background: rgba(0,184,148,0.15); border: 1px solid rgba(0,184,148,0.3); color: var(--success); }
+.status-rejected { background: rgba(225,112,85,0.15); border: 1px solid rgba(225,112,85,0.3); color: var(--danger); }
+.list-header { 
+    background: rgba(108, 92, 231, 0.12); 
+    border: 1px solid rgba(108, 92, 231, 0.2);
+    border-radius: var(--radius-lg); 
+    padding: 20px 24px; 
+    margin-bottom: 24px; 
+}
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    background: var(--glass-bg);
+    border: var(--glass-border);
+    border-radius: var(--radius-lg);
+}
+.empty-state i { font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; }
+.empty-state h5 { color: var(--text-secondary); }
+.empty-state p { color: var(--text-muted); }
 </style>
 {% endblock %}
 {% block content %}
-<div class="page-title">Leave Applications</div>
+<div class="page-title"><i class="fas fa-file-signature me-2 text-gradient"></i>Leave Applications</div>
 
-<div class="section-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+<div class="list-header d-flex justify-content-between align-items-center flex-wrap gap-3">
   <div>
-    <h5 class="mb-1"><i class="fas fa-file-alt me-2"></i>All Leave Requests</h5>
-    <small style="opacity:0.8">{{ leaves|length }} total application(s)</small>
+    <h5 class="mb-1 fw-bold"><i class="fas fa-list me-2 text-gradient"></i>All Leave Requests</h5>
+    <div style="font-size:0.85rem; color:var(--text-muted);">{{ leaves|length }} total application(s)</div>
   </div>
   <div class="d-flex gap-2">
-    <span class="badge bg-warning text-dark">Pending: {{ leaves|selectattr('status','equalto','Pending')|list|length }}</span>
-    <span class="badge bg-success">Approved: {{ leaves|selectattr('status','equalto','Approved')|list|length }}</span>
-    <span class="badge bg-danger">Rejected: {{ leaves|selectattr('status','equalto','Rejected')|list|length }}</span>
+    <span class="badge status-pending px-3 py-2">Pending: {{ leaves|selectattr('status','equalto','Pending')|list|length }}</span>
+    <span class="badge status-approved px-3 py-2">Approved: {{ leaves|selectattr('status','equalto','Approved')|list|length }}</span>
+    <span class="badge status-rejected px-3 py-2">Rejected: {{ leaves|selectattr('status','equalto','Rejected')|list|length }}</span>
   </div>
 </div>
 
@@ -30,31 +56,30 @@
 <div class="row g-3">
   {% for leave in leaves %}
   <div class="col-md-6 col-lg-4">
-    <div class="card leave-card h-100">
-      <div class="card-body">
+    <div class="leave-card h-100 p-4">
         <div class="d-flex justify-content-between align-items-start mb-3">
           <div>
-            <h6 class="mb-0 fw-bold">
+            <h6 class="mb-0 fw-bold" style="color:var(--text-primary);">
               {% if leave.student %}
-                <i class="fas fa-user-graduate text-primary me-1"></i>{{ leave.student.name }}
+                <i class="fas fa-user-graduate me-1" style="color:var(--accent-secondary);"></i>{{ leave.student.name }}
               {% elif leave.staff %}
-                <i class="fas fa-user-tie text-info me-1"></i>{{ leave.staff.name }}
+                <i class="fas fa-user-tie me-1" style="color:var(--info);"></i>{{ leave.staff.name }}
               {% endif %}
             </h6>
-            <small class="text-muted">Applied: {{ leave.applied_on.strftime('%d %b %Y') }}</small>
+            <div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">Applied: {{ leave.applied_on.strftime('%d %b %Y') }}</div>
           </div>
-          <span class="badge status-{{ leave.status|lower }}">{{ leave.status }}</span>
+          <span class="badge status-{{ leave.status|lower }} px-2 py-1">{{ leave.status }}</span>
         </div>
 
-        <div class="mb-2">
-          <i class="fas fa-calendar-day text-primary me-1"></i>
+        <div class="mb-3" style="font-size:0.85rem; color:var(--text-primary); background:rgba(255,255,255,0.03); padding:8px 12px; border-radius:var(--radius-sm); border:1px solid rgba(255,255,255,0.05);">
+          <i class="fas fa-calendar-day me-2" style="color:var(--accent-secondary);"></i>
           <strong>{{ leave.start_date.strftime('%d %b %Y') }}</strong>
           {% if leave.start_date != leave.end_date %}
-            → <strong>{{ leave.end_date.strftime('%d %b %Y') }}</strong>
+            <i class="fas fa-arrow-right mx-2" style="font-size:0.7rem; color:var(--text-muted);"></i> <strong>{{ leave.end_date.strftime('%d %b %Y') }}</strong>
           {% endif %}
         </div>
 
-        <p class="text-muted small mb-3" style="min-height:40px">{{ leave.reason }}</p>
+        <p class="small mb-4" style="color:var(--text-secondary); min-height:40px;">{{ leave.reason }}</p>
 
         {% if leave.status == 'Pending' %}
         <form method="POST" class="d-flex gap-2">
@@ -68,20 +93,19 @@
           </button>
         </form>
         {% else %}
-        <div class="text-center text-muted small"><i class="fas fa-lock me-1"></i>Decision finalised</div>
+        <div class="text-center small" style="color:var(--text-muted); background:rgba(255,255,255,0.02); padding:8px; border-radius:var(--radius-sm);">
+            <i class="fas fa-lock me-1"></i> Decision finalised
+        </div>
         {% endif %}
-      </div>
     </div>
   </div>
   {% endfor %}
 </div>
 {% else %}
-<div class="card">
-  <div class="card-body text-center py-5">
-    <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
-    <h5 class="text-muted">No Leave Applications</h5>
-    <p class="text-muted">Students and staff can submit leave requests from their dashboards.</p>
-  </div>
+<div class="empty-state">
+    <i class="fas fa-inbox"></i>
+    <h5>No Leave Applications</h5>
+    <p>Students and staff can submit leave requests from their dashboards.</p>
 </div>
 {% endif %}
 {% endblock %}

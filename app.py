@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify, send_file, flash
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, send_file, flash, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from flask_talisman import Talisman
 from flask_wtf.csrf import CSRFProtect
@@ -61,7 +61,7 @@ csrf = CSRFProtect(app)
 limiter = Limiter(
     get_remote_address,
     app=app,
-    default_limits=["200 per day", "50 per hour"],
+    default_limits=["10000 per day", "2000 per hour"],
     storage_uri="memory://"
 )
 
@@ -496,6 +496,12 @@ def org_required(org_types):
 @app.route('/')
 def splash():
     return render_template('splash.html')
+
+@app.route('/uploads/<path:filename>')
+def serve_uploads(filename):
+    # Handle backslashes in filename if generated on Windows
+    filename = filename.replace('\\', '/')
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 @app.route('/login', methods=['GET', 'POST'])
 @limiter.limit("10 per minute")

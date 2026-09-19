@@ -1,82 +1,239 @@
 {% extends "base.html" %}
-{% block title %}Classes - CampusAI App{% endblock %}
-{% block navbar_title %}All Classes{% endblock %}
-{% block content %}
-<div class="page-title">Classes</div>
+{% block title %}Classes - Smart Campus Portal{% endblock %}
+{% block navbar_title %}Classes{% endblock %}
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <a href="/institution/add-class?course_id={{ course_id }}&year={{ year }}" class="btn btn-primary"><i class="fas fa-plus"></i> Add New Class</a>
-    <div class="input-group" style="width: 300px;">
-        <span class="input-group-text"><i class="fas fa-search"></i></span>
-        <input type="text" id="searchInput" class="form-control" placeholder="Search classes...">
+{% block extra_css %}
+<style>
+    .page-header-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 24px;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+    .page-header-row .page-title { margin-bottom: 0; }
+    .search-wrap {
+        position: relative;
+        width: 280px;
+    }
+    .search-wrap input {
+        width: 100%;
+        padding: 10px 14px 10px 40px;
+        background: rgba(255,255,255,0.05);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        color: var(--text-primary);
+        font-family: 'Inter', sans-serif;
+        font-size: 0.85rem;
+        transition: all var(--transition-fast);
+    }
+    .search-wrap input:focus {
+        border-color: var(--accent-primary);
+        box-shadow: 0 0 0 3px rgba(108,92,231,0.15);
+        outline: none;
+        background: rgba(255,255,255,0.08);
+    }
+    .search-wrap input::placeholder { color: var(--text-muted); }
+    .search-wrap .search-icon {
+        position: absolute;
+        left: 13px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted);
+        font-size: 0.85rem;
+    }
+    .class-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+    .class-item {
+        background: var(--glass-bg);
+        backdrop-filter: var(--glass-blur);
+        border: var(--glass-border);
+        border-radius: var(--radius-lg);
+        padding: 22px;
+        transition: all var(--transition-normal);
+        position: relative;
+        overflow: hidden;
+    }
+    .class-item::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        height: 3px;
+        background: var(--accent-gradient);
+        opacity: 0;
+        transition: opacity var(--transition-fast);
+    }
+    .class-item:hover {
+        background: var(--bg-card-hover);
+        border-color: rgba(108,92,231,0.25);
+        transform: translateY(-3px);
+        box-shadow: var(--shadow-md), var(--shadow-glow);
+    }
+    .class-item:hover::before { opacity: 1; }
+    .class-item-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 14px;
+    }
+    .class-item-name {
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        text-decoration: none;
+    }
+    .class-item-name:hover { color: var(--accent-secondary); }
+    .class-item-year {
+        font-size: 0.78rem;
+        color: var(--text-muted);
+        margin-bottom: 12px;
+    }
+    .class-item-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding-top: 14px;
+        border-top: 1px solid var(--border-color);
+    }
+    .student-count {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.82rem;
+        color: var(--text-secondary);
+    }
+    .student-count .count-num {
+        background: var(--accent-gradient);
+        color: #fff;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 0.75rem;
+    }
+    .class-actions { display: flex; gap: 6px; }
+    .class-actions .btn {
+        width: 34px;
+        height: 34px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--radius-sm);
+        font-size: 0.8rem;
+    }
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        background: var(--glass-bg);
+        border: var(--glass-border);
+        border-radius: var(--radius-lg);
+    }
+    .empty-state i { font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; }
+    .empty-state h5 { color: var(--text-secondary); font-weight: 600; }
+    .empty-state p { color: var(--text-muted); }
+
+    @media (max-width: 576px) {
+        .search-wrap { width: 100%; }
+        .class-grid { grid-template-columns: 1fr; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header-row">
+    <div class="d-flex align-items-center gap-3">
+        <div class="page-title"><i class="fas fa-layer-group me-2 text-gradient"></i>Classes</div>
+        <a href="/institution/add-class?course_id={{ course_id }}&year={{ year }}" class="btn btn-primary btn-sm">
+            <i class="fas fa-plus me-1"></i> Add Class
+        </a>
+    </div>
+    <div class="search-wrap">
+        <i class="fas fa-search search-icon"></i>
+        <input type="text" id="searchInput" placeholder="Search classes...">
     </div>
 </div>
 
 {% if classes %}
-<div class="table-responsive">
-    <table class="table table-hover" id="dataTable">
-        <thead><tr><th>Class Name</th><th>Academic Year</th><th>Students</th><th>Actions</th></tr></thead>
-        <tbody>
-            {% for class in classes %}
-            <tr>
-                <td><a href="/institution/students?class_id={{ class.id }}" style="text-decoration: none;"><strong>{{ class.name }}</strong></a></td>
-                <td>{{ class.academic_year }}</td>
-                <td><span class="badge bg-primary">{{ class.student_count }}</span></td>
-                <td>
-                    <a href="/institution/add-student?class_id={{ class.id }}" class="btn btn-sm btn-info" title="Add Student"><i class="fas fa-user-plus"></i></a>
-                    <button class="btn btn-sm btn-warning" title="Edit Class" data-bs-toggle="modal" data-bs-target="#editModal{{ class.id }}">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <a href="/institution/delete-class/{{ class.id }}" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this class? All students and attendance data under this class will be deleted.');" title="Delete Class">
-                        <i class="fas fa-trash"></i>
-                    </a>
-                </td>
-            </tr>
-
-            <!-- Edit Modal -->
-            <div class="modal fade" id="editModal{{ class.id }}" tabindex="-1" aria-hidden="true">
-                <div class="modal-dialog">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title">Edit Class</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <form action="/institution/edit-class/{{ class.id }}" method="POST">
-                            <div class="modal-body">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                                <div class="mb-3">
-                                    <label class="form-label">Class Name</label>
-                                    <input type="text" name="class_name" class="form-control" value="{{ class.name }}" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">Academic Year</label>
-                                    <input type="text" name="academic_year" class="form-control" value="{{ class.academic_year }}" required>
-                                </div>
-                            </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                <button type="submit" class="btn btn-primary">Save Changes</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
+<div class="class-grid" id="classGrid">
+    {% for class in classes %}
+    <div class="class-item" data-search="{{ class.name|lower }} {{ class.academic_year|lower }}">
+        <div class="class-item-header">
+            <a href="/institution/students?class_id={{ class.id }}" class="class-item-name">{{ class.name }}</a>
+        </div>
+        <div class="class-item-year">
+            <i class="fas fa-calendar-alt me-1"></i> {{ class.academic_year }}
+        </div>
+        <div class="class-item-footer">
+            <div class="student-count">
+                <span class="count-num">{{ class.student_count }}</span>
+                Students enrolled
             </div>
-            {% endfor %}
-        </tbody>
-    </table>
+            <div class="class-actions">
+                <a href="/institution/add-student?class_id={{ class.id }}" class="btn btn-info" title="Add Student">
+                    <i class="fas fa-user-plus"></i>
+                </a>
+                <button class="btn btn-warning" title="Edit Class" data-bs-toggle="modal" data-bs-target="#editModal{{ class.id }}">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <a href="/institution/delete-class/{{ class.id }}" class="btn btn-danger" onclick="return confirm('Are you sure you want to delete this class? All students and attendance data under this class will be deleted.');" title="Delete Class">
+                    <i class="fas fa-trash"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div class="modal fade" id="editModal{{ class.id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Class</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form action="/institution/edit-class/{{ class.id }}" method="POST">
+                    <div class="modal-body">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        <div class="mb-3">
+                            <label class="form-label">Class Name</label>
+                            <input type="text" name="class_name" class="form-control" value="{{ class.name }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Academic Year</label>
+                            <input type="text" name="academic_year" class="form-control" value="{{ class.academic_year }}" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
 </div>
 
 <script>
 document.getElementById('searchInput').addEventListener('keyup', function() {
-    let filter = this.value.toLowerCase();
-    let rows = document.querySelectorAll('#dataTable tbody tr');
-    rows.forEach(row => {
-        let text = row.innerText.toLowerCase();
-        row.style.display = text.includes(filter) ? '' : 'none';
+    const filter = this.value.toLowerCase();
+    document.querySelectorAll('.class-item').forEach(item => {
+        const text = item.getAttribute('data-search');
+        item.style.display = text.includes(filter) ? '' : 'none';
     });
 });
 </script>
 {% else %}
-<div class="alert alert-info"><i class="fas fa-info-circle"></i> No classes created yet. <a href="/institution/add-class?course_id={{ course_id }}&year={{ year }}">Create your first class</a></div>
+<div class="empty-state">
+    <i class="fas fa-layer-group"></i>
+    <h5>No Classes Created Yet</h5>
+    <p>Get started by creating your first class.</p>
+    <a href="/institution/add-class?course_id={{ course_id }}&year={{ year }}" class="btn btn-primary mt-3">
+        <i class="fas fa-plus me-1"></i> Create First Class
+    </a>
+</div>
 {% endif %}
 {% endblock %}

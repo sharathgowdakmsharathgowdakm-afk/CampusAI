@@ -1,21 +1,74 @@
 {% extends "base.html" %}
-{% block title %}Add Student - CampusAI App{% endblock %}
+{% block title %}Add Student - Smart Campus Portal{% endblock %}
 {% block navbar_title %}Add New Student{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-card {
+        background: var(--glass-bg);
+        backdrop-filter: var(--glass-blur);
+        border: var(--glass-border);
+        border-radius: var(--radius-xl);
+        overflow: hidden;
+    }
+    .form-card-header {
+        background: rgba(108,92,231,0.12);
+        border-bottom: 1px solid var(--border-color);
+        padding: 20px 28px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .form-card-header .icon-wrap {
+        width: 40px; height: 40px;
+        background: var(--accent-gradient);
+        border-radius: var(--radius-sm);
+        display: flex; align-items: center; justify-content: center;
+        color: #fff; font-size: 1rem;
+    }
+    .form-card-header h5 {
+        margin: 0; font-weight: 700; color: var(--text-primary); font-size: 1.05rem;
+    }
+    .form-card-body {
+        padding: 28px;
+    }
+    .form-card-body .form-label {
+        color: var(--text-secondary);
+        font-weight: 600;
+        font-size: 0.82rem;
+        margin-bottom: 6px;
+    }
+    .form-card-body .form-control,
+    .form-card-body .form-select {
+        padding: 12px 16px;
+        font-size: 0.9rem;
+    }
+    .form-actions {
+        display: flex;
+        gap: 12px;
+        padding-top: 12px;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="page-title">Add New Student</div>
+<div class="page-title"><i class="fas fa-user-plus me-2 text-gradient"></i>Add New Student</div>
 <div class="row">
-    <div class="col-md-8">
-        <div class="card">
-            <div class="card-header"><i class="fas fa-user-plus"></i> Student Registration</div>
-            <div class="card-body">
+    <div class="col-lg-8">
+        <div class="form-card">
+            <div class="form-card-header">
+                <div class="icon-wrap"><i class="fas fa-user-plus"></i></div>
+                <h5>Student Registration</h5>
+            </div>
+            <div class="form-card-body">
                 <form method="POST">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                     <div class="mb-3">
-                        <label class="form-label">Full Name *</label>
+                        <label class="form-label">Full Name <span class="text-danger">*</span></label>
                         <input type="text" name="name" class="form-control" placeholder="Enter student name" required>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Select Class *</label>
+                        <label class="form-label">Select Class <span class="text-danger">*</span></label>
                         <select name="class_id" class="form-select" required>
                             <option value="">-- Select Class --</option>
                             {% for class in classes %}
@@ -24,15 +77,17 @@
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Roll Number *</label>
-                        <input type="text" name="roll_number" class="form-control" placeholder="e.g., I001" required>
+                        <label class="form-label">Roll Number <span class="text-danger">*</span></label>
+                        <input type="text" name="roll_number" class="form-control" placeholder="e.g., C001" required>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Phone Number</label>
                         <input type="tel" name="phone" class="form-control" placeholder="e.g., 9876543210">
                     </div>
-                    <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Add Student</button>
-                    <a href="/institution/students" class="btn btn-secondary ms-2">Cancel</a>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i> Add Student</button>
+                        <a href="/institution/students" class="btn btn-secondary">Cancel</a>
+                    </div>
                 </form>
             </div>
         </div>

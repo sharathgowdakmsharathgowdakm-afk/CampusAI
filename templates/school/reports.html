@@ -1,34 +1,100 @@
 {% extends "base.html" %}
+{% block title %}Reports - Smart Campus Portal{% endblock %}
+{% block navbar_title %}Reports{% endblock %}
 
-{% block title %}Reports - CampusAI App{% endblock %}
-{% block navbar_title %}Generate Reports{% endblock %}
+{% block extra_css %}
+<style>
+    .form-card {
+        background: var(--glass-bg);
+        backdrop-filter: var(--glass-blur);
+        border: var(--glass-border);
+        border-radius: var(--radius-xl);
+        overflow: hidden;
+    }
+    .form-card-header {
+        background: rgba(108,92,231,0.12);
+        border-bottom: 1px solid var(--border-color);
+        padding: 20px 28px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .form-card-header .icon-wrap {
+        width: 40px; height: 40px;
+        background: var(--accent-gradient);
+        border-radius: var(--radius-sm);
+        display: flex; align-items: center; justify-content: center;
+        color: #fff; font-size: 1rem;
+    }
+    .form-card-header h5 {
+        margin: 0; font-weight: 700; color: var(--text-primary); font-size: 1.05rem;
+    }
+    .form-card-body {
+        padding: 28px;
+    }
+    .report-type-toggle {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+    .report-type-option {
+        flex: 1;
+        padding: 14px 16px;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        background: rgba(255,255,255,0.03);
+        cursor: pointer;
+        transition: all var(--transition-fast);
+        text-align: center;
+    }
+    .report-type-option:has(input:checked) {
+        background: rgba(108,92,231,0.15);
+        border-color: var(--accent-primary);
+        box-shadow: 0 0 0 2px rgba(108,92,231,0.2);
+    }
+    .report-type-option input { display: none; }
+    .report-type-option .label-text {
+        font-weight: 600;
+        color: var(--text-primary);
+        font-size: 0.88rem;
+    }
+    .report-type-option .label-sub {
+        font-size: 0.72rem;
+        color: var(--text-muted);
+        margin-top: 2px;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="page-title">Generate Attendance Report</div>
-
+<div class="page-title"><i class="fas fa-chart-pie me-2 text-gradient"></i>Generate Report</div>
 <div class="row">
-    <div class="col-md-8">
-        <div class="card">
-            <div class="card-header">
-                <i class="fas fa-chart-bar"></i> Student Attendance Report
+    <div class="col-lg-8">
+        <div class="form-card">
+            <div class="form-card-header">
+                <div class="icon-wrap"><i class="fas fa-chart-bar"></i></div>
+                <h5>Student Attendance Report</h5>
             </div>
-            <div class="card-body">
+            <div class="form-card-body">
                 <form method="POST">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                    <div class="mb-3">
-                        <label class="form-label">Report Type *</label>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="report_type" id="reportStudent" value="student" checked onchange="toggleReportType()">
-                            <label class="form-check-label" for="reportStudent">Student-wise</label>
-                        </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="report_type" id="reportClass" value="class" onchange="toggleReportType()">
-                            <label class="form-check-label" for="reportClass">Class-wise</label>
-                        </div>
+                    
+                    <label class="form-label mb-2">Report Type <span class="text-danger">*</span></label>
+                    <div class="report-type-toggle">
+                        <label class="report-type-option">
+                            <input type="radio" name="report_type" id="reportStudent" value="student" checked onchange="toggleReportType()">
+                            <div class="label-text"><i class="fas fa-user me-1"></i> Student-wise</div>
+                            <div class="label-sub">Individual student report</div>
+                        </label>
+                        <label class="report-type-option">
+                            <input type="radio" name="report_type" id="reportClass" value="class" onchange="toggleReportType()">
+                            <div class="label-text"><i class="fas fa-users me-1"></i> Class-wise</div>
+                            <div class="label-sub">Entire class report</div>
+                        </label>
                     </div>
 
                     <div class="mb-3" id="classSelectDiv">
-                        <label class="form-label">Select Class *</label>
+                        <label class="form-label">Select Class <span class="text-danger">*</span></label>
                         <select name="class_id" id="classSelectReport" class="form-select" onchange="filterReportStudents()" required>
                             <option value="">-- Select Class --</option>
                             {% for class in classes %}
@@ -38,7 +104,7 @@
                     </div>
 
                     <div class="mb-3" id="studentSelectDiv">
-                        <label class="form-label">Select Student *</label>
+                        <label class="form-label">Select Student <span class="text-danger">*</span></label>
                         <select name="student_id" id="studentSelect" class="form-select" required>
                             <option value="">-- Select Student --</option>
                             {% for student in students %}
@@ -58,9 +124,7 @@
                         </div>
                     </div>
                     
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-download"></i> Generate PDF Report
-                    </button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-download me-1"></i> Generate PDF Report</button>
                 </form>
             </div>
         </div>
@@ -73,7 +137,7 @@
 function filterReportStudents() {
     const classId = document.getElementById('classSelectReport').value;
     const studentSelect = document.querySelector('select[name="student_id"]');
-    studentSelect.value = ''; // Reset
+    studentSelect.value = '';
     const options = studentSelect.querySelectorAll('option[data-class-id]');
     
     options.forEach(option => {
@@ -99,7 +163,6 @@ function toggleReportType() {
     }
 }
 
-// Call on load to set initial state
 document.addEventListener('DOMContentLoaded', function() {
     toggleReportType();
 });

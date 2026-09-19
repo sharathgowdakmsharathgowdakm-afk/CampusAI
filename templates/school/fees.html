@@ -1,49 +1,136 @@
 {% extends "base.html" %}
-{% block title %}Fee Structure - School{% endblock %}
+{% block title %}Fee Structure - Smart Campus Portal{% endblock %}
 {% block navbar_title %}Fee Structure{% endblock %}
 {% block extra_css %}
 <style>
-.fee-card { border-left: 4px solid #667eea; transition: transform 0.2s; }
-.fee-card:hover { transform: translateX(4px); }
-.badge-due { background: linear-gradient(135deg,#f093fb,#f5576c); }
-.amount-pill { font-size: 1.2rem; font-weight: 700; color: #667eea; }
-.section-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:white; border-radius:12px; padding: 20px 25px; margin-bottom: 25px; }
+    .form-card {
+        background: var(--glass-bg);
+        backdrop-filter: var(--glass-blur);
+        border: var(--glass-border);
+        border-radius: var(--radius-xl);
+        overflow: hidden;
+    }
+    .form-card-header {
+        background: rgba(108,92,231,0.12);
+        border-bottom: 1px solid var(--border-color);
+        padding: 20px 28px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .form-card-header .icon-wrap {
+        width: 40px; height: 40px;
+        background: var(--accent-gradient);
+        border-radius: var(--radius-sm);
+        display: flex; align-items: center; justify-content: center;
+        color: #fff; font-size: 1rem;
+    }
+    .form-card-header h5 {
+        margin: 0; font-weight: 700; color: var(--text-primary); font-size: 1.05rem;
+    }
+    .form-card-body {
+        padding: 28px;
+    }
+    
+    .fee-card { 
+        background: var(--glass-bg);
+        backdrop-filter: var(--glass-blur);
+        border: var(--glass-border);
+        border-radius: var(--radius-lg);
+        position: relative;
+        overflow: hidden;
+        transition: all var(--transition-normal); 
+    }
+    .fee-card::before {
+        content: '';
+        position: absolute;
+        top: 0; bottom: 0; left: 0;
+        width: 4px;
+        background: var(--accent-gradient);
+    }
+    .fee-card:hover { 
+        transform: translateY(-3px);
+        background: var(--bg-card-hover);
+        box-shadow: var(--shadow-md), var(--shadow-glow);
+    }
+    .fee-card-body {
+        padding: 20px;
+    }
+    
+    .badge-due { background: linear-gradient(135deg,rgba(253,121,168,0.2),rgba(225,112,85,0.2)); color: #ff7675; border: 1px solid rgba(253,121,168,0.3); }
+    .amount-pill { font-size: 1.4rem; font-weight: 800; color: var(--accent-secondary); letter-spacing: -0.02em; margin: 10px 0; }
+    
+    .fee-list-header { 
+        background: rgba(108, 92, 231, 0.12); 
+        border: 1px solid rgba(108, 92, 231, 0.2);
+        color: var(--text-primary); 
+        border-radius: var(--radius-lg); 
+        padding: 20px 24px; 
+        margin-bottom: 24px; 
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    
+    .fee-total-badge {
+        background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.2);
+        color: var(--text-primary);
+        padding: 6px 14px;
+        border-radius: 50px;
+        font-weight: 700;
+        font-size: 0.95rem;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        background: var(--glass-bg);
+        border: var(--glass-border);
+        border-radius: var(--radius-lg);
+    }
+    .empty-state i { font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; }
+    .empty-state h5 { color: var(--text-secondary); }
+    .empty-state p { color: var(--text-muted); }
 </style>
 {% endblock %}
 {% block content %}
-<div class="page-title">Fee Structure</div>
+<div class="page-title"><i class="fas fa-receipt me-2 text-gradient"></i>Fee Structure</div>
 
 <div class="row">
   <!-- Add Fee Form -->
   <div class="col-lg-4 mb-4">
-    <div class="card h-100">
-      <div class="card-header"><i class="fas fa-plus-circle"></i> Add New Fee</div>
-      <div class="card-body">
+    <div class="form-card h-100">
+      <div class="form-card-header">
+        <div class="icon-wrap"><i class="fas fa-plus"></i></div>
+        <h5>Add New Fee</h5>
+      </div>
+      <div class="form-card-body">
         <form method="POST">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
           <div class="mb-3">
-            <label class="form-label fw-semibold">Fee Type <span class="text-danger">*</span></label>
-            <input type="text" name="fee_type" class="form-control" placeholder="e.g. Tuition Fee, Lab Fee" required>
+            <label class="form-label">Fee Type <span class="text-danger">*</span></label>
+            <input type="text" name="fee_type" class="form-control" placeholder="e.g. Tuition Fee, Exam Fee" required>
           </div>
           <div class="mb-3">
-            <label class="form-label fw-semibold">Amount (₹) <span class="text-danger">*</span></label>
+            <label class="form-label">Amount (₹) <span class="text-danger">*</span></label>
             <input type="number" name="amount" class="form-control" placeholder="0.00" min="0" step="0.01" required>
           </div>
           <div class="mb-3">
-            <label class="form-label fw-semibold">Due Date <span class="text-danger">*</span></label>
+            <label class="form-label">Due Date <span class="text-danger">*</span></label>
             <input type="date" name="due_date" class="form-control" required>
           </div>
           <div class="mb-3">
-            <label class="form-label fw-semibold">Applicable Class (Optional)</label>
-            <select name="class_id" class="form-select">
-              <option value="">-- All Classes --</option>
-              {% for cls in classes %}
-              <option value="{{ cls.id }}">{{ cls.name }}</option>
+            <label class="form-label">Applicable Course (Optional)</label>
+            <select name="course_id" class="form-select">
+              <option value="">-- All Courses --</option>
+              {% for course in courses %}
+              <option value="{{ course.id }}">{{ course.name }}</option>
               {% endfor %}
             </select>
           </div>
           <div class="mb-3">
-            <label class="form-label fw-semibold">Description</label>
+            <label class="form-label">Description</label>
             <textarea name="description" class="form-control" rows="2" placeholder="Optional details..."></textarea>
           </div>
           <button type="submit" class="btn btn-primary w-100"><i class="fas fa-save me-2"></i>Save Fee</button>
@@ -54,41 +141,39 @@
 
   <!-- Fees List -->
   <div class="col-lg-8">
-    <div class="section-header d-flex align-items-center justify-content-between">
+    <div class="fee-list-header">
       <div>
-        <h5 class="mb-1"><i class="fas fa-list me-2"></i>All Fee Items</h5>
-        <small style="opacity:0.8">{{ fees|length }} fee(s) defined</small>
+        <h5 class="mb-1 fw-bold"><i class="fas fa-list me-2 text-gradient"></i>All Fee Items</h5>
+        <div style="font-size:0.8rem; color:var(--text-muted);">{{ fees|length }} fee(s) defined</div>
       </div>
-      <span class="badge bg-white text-dark fs-6">Total: ₹{{ "%.2f"|format(fees|sum(attribute='amount')) }}</span>
+      <span class="fee-total-badge">Total: ₹{{ "%.2f"|format(fees|sum(attribute='amount')) }}</span>
     </div>
     {% if fees %}
     <div class="row g-3">
       {% for fee in fees %}
       <div class="col-md-6">
-        <div class="card fee-card mb-0">
-          <div class="card-body">
+        <div class="fee-card h-100">
+          <div class="fee-card-body">
             <div class="d-flex justify-content-between align-items-start mb-2">
-              <h6 class="mb-0 fw-bold">{{ fee.fee_type }}</h6>
-              <a href="/school/fees/delete/{{ fee.id }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this fee item?')"><i class="fas fa-trash"></i></a>
+              <h6 class="mb-0 fw-bold" style="color:var(--text-primary);">{{ fee.fee_type }}</h6>
+              <a href="/school/fees/delete/{{ fee.id }}" class="btn btn-sm btn-outline-danger py-0 px-2" style="border-radius:4px;" onclick="return confirm('Delete this fee item?')"><i class="fas fa-trash" style="font-size:0.75rem;"></i></a>
             </div>
-            <div class="amount-pill mb-2">₹{{ "%.2f"|format(fee.amount) }}</div>
-            <div class="d-flex gap-2 flex-wrap">
+            <div class="amount-pill">₹{{ "%.2f"|format(fee.amount) }}</div>
+            <div class="d-flex gap-2 flex-wrap mb-2">
               <span class="badge badge-due"><i class="fas fa-calendar me-1"></i>Due: {{ fee.due_date.strftime('%d %b %Y') }}</span>
-              {% if fee.class_id %}<span class="badge bg-info">Class-specific</span>{% else %}<span class="badge bg-secondary">All Classes</span>{% endif %}
+              {% if fee.course_id %}<span class="badge bg-info">Course-specific</span>{% else %}<span class="badge bg-secondary">All Courses</span>{% endif %}
             </div>
-            {% if fee.description %}<p class="text-muted small mt-2 mb-0">{{ fee.description }}</p>{% endif %}
+            {% if fee.description %}<p class="small mt-2 mb-0" style="color:var(--text-secondary);">{{ fee.description }}</p>{% endif %}
           </div>
         </div>
       </div>
       {% endfor %}
     </div>
     {% else %}
-    <div class="card">
-      <div class="card-body text-center py-5">
-        <i class="fas fa-money-bill-wave fa-3x text-muted mb-3"></i>
-        <h5 class="text-muted">No Fee Items Yet</h5>
-        <p class="text-muted">Use the form on the left to add your first fee item.</p>
-      </div>
+    <div class="empty-state">
+        <i class="fas fa-money-bill-wave"></i>
+        <h5>No Fee Items Yet</h5>
+        <p>Use the form on the left to add your first fee item.</p>
     </div>
     {% endif %}
   </div>

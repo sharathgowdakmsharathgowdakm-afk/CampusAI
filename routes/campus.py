@@ -517,7 +517,7 @@ def timetable_mark_attendance(entry_id):
     elif org_type == 'institution':
         return redirect(url_for('institution_mark_attendance', class_id=entry.class_id, subject=entry.subject_name))
     else:
-        return redirect(url_for('school_mark_attendance', class_id=entry.class_id))
+        return redirect(url_for('school_mark_attendance', class_id=entry.class_id, subject=entry.subject_name))
 
 
 @campus_bp.route('/academic/timetable/add', methods=['POST'])
@@ -1233,7 +1233,7 @@ def analytics_admin():
         c_pct = round(present / total * 100, 1) if total else 0
         class_labels.append(c.name)
         class_att.append(c_pct)
-        if c_pct < 75 or (total == 0 and stu_count > 0):
+        if stu_count > 0 and c_pct < 75:
             underperforming.append({
                 'id': c.id,
                 'name': c.name,

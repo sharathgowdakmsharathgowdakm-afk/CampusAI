@@ -1,36 +1,190 @@
 {% extends "base.html" %}
-{% block title %}Students - CampusAI App{% endblock %}
-{% block navbar_title %}All Students{% endblock %}
-{% block content %}
-<div class="page-title">Students</div>
+{% block title %}Students - Smart Campus Portal{% endblock %}
+{% block navbar_title %}Students{% endblock %}
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <a href="/college/add-student" class="btn btn-primary"><i class="fas fa-user-plus"></i> Add New Student</a>
-    <div class="input-group" style="width: 300px;">
-        <span class="input-group-text"><i class="fas fa-search"></i></span>
-        <input type="text" id="searchInput" class="form-control" placeholder="Search students...">
+{% block extra_css %}
+<style>
+    .page-header-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 24px;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+    .page-header-row .page-title { margin-bottom: 0; }
+    .search-wrap {
+        position: relative;
+        width: 280px;
+    }
+    .search-wrap input {
+        width: 100%;
+        padding: 10px 14px 10px 40px;
+        background: rgba(255,255,255,0.05);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        color: var(--text-primary);
+        font-family: 'Inter', sans-serif;
+        font-size: 0.85rem;
+        transition: all var(--transition-fast);
+    }
+    .search-wrap input:focus {
+        border-color: var(--accent-primary);
+        box-shadow: 0 0 0 3px rgba(108,92,231,0.15);
+        outline: none;
+        background: rgba(255,255,255,0.08);
+    }
+    .search-wrap input::placeholder { color: var(--text-muted); }
+    .search-wrap .search-icon {
+        position: absolute;
+        left: 13px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted);
+        font-size: 0.85rem;
+    }
+    .student-count-badge {
+        background: rgba(108,92,231,0.15);
+        border: 1px solid rgba(108,92,231,0.3);
+        color: var(--accent-secondary);
+        padding: 5px 14px;
+        border-radius: 50px;
+        font-size: 0.78rem;
+        font-weight: 600;
+    }
+    .students-table-wrap {
+        background: var(--glass-bg);
+        backdrop-filter: var(--glass-blur);
+        border: var(--glass-border);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+    }
+    .students-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .students-table thead th {
+        background: rgba(108,92,231,0.12);
+        color: var(--accent-secondary);
+        padding: 14px 18px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-bottom: 1px solid var(--border-color);
+        white-space: nowrap;
+    }
+    .students-table tbody tr {
+        border-bottom: 1px solid rgba(255,255,255,0.04);
+        transition: background var(--transition-fast);
+    }
+    .students-table tbody tr:hover {
+        background: rgba(108,92,231,0.06);
+    }
+    .students-table tbody td {
+        padding: 14px 18px;
+        font-size: 0.85rem;
+        color: var(--text-primary);
+        vertical-align: middle;
+    }
+    .student-name {
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+    .roll-chip {
+        background: rgba(255,255,255,0.06);
+        border: 1px solid var(--border-color);
+        color: var(--text-secondary);
+        padding: 3px 10px;
+        border-radius: 6px;
+        font-family: 'Courier New', monospace;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+    .class-badge {
+        background: var(--accent-gradient);
+        color: #fff;
+        padding: 3px 10px;
+        border-radius: 50px;
+        font-size: 0.72rem;
+        font-weight: 600;
+    }
+    .actions-cell { display: flex; gap: 6px; }
+    .actions-cell .btn {
+        width: 34px;
+        height: 34px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--radius-sm);
+        font-size: 0.8rem;
+    }
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        background: var(--glass-bg);
+        border: var(--glass-border);
+        border-radius: var(--radius-lg);
+    }
+    .empty-state i { font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; }
+    .empty-state h5 { color: var(--text-secondary); }
+    .empty-state p { color: var(--text-muted); }
+
+    @media (max-width: 576px) {
+        .search-wrap { width: 100%; }
+        .students-table-wrap { overflow-x: auto; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header-row">
+    <div class="d-flex align-items-center gap-3 flex-wrap">
+        <div class="page-title"><i class="fas fa-user-graduate me-2 text-gradient"></i>Students</div>
+        <a href="/college/add-student" class="btn btn-primary btn-sm">
+            <i class="fas fa-user-plus me-1"></i> Add Student
+        </a>
+        {% if students %}
+        <span class="student-count-badge">{{ students|length }} students</span>
+        {% endif %}
+    </div>
+    <div class="search-wrap">
+        <i class="fas fa-search search-icon"></i>
+        <input type="text" id="searchInput" placeholder="Search students...">
     </div>
 </div>
 
 {% if students %}
-<div class="table-responsive">
-    <table class="table table-hover" id="dataTable">
-        <thead><tr><th>#</th><th>Name</th><th>Roll Number</th><th>Class</th><th>Phone</th><th>Actions</th></tr></thead>
+<div class="students-table-wrap">
+    <table class="students-table" id="dataTable">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Name</th>
+                <th>Roll Number</th>
+                <th>Class</th>
+                <th>Phone</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
         <tbody>
             {% for student in students %}
             <tr>
-                <td>{{ loop.index }}</td>
-                <td><strong>{{ student.name }}</strong></td>
-                <td>{{ student.roll_number }}</td>
-                <td><span class="badge bg-primary">{{ student.class_.name }}</span></td>
-                <td>{{ student.phone or '-' }}</td>
+                <td style="color: var(--text-muted); font-size: 0.78rem;">{{ loop.index }}</td>
+                <td><span class="student-name">{{ student.name }}</span></td>
+                <td><span class="roll-chip">{{ student.roll_number }}</span></td>
+                <td><span class="class-badge">{{ student.class_.name }}</span></td>
+                <td style="color: var(--text-secondary);">{{ student.phone or '—' }}</td>
                 <td>
-                    <button class="btn btn-sm btn-warning" title="Edit Student" data-bs-toggle="modal" data-bs-target="#editModal{{ student.id }}">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <a href="/college/delete-student/{{ student.id }}" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this student? All attendance and face data for this student will be deleted.');" title="Delete Student">
-                        <i class="fas fa-trash"></i>
-                    </a>
+                    <div class="actions-cell">
+                        <button class="btn btn-warning" title="Edit Student" data-bs-toggle="modal" data-bs-target="#editModal{{ student.id }}">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <a href="/college/delete-student/{{ student.id }}" class="btn btn-danger" onclick="return confirm('Are you sure you want to delete this student? All attendance and face data for this student will be deleted.');" title="Delete Student">
+                            <i class="fas fa-trash"></i>
+                        </a>
+                    </div>
                 </td>
             </tr>
 
@@ -82,6 +236,13 @@ document.getElementById('searchInput').addEventListener('keyup', function() {
 });
 </script>
 {% else %}
-<div class="alert alert-info"><i class="fas fa-info-circle"></i> No students added yet. <a href="/college/add-student">Add your first student</a></div>
+<div class="empty-state">
+    <i class="fas fa-user-graduate"></i>
+    <h5>No Students Added Yet</h5>
+    <p>Start by adding your first student to the system.</p>
+    <a href="/college/add-student" class="btn btn-primary mt-3">
+        <i class="fas fa-user-plus me-1"></i> Add First Student
+    </a>
+</div>
 {% endif %}
 {% endblock %}
