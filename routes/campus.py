@@ -930,8 +930,14 @@ def lms_upload():
         file = request.files['file']
         if file and file.filename:
             fn = secure_filename(file.filename)
-            dest = os.path.join('uploads', 'lms', fn)
-            os.makedirs(os.path.join('uploads', 'lms'), exist_ok=True)
+            dest = os.path.join(app.config['UPLOAD_FOLDER'], 'lms', fn)
+            os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], 'lms'), exist_ok=True)
+            file.save(dest)
+            # Store relative path for DB
+            file_path = os.path.join('lms', fn).replace('\\', '/')
+            # Store relative path for DB
+            file_path = os.path.join('lms', fn).replace('\\', '/')
+            os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], 'lms'), exist_ok=True)
             file.save(dest)
             file_path = dest.replace('\\', '/')
 
