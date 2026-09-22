@@ -92,16 +92,16 @@ const ChatBot = {
 
     // Voice input
     if (voiceBtn && 'webkitSpeechRecognition' in window) {
-      const recog = new webkitSpeechRecognition();
-      recog.continuous = false;
-      recog.lang = document.documentElement.lang || 'en-US';
-      recog.onstart = () => voiceBtn.classList.add('listening');
-      recog.onend = () => voiceBtn.classList.remove('listening');
-      recog.onresult = (e) => {
+      this._recog = new webkitSpeechRecognition();
+      this._recog.continuous = false;
+      this._recog.lang = document.documentElement.lang || 'en-US';
+      this._recog.onstart = () => voiceBtn.classList.add('listening');
+      this._recog.onend = () => voiceBtn.classList.remove('listening');
+      this._recog.onresult = (e) => {
         input.value = e.results[0][0].transcript;
         form.dispatchEvent(new Event('submit'));
       };
-      voiceBtn.addEventListener('click', () => recog.start());
+      voiceBtn.addEventListener('click', () => this._recog.start());
     } else if (voiceBtn) {
       voiceBtn.style.display = 'none';
     }
@@ -117,8 +117,13 @@ const ChatBot = {
     // Language selector
     const langSel = document.getElementById('lang-select');
     if (langSel) {
+      // Set initial lang from selector
+      document.documentElement.lang = langSel.value;
       langSel.addEventListener('change', () => {
         document.documentElement.lang = langSel.value;
+        if (this._recog) {
+          this._recog.lang = langSel.value;
+        }
       });
     }
   },

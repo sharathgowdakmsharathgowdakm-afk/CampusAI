@@ -318,15 +318,15 @@
             <div style="font-size: 0.75rem; color: var(--text-muted);">{{ record.student.class_.academic_year }}</div>
           </td>
           <td>
-            {% if record.timetable_slot_id and record.timetable_slot %}
-              <span class="subject-tag"><i class="fas fa-book me-1"></i>{{ record.timetable_slot.subject.name }}</span>
+            {% if record.subject %}
+              <span class="subject-tag"><i class="fas fa-book me-1"></i>{{ record.subject.name }}</span>
             {% else %}
               <span style="color:var(--text-muted); font-size:0.8rem; font-style:italic;">General / Auto</span>
             {% endif %}
           </td>
           <td>
             <div style="font-weight: 600; color: var(--text-secondary);"><i class="fas fa-calendar-day me-1 text-muted"></i>{{ record.date.strftime('%d %b %Y') }}</div>
-            <div style="font-size: 0.78rem; color: var(--text-muted); margin-top:3px;"><i class="fas fa-clock me-1"></i>{{ record.timestamp.strftime('%I:%M %p') }}</div>
+            <div style="font-size: 0.78rem; color: var(--text-muted); margin-top:3px;"><i class="fas fa-clock me-1"></i>{% if record.time %}{{ record.time.strftime('%I:%M %p') }}{% else %}—{% endif %}</div>
           </td>
           <td>
             {% if record.status == 'present' %}

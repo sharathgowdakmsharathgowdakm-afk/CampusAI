@@ -228,10 +228,7 @@ class Attendance(db.Model):
     
     @property
     def status(self):
-        from datetime import time
-        if self._status == 'present' and self.time:
-            if self.time < time(6, 0, 0) or self.time >= time(18, 0, 0):
-                return 'absent'
+        # Return stored status directly; time-based overrides removed
         return self._status
 
     @status.setter
@@ -745,84 +742,162 @@ def school_add_student():
 
     return render_template('school/add_student.html', classes=classes)
 
+# --- Face Registration API (session-auth, JSON) ---
+@app.route('/school/api/student/<int:student_id>/face-status')
+@org_required(['school'])
+def school_api_face_status(student_id):
+    """Return whether the student already has face encodings stored."""
+    count = FaceEncoding.query.filter_by(student_id=student_id).count()
+    return jsonify({'has_face': count > 0, 'encoding_count': count})
+
+
+@app.route('/school/api/register-face', methods=['POST'])
+@csrf.exempt
+@org_required(['school'])
+def school_api_register_face():
+    """Accept JSON with student_id and images_base64 (list of data-URI strings).
+    Process each image, extract face encodings, and store them."""
+    import base64, uuid
+    data = request.get_json(force=True)
+    student_id = data.get('student_id')
+    images_b64 = data.get('images_base64', [])
+
+    if not student_id:
+        return jsonify({'success': False, 'error': 'Missing student_id'}), 400
+    if not images_b64:
+        return jsonify({'success': False, 'error': 'No images provided'}), 400
+
+    student = Student.query.get(student_id)
+    if not student:
+        return jsonify({'success': False, 'error': 'Student not found'}), 404
+
+    success_count = 0
+    errors = []
+
+    for idx, img_b64 in enumerate(images_b64[:5]):  # cap at 5 poses
+        try:
+            # Strip data-URI header if present
+            if ',' in img_b64:
+                img_b64 = img_b64.split(',', 1)[1]
+            img_data = base64.b64decode(img_b64)
+            filename = f"face_temp_{uuid.uuid4().hex}.jpg"
+            temp_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            with open(temp_path, 'wb') as f:
+                f.write(img_data)
+
+            image = face_recognition.load_image_file(temp_path)
+            face_locations = face_recognition.face_locations(image, model='hog')
+            if not face_locations:
+                errors.append(f'Image {idx+1}: no face detected')
+                os.remove(temp_path)
+                continue
+
+            face_enc = face_recognition.face_encodings(image, [face_locations[0]])[0]
+            record = FaceEncoding(
+                student_id=int(student_id),
+                encoding_path="",
+                encoding_data=face_enc.tolist(),
+                created_at=datetime.utcnow()
+            )
+            db.session.add(record)
+            success_count += 1
+            os.remove(temp_path)
+        except Exception as e:
+            errors.append(f'Image {idx+1}: {str(e)}')
+
+    if success_count == 0:
+        return jsonify({'success': False, 'error': 'No faces registered. ' + '; '.join(errors)}), 400
+
+    db.session.commit()
+    msg = f'{success_count} face encoding(s) registered successfully.'
+    if errors:
+        msg += ' Warnings: ' + '; '.join(errors)
+    return jsonify({'success': True, 'message': msg})
+
+
 @app.route('/school/face-register', methods=['GET', 'POST'])
 @org_required(['school'])
 def school_face_register():
+    # Load classes and students for the dropdowns
     classes = Class_.query.filter_by(organization_id=session.get('org_id')).all()
-    students = Student.query.filter_by(
-        organization_id=session.get('org_id')
-    ).all()
+    students = Student.query.filter_by(organization_id=session.get('org_id')).all()
 
-    if request.method == 'POST':
-        student_id = request.form.get('student_id', '')
+    if request.method == 'GET':
+        # Render the face registration page with premium UI
+        return render_template('school/face_register.html', classes=classes, students=students)
 
-        if not student_id:
-            return jsonify({'error': 'Student not selected'}), 400
+    # POST handling (existing logic)
+    student_id = request.form.get('student_id', '')
 
-        files = request.files.getlist('face_images')
-        if not files or all(f.filename == '' for f in files):
-            return jsonify({'error': 'No file selected'}), 400
+    if not student_id:
+        return jsonify({'error': 'Student not selected'}), 400
 
-        success_count = 0
-        try:
-            for file in files:
-                if file.filename == '':
-                    continue
-                if not allowed_file(file.filename):
-                    continue
-                filename = secure_filename(file.filename)
-                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                file.save(filepath)
+    files = request.files.getlist('face_images')
+    if not files or all(f.filename == '' for f in files):
+        return jsonify({'error': 'No file selected'}), 400
 
-                # Load image using face_recognition
-                image = face_recognition.load_image_file(filepath)
-                
-                # Detect faces using face_recognition HOG detector
-                face_locations = face_recognition.face_locations(
-                    image,
-                    model='hog'
-                )
+    success_count = 0
+    try:
+        for file in files:
+            if file.filename == '':
+                continue
+            if not allowed_file(file.filename):
+                continue
+            filename = secure_filename(file.filename)
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(filepath)
 
-                if not face_locations:
-                    continue
+            # Load image using face_recognition
+            image = face_recognition.load_image_file(filepath)
+            
+            # Detect faces using face_recognition HOG detector
+            face_locations = face_recognition.face_locations(
+                image,
+                model='hog'
+            )
 
-                # Use the first detected face
-                face_location = face_locations[0]
+            if not face_locations:
+                continue
 
-                # Find face encoding
-                face_encodings = face_recognition.face_encodings(
-                    image,
-                    [face_location]
-                )
+            # Use the first detected face
+            face_location = face_locations[0]
 
-                if len(face_encodings) == 0:
-                    continue
+            # Find face encoding
+            face_encodings = face_recognition.face_encodings(
+                image,
+                [face_location]
+            )
 
-                # Use the first detected face encoding
-                face_encoding = face_encodings[0]
+            if len(face_encodings) == 0:
+                continue
 
-                # Save face encoding to database as JSON list
-                face_record = FaceEncoding(
-                    student_id=int(student_id),
-                    encoding_path="",
-                    encoding_data=face_encoding.tolist(),
-                    created_at=datetime.utcnow()
-                )
-                db.session.add(face_record)
-                success_count += 1
-                
-            if success_count == 0:
-                return jsonify({'error': 'No faces could be extracted from the provided images.'}), 400
-                
-            db.session.commit()
-            return jsonify({'success': f'{success_count} face encodings registered successfully'})
+            # Use the first detected face encoding
+            face_encoding = face_encodings[0]
 
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
+            # Save face encoding to database as JSON list
+            face_record = FaceEncoding(
+                student_id=int(student_id),
+                encoding_path="",
+                encoding_data=face_encoding.tolist(),
+                created_at=datetime.utcnow()
+            )
+            db.session.add(face_record)
+            success_count += 1
+            
+        if success_count == 0:
+            return jsonify({'error': 'No faces could be extracted from the provided images.'}), 400
+            
+        db.session.commit()
+        return jsonify({'success': f'{success_count} face encodings registered successfully'})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
     return render_template('school/face_register.html', students=students, classes=classes)
 
+
 @app.route('/school/mark-attendance', methods=['GET', 'POST'])
+@csrf.exempt
 @org_required(['school'])
 def school_mark_attendance():
     classes = Class_.query.filter_by(
@@ -830,36 +905,72 @@ def school_mark_attendance():
     ).all()
 
     if request.method == 'POST':
-        class_id = request.form.get('class_id', '')
+        class_id = request.form.get('class_id', '') or (request.json.get('class_id') if request.is_json else '')
         print(f"DEBUG: Marking attendance for Class ID: {class_id}, Org ID: {session.get('org_id')}")
-
+        print("DEBUG: request.method =", request.method)
+        print("DEBUG: request.content_type =", request.content_type)
+        print("DEBUG: request.form keys =", list(request.form.keys()))
+        print("DEBUG: request.files keys =", list(request.files.keys()))
+        print("DEBUG: request.is_json =", request.is_json)
+        if request.is_json:
+            print("DEBUG: request JSON payload:", request.get_json())
         if not class_id:
             return jsonify({'error': 'Class not selected'}), 400
 
-        if 'attendance_image' not in request.files:
-            return jsonify({'error': 'No image provided'}), 400
+        temp_path = os.path.join(app.config['UPLOAD_FOLDER'], 'temp_attendance.jpg')
+        image_saved = False
 
-        file = request.files['attendance_image']
-        if file.filename == '' or not allowed_file(file.filename):
-            return jsonify({'error': 'Invalid file type'}), 400
-            
+        if 'attendance_image' in request.files:
+            file = request.files['attendance_image']
+            if file and file.filename != '':
+                file.save(temp_path)
+                image_saved = True
+
+        if not image_saved:
+            b64_data = request.form.get('image_base64') or (request.json.get('image_base64') if request.is_json else None)
+            if b64_data:
+                import base64
+                if ',' in b64_data:
+                    b64_data = b64_data.split(',')[1]
+                with open(temp_path, 'wb') as f:
+                    f.write(base64.b64decode(b64_data))
+                image_saved = True
+
+        if not image_saved:
+            return jsonify({'error': 'No image provided. Please capture or upload a classroom photo.'}), 400
+
         try:
-            temp_path = os.path.join(app.config['UPLOAD_FOLDER'], 'temp_attendance.jpg')
-            file.save(temp_path)
-
             # Load image using face_recognition
             image = face_recognition.load_image_file(temp_path)
             
+            # Resize large images to prevent memory crashes
+            max_dimension = 1200
+            h, w = image.shape[:2]
+            if max(h, w) > max_dimension:
+                scale = max_dimension / max(h, w)
+                new_w, new_h = int(w * scale), int(h * scale)
+                import cv2
+                image = cv2.resize(image, (new_w, new_h))
+                print(f"DEBUG: Resized image from {w}x{h} to {new_w}x{new_h}")
+            
             # Find all faces using face_recognition HOG detector
-            face_locations = face_recognition.face_locations(
-                image,
-                model='hog'
-            )
+            try:
+                face_locations = face_recognition.face_locations(
+                    image,
+                    model='hog'
+                )
+            except Exception as face_err:
+                print(f"DEBUG: face_locations error: {face_err}")
+                return jsonify({'error': f'Face detection failed: {str(face_err)}'}), 500
                 
-            face_encodings = face_recognition.face_encodings(image, face_locations)
+            try:
+                face_encodings = face_recognition.face_encodings(image, face_locations)
+            except Exception as enc_err:
+                print(f"DEBUG: face_encodings error: {enc_err}")
+                return jsonify({'error': f'Face encoding failed: {str(enc_err)}'}), 500
 
             if not face_encodings:
-                return jsonify({'error': 'No faces detected'}), 400
+                return jsonify({'error': 'No faces detected in the photo. Please ensure students face the camera clearly.'}), 200
 
             students = Student.query.filter_by(class_id=int(class_id)).all()
             
@@ -884,7 +995,7 @@ def school_mark_attendance():
                         continue
 
             if not known_encodings:
-                return jsonify({'error': 'No registered faces found for this class'}), 400
+                return jsonify({'error': 'No registered face profiles found for students in this class.'}), 200
 
             recognized_students = []
 
@@ -1602,6 +1713,7 @@ def college_face_register():
     return render_template('college/face_register.html', students=students, classes=classes)
 
 @app.route('/college/mark-attendance', methods=['GET', 'POST'])
+@csrf.exempt
 @org_required(['college'])
 def college_mark_attendance():
     course_id = request.args.get('course_id')
@@ -1617,21 +1729,43 @@ def college_mark_attendance():
     if year: subj_query = subj_query.filter_by(study_year=year)
     subjects = subj_query.all()
     if request.method == 'POST':
-        class_id = request.form.get('class_id', '')
-        subject_id = request.form.get('subject_id', '')
+        class_id = request.form.get('class_id', '') or (request.json.get('class_id') if request.is_json else '')
+        subject_id = request.form.get('subject_id', '') or request.form.get('subject_name', '') or (request.json.get('subject_id') or request.json.get('subject_name') if request.is_json else '')
         if not class_id:
             return jsonify({'error': 'Class not selected'}), 400
-        if not subject_id:
-            return jsonify({'error': 'Subject not selected'}), 400
-        if 'attendance_image' not in request.files:
-            return jsonify({'error': 'No image provided'}), 400
-        file = request.files['attendance_image']
-        if file.filename == '' or not allowed_file(file.filename):
-            return jsonify({'error': 'Invalid file type'}), 400
-            
+        
+        subj_id_int = None
+        if subject_id:
+            if str(subject_id).isdigit():
+                subj_id_int = int(subject_id)
+            else:
+                s_obj = Subject.query.filter_by(name=str(subject_id), organization_id=session.get('org_id')).first()
+                if s_obj:
+                    subj_id_int = s_obj.id
+
+        temp_path = os.path.join(app.config['UPLOAD_FOLDER'], 'temp_attendance.jpg')
+        image_saved = False
+
+        if 'attendance_image' in request.files:
+            file = request.files['attendance_image']
+            if file and file.filename != '':
+                file.save(temp_path)
+                image_saved = True
+
+        if not image_saved:
+            b64_data = request.form.get('image_base64') or (request.json.get('image_base64') if request.is_json else None)
+            if b64_data:
+                import base64
+                if ',' in b64_data:
+                    b64_data = b64_data.split(',')[1]
+                with open(temp_path, 'wb') as f:
+                    f.write(base64.b64decode(b64_data))
+                image_saved = True
+
+        if not image_saved:
+            return jsonify({'error': 'No image provided. Please capture or upload a classroom photo.'}), 400
+
         try:
-            temp_path = os.path.join(app.config['UPLOAD_FOLDER'], 'temp_attendance.jpg')
-            file.save(temp_path)
             # Load image using face_recognition
             image = face_recognition.load_image_file(temp_path)
             
@@ -1685,11 +1819,15 @@ def college_mark_attendance():
                     
                     already_recognized = any(s['roll_number'] == best_match_student.roll_number for s in recognized_students)
                     if not already_recognized:
-                        existing = Attendance.query.filter_by(
-                            student_id=best_match_student.id, date=india_now().date(), subject_id=int(subject_id)).first()
+                        if subj_id_int:
+                            existing = Attendance.query.filter_by(
+                                student_id=best_match_student.id, date=india_now().date(), subject_id=subj_id_int).first()
+                        else:
+                            existing = Attendance.query.filter_by(
+                                student_id=best_match_student.id, date=india_now().date()).first()
                         if not existing:
                             attendance = Attendance(
-                                student_id=best_match_student.id, class_id=int(class_id), subject_id=int(subject_id),
+                                student_id=best_match_student.id, class_id=int(class_id), subject_id=subj_id_int,
                                 date=india_now().date(), time=india_now().time(),
                                 status='present')
                             db.session.add(attendance)
@@ -2421,6 +2559,7 @@ def institution_face_register():
     return render_template('institution/face_register.html', students=students, classes=classes)
 
 @app.route('/institution/mark-attendance', methods=['GET', 'POST'])
+@csrf.exempt
 @org_required(['institution'])
 def institution_mark_attendance():
     course_id = request.args.get('course_id')
@@ -2436,21 +2575,43 @@ def institution_mark_attendance():
     if year: subj_query = subj_query.filter_by(study_year=year)
     subjects = subj_query.all()
     if request.method == 'POST':
-        class_id = request.form.get('class_id', '')
-        subject_id = request.form.get('subject_id', '')
+        class_id = request.form.get('class_id', '') or (request.json.get('class_id') if request.is_json else '')
+        subject_id = request.form.get('subject_id', '') or request.form.get('subject_name', '') or (request.json.get('subject_id') or request.json.get('subject_name') if request.is_json else '')
         if not class_id:
             return jsonify({'error': 'Class not selected'}), 400
-        if not subject_id:
-            return jsonify({'error': 'Subject not selected'}), 400
-        if 'attendance_image' not in request.files:
-            return jsonify({'error': 'No image provided'}), 400
-        file = request.files['attendance_image']
-        if file.filename == '' or not allowed_file(file.filename):
-            return jsonify({'error': 'Invalid file type'}), 400
-            
+        
+        subj_id_int = None
+        if subject_id:
+            if str(subject_id).isdigit():
+                subj_id_int = int(subject_id)
+            else:
+                s_obj = Subject.query.filter_by(name=str(subject_id), organization_id=session.get('org_id')).first()
+                if s_obj:
+                    subj_id_int = s_obj.id
+
+        temp_path = os.path.join(app.config['UPLOAD_FOLDER'], 'temp_attendance.jpg')
+        image_saved = False
+
+        if 'attendance_image' in request.files:
+            file = request.files['attendance_image']
+            if file and file.filename != '':
+                file.save(temp_path)
+                image_saved = True
+
+        if not image_saved:
+            b64_data = request.form.get('image_base64') or (request.json.get('image_base64') if request.is_json else None)
+            if b64_data:
+                import base64
+                if ',' in b64_data:
+                    b64_data = b64_data.split(',')[1]
+                with open(temp_path, 'wb') as f:
+                    f.write(base64.b64decode(b64_data))
+                image_saved = True
+
+        if not image_saved:
+            return jsonify({'error': 'No image provided. Please capture or upload a classroom photo.'}), 400
+
         try:
-            temp_path = os.path.join(app.config['UPLOAD_FOLDER'], 'temp_attendance.jpg')
-            file.save(temp_path)
             # Load image using face_recognition
             image = face_recognition.load_image_file(temp_path)
             
@@ -2504,11 +2665,15 @@ def institution_mark_attendance():
                     
                     already_recognized = any(s['roll_number'] == best_match_student.roll_number for s in recognized_students)
                     if not already_recognized:
-                        existing = Attendance.query.filter_by(
-                            student_id=best_match_student.id, date=india_now().date(), subject_id=int(subject_id)).first()
+                        if subj_id_int:
+                            existing = Attendance.query.filter_by(
+                                student_id=best_match_student.id, date=india_now().date(), subject_id=subj_id_int).first()
+                        else:
+                            existing = Attendance.query.filter_by(
+                                student_id=best_match_student.id, date=india_now().date()).first()
                         if not existing:
                             attendance = Attendance(
-                                student_id=best_match_student.id, class_id=int(class_id), subject_id=int(subject_id),
+                                student_id=best_match_student.id, class_id=int(class_id), subject_id=subj_id_int,
                                 date=india_now().date(), time=india_now().time(),
                                 status='present')
                             db.session.add(attendance)
@@ -3374,6 +3539,49 @@ def capture_cctv():
         })
     except Exception as e:
         return jsonify({'error': f'Error accessing camera: {str(e)}'}), 500
+
+@app.route('/api/timetable/current-subject/<int:class_id>', methods=['GET'])
+def get_current_timetable_subject(class_id):
+    now = india_now()
+    day_name = now.strftime('%A')
+    current_time_str = now.strftime('%H:%M')
+    
+    slots = Timetable.query.filter_by(class_id=class_id, day_of_week=day_name).all()
+    active_subject = None
+    matched_slot = None
+    
+    for slot in slots:
+        if slot.start_time and slot.end_time:
+            st = slot.start_time.strip()
+            et = slot.end_time.strip()
+            if len(st) == 4 and ':' in st: st = '0' + st
+            if len(et) == 4 and ':' in et: et = '0' + et
+            if st <= current_time_str <= et:
+                active_subject = slot.subject_name
+                matched_slot = {
+                    'id': slot.id,
+                    'subject_name': slot.subject_name,
+                    'start_time': slot.start_time,
+                    'end_time': slot.end_time,
+                    'room': slot.room,
+                    'faculty': slot.faculty
+                }
+                break
+                
+    if not active_subject and slots:
+        active_subject = slots[0].subject_name
+
+    all_class_slots = Timetable.query.filter_by(class_id=class_id).all()
+    subject_list = list(set([s.subject_name for s in all_class_slots if s.subject_name]))
+    
+    return jsonify({
+        'success': True,
+        'day': day_name,
+        'current_time': current_time_str,
+        'active_subject': active_subject or '',
+        'matched_slot': matched_slot,
+        'all_subjects': subject_list
+    })
 
 @app.route('/logout')
 def logout():

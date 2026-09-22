@@ -55,9 +55,9 @@ python -m venv venv
 source venv/bin/activate
 
 # 3. Install dependencies
-# Note: You may need CMake and C++ build tools installed for dlib
+# Note: You may need CMake and C++ build tools installed for dlib. Also, OpenCV (`opencv-python`) is required for image resizing.
 pip install -r requirements.txt
-
+# OpenCV will be installed via requirements.txt or you can run `pip install opencv-python` separately
 # 4. Environment Configuration
 cp .env.template .env
 # Edit .env with your SMTP (Email) credentials and Fast2SMS API key

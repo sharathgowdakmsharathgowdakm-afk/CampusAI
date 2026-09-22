@@ -3,7 +3,6 @@
 {% block navbar_title %}Dashboard{% endblock %}
 
 {% block extra_css %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
     .welcome-banner {
         background: linear-gradient(135deg, rgba(108, 92, 231, 0.15) 0%, rgba(162, 155, 254, 0.08) 50%, rgba(116, 185, 255, 0.1) 100%);
@@ -153,20 +152,7 @@
         flex: 1;
     }
     .action-card .btn { font-size: 0.82rem; }
-    .chart-card {
-        background: var(--glass-bg);
-        backdrop-filter: var(--glass-blur);
-        border: var(--glass-border);
-        border-radius: var(--radius-lg);
-        padding: 24px;
-        margin-bottom: 20px;
-    }
-    .chart-card h6 {
-        font-size: 0.85rem;
-        font-weight: 700;
-        color: var(--text-primary);
-        margin-bottom: 16px;
-    }
+
 
     @media (max-width: 992px) {
         .kpi-grid { grid-template-columns: repeat(2, 1fr); }
@@ -185,11 +171,8 @@
     <div class="welcome-subtitle">Here's what's happening with your campus today.</div>
     <div class="course-badge">
         <i class="fas fa-graduation-cap"></i>
-        {{ course.name }} | {{ year }}
+        School Dashboard
     </div>
-    <a href="/school/dashboard?change=1" class="btn btn-sm btn-outline-primary ms-2" style="border-radius:50px; font-size:0.78rem;">
-        <i class="fas fa-edit me-1"></i>Change
-    </a>
 </div>
 
 <!-- KPI Cards -->
@@ -216,21 +199,6 @@
     </div>
 </div>
 
-<!-- Charts Row -->
-<div class="row mb-4">
-    <div class="col-lg-8">
-        <div class="chart-card">
-            <h6><i class="fas fa-chart-area me-2 text-gradient"></i>Weekly Attendance Trend</h6>
-            <canvas id="attendanceChart" height="200"></canvas>
-        </div>
-    </div>
-    <div class="col-lg-4">
-        <div class="chart-card" style="height: calc(100% - 20px);">
-            <h6><i class="fas fa-chart-doughnut me-2 text-gradient"></i>Student Distribution</h6>
-            <canvas id="distributionChart"></canvas>
-        </div>
-    </div>
-</div>
 
 <!-- Quick Actions -->
 <h5 style="font-weight: 700; color: var(--text-primary); margin-bottom: 16px; font-size: 1rem;">
@@ -317,88 +285,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Attendance Trend Chart
-    const attCtx = document.getElementById('attendanceChart');
-    if (attCtx) {
-        const gradient = attCtx.getContext('2d').createLinearGradient(0, 0, 0, 250);
-        gradient.addColorStop(0, 'rgba(108, 92, 231, 0.3)');
-        gradient.addColorStop(1, 'rgba(108, 92, 231, 0.02)');
 
-        new Chart(attCtx, {
-            type: 'line',
-            data: {
-                labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-                datasets: [{
-                    label: 'Attendance',
-                    data: [{{ today_attendance }}, {{ (today_attendance * 0.95)|int }}, {{ (today_attendance * 1.02)|int }}, {{ (today_attendance * 0.88)|int }}, {{ today_attendance }}, {{ (today_attendance * 0.7)|int }}, 0],
-                    borderColor: '#6c5ce7',
-                    backgroundColor: gradient,
-                    fill: true,
-                    tension: 0.4,
-                    borderWidth: 2,
-                    pointBackgroundColor: '#6c5ce7',
-                    pointBorderColor: '#fff',
-                    pointBorderWidth: 2,
-                    pointRadius: 4,
-                    pointHoverRadius: 6
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false }
-                },
-                scales: {
-                    x: {
-                        grid: { color: 'rgba(255,255,255,0.04)' },
-                        ticks: { color: '#5a5a7a', font: { family: 'Inter', size: 11 } }
-                    },
-                    y: {
-                        grid: { color: 'rgba(255,255,255,0.04)' },
-                        ticks: { color: '#5a5a7a', font: { family: 'Inter', size: 11 } },
-                        beginAtZero: true
-                    }
-                }
-            }
-        });
-    }
-
-    // Distribution Chart
-    const distCtx = document.getElementById('distributionChart');
-    if (distCtx) {
-        new Chart(distCtx, {
-            type: 'doughnut',
-            data: {
-                labels: ['Present', 'Absent'],
-                datasets: [{
-                    data: [{{ today_attendance }}, Math.max({{ total_students }} - {{ today_attendance }}, 0)],
-                    backgroundColor: ['rgba(0, 184, 148, 0.8)', 'rgba(225, 112, 85, 0.6)'],
-                    borderColor: ['rgba(0, 184, 148, 1)', 'rgba(225, 112, 85, 1)'],
-                    borderWidth: 1,
-                    hoverOffset: 8
-                }]
-            },
-            options: {
-                responsive: true,
-                cutout: '65%',
-                plugins: {
-                    legend: {
-                        position: 'bottom',
-                        labels: {
-                            color: '#8b8ba7',
-                            font: { family: 'Inter', size: 11 },
-                            padding: 16,
-                            usePointStyle: true,
-                            pointStyleWidth: 8
-                        }
-                    }
-                }
-            }
-        });
-    }
-});
-</script>
 {% endblock %}

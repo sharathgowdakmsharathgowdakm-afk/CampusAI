@@ -801,7 +801,7 @@ def create_assignment():
             dest = os.path.join('uploads', 'assignments', fn)
             os.makedirs(os.path.join('uploads', 'assignments'), exist_ok=True)
             file.save(dest)
-            file_path = dest
+            file_path = dest.replace('\\', '/')
 
     deadline = None
     if request.form.get('deadline'):
@@ -870,7 +870,7 @@ def submit_assignment(asgn_id):
             dest = os.path.join('uploads', 'submissions', fn)
             os.makedirs(os.path.join('uploads', 'submissions'), exist_ok=True)
             file.save(dest)
-            file_path = dest
+            file_path = dest.replace('\\', '/')
 
     from app import Assignment
     asgn = Assignment.query.get(asgn_id)
@@ -933,7 +933,7 @@ def lms_upload():
             dest = os.path.join('uploads', 'lms', fn)
             os.makedirs(os.path.join('uploads', 'lms'), exist_ok=True)
             file.save(dest)
-            file_path = dest
+            file_path = dest.replace('\\', '/')
 
     content = LMSContent(
         title=request.form['title'],
