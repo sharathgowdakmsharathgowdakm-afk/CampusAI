@@ -499,9 +499,25 @@ def splash():
 
 @app.route('/uploads/<path:filename>')
 def serve_uploads(filename):
-    # Handle backslashes in filename if generated on Windows
     filename = filename.replace('\\', '/')
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
+    # Check the current app uploads folder first
+    app_uploads = os.path.abspath(app.config['UPLOAD_FOLDER'])
+    requested_file = os.path.join(app_uploads, filename)
+
+    if os.path.isfile(requested_file):
+        return send_from_directory(app_uploads, filename)
+
+    # Also support older files stored outside the CampusAI folder
+    parent_uploads = os.path.abspath(
+        os.path.join(app.root_path, '..', 'uploads')
+    )
+    requested_file = os.path.join(parent_uploads, filename)
+
+    if os.path.isfile(requested_file):
+        return send_from_directory(parent_uploads, filename)
+
+    return "File not found", 404
 
 @app.route('/login', methods=['GET', 'POST'])
 @limiter.limit("10 per minute")
