@@ -44,6 +44,17 @@
 
     <hr class="my-4" />
 
+
+    <!-- Fixed 100m Detection Range Badge -->
+    <div class="d-flex align-items-center gap-2 mb-4 px-1">
+      <span class="badge rounded-pill px-3 py-2 fw-semibold" style="background:linear-gradient(135deg,#6c5ce7,#00b894);font-size:0.82rem;">
+        <i class="fas fa-satellite-dish me-1"></i>Face Detection: 100 Meters
+      </span>
+      <small class="text-muted">Extended range active — detects all students up to 100m away.</small>
+    </div>
+
+
+
     <!-- Step 2: Choose Source (Upload vs Live Camera) -->
     <div class="d-flex justify-content-center mb-4">
       <div class="method-toggle btn-group" role="group" aria-label="Capture mode">
@@ -117,6 +128,11 @@
       <!-- Live Video Feed (for Local Camera) -->
       <div id="videoZoomWrapper" class="video-wrapper position-relative mx-auto rounded-3 shadow">
         <div id="cameraFlash" class="camera-flash"></div>
+        <!-- Distance Range HUD Badge -->
+        <div id="cameraRangeHUD" class="position-absolute top-0 start-0 m-2 px-3 py-1 rounded-pill text-white small fw-bold"
+          style="background:rgba(15, 23, 42, 0.75); backdrop-filter:blur(6px); z-index:3; border:1px solid rgba(255,255,255,0.25);">
+          <i class="fas fa-satellite-dish text-info me-1"></i>Range: <span id="hudDistanceVal" class="text-warning">50m</span>
+        </div>
         <video id="videoFeed" class="w-100 rounded-3" autoplay playsinline></video>
         <div class="zoom-controls position-absolute top-0 end-0 m-2 p-2 d-flex flex-column align-items-center shadow-sm">
           <button type="button" id="zoomInBtn" class="btn btn-sm btn-light mb-1" title="Zoom In"><i class="fas fa-search-plus"></i></button>

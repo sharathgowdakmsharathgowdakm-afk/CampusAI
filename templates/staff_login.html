@@ -3,104 +3,352 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Staff Login - CampusAI App</title>
+    <title>Staff & Role-Based Login - CampusAI</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: 'Inter', sans-serif;
             min-height: 100vh;
-            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-            display: flex; align-items: center; justify-content: center;
+            background: radial-gradient(circle at 10% 20%, #1e3c72 0%, #2a5298 50%, #0f1b33 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
             padding: 30px 16px;
+            color: #fff;
         }
 
-        .card-wrap { width:100%; max-width:440px; }
+        .card-wrap {
+            width: 100%;
+            max-width: 480px;
+        }
+
         .glass-card {
-            background: rgba(255,255,255,0.08);
-            backdrop-filter: blur(18px);
-            -webkit-backdrop-filter: blur(18px);
-            border: 1px solid rgba(255,255,255,0.18);
+            background: rgba(255, 255, 255, 0.07);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.16);
             border-radius: 24px;
             overflow: hidden;
-            box-shadow: 0 25px 60px rgba(0,0,0,0.5);
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.55), 0 0 40px rgba(42, 82, 152, 0.2);
             animation: fadeUp .5s ease both;
         }
+
         @keyframes fadeUp {
-            from { opacity:0; transform: translateY(30px); }
-            to   { opacity:1; transform: translateY(0); }
+            from { opacity: 0; transform: translateY(30px); }
+            to   { opacity: 1; transform: translateY(0); }
         }
 
         .card-header-custom {
-            background: linear-gradient(135deg, #1e3c72, #2a5298);
-            padding: 36px 32px 28px; text-align: center;
+            background: linear-gradient(135deg, rgba(30, 60, 114, 0.95), rgba(42, 82, 152, 0.95));
+            padding: 32px 28px 24px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+            position: relative;
         }
+
         .icon-ring {
-            width:68px; height:68px; border-radius:50%;
-            background: rgba(255,255,255,0.2);
-            border: 2px solid rgba(255,255,255,0.35);
-            display: flex; align-items:center; justify-content:center;
-            font-size:28px; color:white; margin: 0 auto 14px;
+            width: 68px;
+            height: 68px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.15);
+            border: 2px solid rgba(255, 255, 255, 0.35);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            color: white;
+            margin: 0 auto 14px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
         }
-        .card-header-custom h2 { color:#fff; font-weight:800; font-size:1.6rem; margin-bottom:4px; }
-        .card-header-custom p  { color:rgba(255,255,255,0.75); font-size:.9rem; }
 
-        .card-body-custom { padding:36px 32px 24px; }
+        .card-header-custom h2 {
+            color: #fff;
+            font-weight: 800;
+            font-size: 1.55rem;
+            margin-bottom: 4px;
+            letter-spacing: -0.02em;
+        }
 
-        .form-group-custom { margin-bottom: 22px; }
+        .card-header-custom p {
+            color: rgba(255, 255, 255, 0.78);
+            font-size: 0.88rem;
+            margin: 0;
+        }
+
+        .card-body-custom {
+            padding: 28px 28px 22px;
+        }
+
+        /* Segmented control for Organization */
+        .selector-label {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        .segmented-group {
+            display: flex;
+            background: rgba(0, 0, 0, 0.25);
+            padding: 4px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 20px;
+            gap: 4px;
+        }
+
+        .segmented-btn {
+            flex: 1;
+            padding: 9px 8px;
+            border: none;
+            background: transparent;
+            color: rgba(255, 255, 255, 0.7);
+            border-radius: 9px;
+            font-size: 0.83rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .segmented-btn:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .segmented-btn.active {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: #fff;
+            box-shadow: 0 4px 14px rgba(102, 126, 234, 0.45);
+        }
+
+        /* Role Selector Pills */
+        .role-group {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 22px;
+        }
+
+        .role-group.two-roles {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .role-card {
+            border: 1.5px solid rgba(255, 255, 255, 0.14);
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 10px 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            position: relative;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .role-card:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.28);
+            transform: translateY(-1px);
+        }
+
+        .role-card.active {
+            background: linear-gradient(135deg, rgba(79, 172, 254, 0.25), rgba(0, 242, 254, 0.15));
+            border-color: #00f2fe;
+            color: #fff;
+            box-shadow: 0 0 16px rgba(0, 242, 254, 0.35);
+        }
+
+        .role-card i {
+            font-size: 1.25rem;
+            display: block;
+            margin-bottom: 5px;
+            color: #4facfe;
+        }
+
+        .role-card.active i {
+            color: #00f2fe;
+        }
+
+        .role-card .role-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            display: block;
+        }
+
+        .role-card .role-sub {
+            font-size: 0.68rem;
+            opacity: 0.68;
+            margin-top: 2px;
+            display: block;
+        }
+
+        .role-tag-badge {
+            position: absolute;
+            top: -6px;
+            right: 6px;
+            background: #ff7675;
+            color: white;
+            font-size: 0.58rem;
+            font-weight: 700;
+            padding: 1px 5px;
+            border-radius: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .role-tag-badge.college-only {
+            background: linear-gradient(135deg, #f0932b, #ff7979);
+        }
+
+        /* Informational note for school vs college/institution */
+        .org-role-hint {
+            font-size: 0.76rem;
+            color: rgba(255, 255, 255, 0.65);
+            background: rgba(0, 0, 0, 0.2);
+            padding: 7px 12px;
+            border-radius: 8px;
+            margin-bottom: 18px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-left: 3px solid #00f2fe;
+        }
+
+        .form-group-custom {
+            margin-bottom: 20px;
+        }
+
         .form-label-dark {
-            display:block; color:rgba(255,255,255,0.65);
-            font-size:.8rem; font-weight:600; margin-bottom:7px; letter-spacing:.04em;
+            display: block;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 7px;
+            letter-spacing: 0.04em;
         }
-        .input-wrap { position:relative; }
+
+        .input-wrap {
+            position: relative;
+        }
+
         .input-icon {
-            position:absolute; left:14px; top:50%; transform:translateY(-50%);
-            color:rgba(255,255,255,0.35); font-size:.9rem; pointer-events:none;
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 0.95rem;
+            pointer-events: none;
         }
+
         .form-control-dark {
-            background: rgba(255,255,255,0.07);
-            border: 1.5px solid rgba(255,255,255,0.18);
-            border-radius: 10px; color:#fff;
-            padding: 12px 14px 12px 42px;
-            font-size:.93rem; width:100%;
-            transition: border-color .25s, box-shadow .25s;
+            background: rgba(255, 255, 255, 0.07);
+            border: 1.5px solid rgba(255, 255, 255, 0.18);
+            border-radius: 12px;
+            color: #fff;
+            padding: 13px 14px 13px 44px;
+            font-size: 0.93rem;
+            width: 100%;
+            transition: all 0.25s ease;
         }
+
         .form-control-dark:focus {
-            outline:none; border-color:#a78bfa;
-            box-shadow: 0 0 0 3px rgba(167,139,250,0.25);
-            background: rgba(255,255,255,0.1); color:#fff;
+            outline: none;
+            border-color: #00f2fe;
+            box-shadow: 0 0 0 3px rgba(0, 242, 254, 0.25);
+            background: rgba(255, 255, 255, 0.12);
+            color: #fff;
         }
-        .form-control-dark::placeholder { color:rgba(255,255,255,0.3); }
+
+        .form-control-dark::placeholder {
+            color: rgba(255, 255, 255, 0.35);
+        }
 
         .pw-toggle {
-            position:absolute; right:12px; top:50%; transform:translateY(-50%);
-            background:none; border:none; color:rgba(255,255,255,0.35);
-            cursor:pointer; font-size:.9rem; padding:0;
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.4);
+            cursor: pointer;
+            font-size: 0.95rem;
+            padding: 0;
+            transition: color 0.2s;
         }
-        .pw-toggle:hover { color:#a78bfa; }
+
+        .pw-toggle:hover {
+            color: #00f2fe;
+        }
 
         .btn-submit {
-            width:100%; padding:14px;
-            background: linear-gradient(135deg, #1e3c72, #2a5298);
-            border:none; border-radius:10px; color:#fff;
-            font-weight:700; font-size:1rem; cursor:pointer;
-            transition: transform .2s, box-shadow .2s; margin-top:4px;
+            width: 100%;
+            padding: 13px;
+            background: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%);
+            border: none;
+            border-radius: 12px;
+            color: #fff;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: transform .2s, box-shadow .2s;
+            margin-top: 6px;
+            box-shadow: 0 6px 20px rgba(0, 114, 255, 0.35);
         }
-        .btn-submit:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(30,60,114,0.45); }
+
+        .btn-submit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 114, 255, 0.5);
+        }
 
         .card-footer-custom {
-            text-align:center; padding:18px 32px;
-            border-top:1px solid rgba(255,255,255,0.1);
+            text-align: center;
+            padding: 18px 28px;
+            background: rgba(0, 0, 0, 0.18);
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
         }
-        .card-footer-custom p { color:rgba(255,255,255,0.5); font-size:.88rem; margin-bottom:6px; }
-        .card-footer-custom a { color:#a78bfa; text-decoration:none; font-weight:600; }
-        .card-footer-custom a:hover { text-decoration:underline; }
 
-        .alert { border-radius:10px; border:none; font-size:.9rem; }
-        .alert-danger  { background:rgba(239,68,68,.18); color:#fca5a5; }
-        .alert-success { background:rgba(34,197,94,.18); color:#86efac; }
+        .card-footer-custom p {
+            color: rgba(255, 255, 255, 0.55);
+            font-size: 0.86rem;
+            margin-bottom: 6px;
+        }
+
+        .card-footer-custom a {
+            color: #00f2fe;
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.2s;
+        }
+
+        .card-footer-custom a:hover {
+            color: #ffffff;
+            text-decoration: underline;
+        }
+
+        .alert {
+            border-radius: 12px;
+            border: none;
+            font-size: 0.88rem;
+        }
+
+        .alert-danger  { background: rgba(239, 68, 68, 0.25); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.3); }
+        .alert-success { background: rgba(34, 197, 94, 0.25); color: #86efac; border: 1px solid rgba(34, 197, 94, 0.3); }
+        .alert-warning { background: rgba(245, 158, 11, 0.25); color: #fde68a; border: 1px solid rgba(245, 158, 11, 0.3); }
     </style>
 </head>
 <body>
@@ -108,9 +356,11 @@
     <div class="glass-card">
 
         <div class="card-header-custom">
-            <div class="icon-ring"><i class="fas fa-user-tie"></i></div>
-            <h2>Staff Login</h2>
-            <p>Access your organization dashboard</p>
+            <div class="icon-ring" id="headerIconRing">
+                <i class="fas fa-user-tie" id="headerIcon"></i>
+            </div>
+            <h2 id="headerTitle">Staff & Faculty Login</h2>
+            <p id="headerSubtitle">Role-based access portal for educational organizations</p>
         </div>
 
         <div class="card-body-custom">
@@ -126,15 +376,72 @@
                 {% endif %}
             {% endwith %}
 
-            <form method="POST" novalidate>
+            <form method="POST" id="staffLoginForm" novalidate>
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                
+                <!-- Hidden inputs for active selections -->
+                <input type="hidden" name="org_type" id="orgTypeInput" value="college">
+                <input type="hidden" name="role" id="roleInput" value="staff">
 
+                <!-- 1. Organization Type Selector -->
+                <div class="selector-label">
+                    <span>1. Select Organization</span>
+                    <span id="orgBadgeText" class="badge bg-primary" style="font-size:0.7rem; font-weight:600;">College</span>
+                </div>
+                <div class="segmented-group">
+                    <button type="button" class="segmented-btn" data-org="school" onclick="selectOrgType('school')">
+                        <i class="fas fa-school"></i> School
+                    </button>
+                    <button type="button" class="segmented-btn active" data-org="college" onclick="selectOrgType('college')">
+                        <i class="fas fa-graduation-cap"></i> College
+                    </button>
+                    <button type="button" class="segmented-btn" data-org="institution" onclick="selectOrgType('institution')">
+                        <i class="fas fa-university"></i> Institution
+                    </button>
+                </div>
+
+                <!-- 2. Dynamic Role Selector -->
+                <div class="selector-label">
+                    <span>2. Select Role</span>
+                    <span id="roleBadgeText" class="badge bg-info" style="font-size:0.7rem; font-weight:600;">Staff</span>
+                </div>
+                <div class="role-group" id="roleGroupContainer">
+                    <!-- Admin Role -->
+                    <div class="role-card" id="cardRoleAdmin" onclick="selectRole('admin')">
+                        <i class="fas fa-crown"></i>
+                        <span class="role-title">Admin</span>
+                        <span class="role-sub">Principal / Dean</span>
+                    </div>
+
+                    <!-- HOD Role (Only for College & Institution) -->
+                    <div class="role-card" id="cardRoleHod" onclick="selectRole('hod')">
+                        <span class="role-tag-badge college-only">College/Inst</span>
+                        <i class="fas fa-id-badge"></i>
+                        <span class="role-title">HOD</span>
+                        <span class="role-sub">Head of Dept</span>
+                    </div>
+
+                    <!-- Staff Role -->
+                    <div class="role-card active" id="cardRoleStaff" onclick="selectRole('staff')">
+                        <i class="fas fa-chalkboard-teacher"></i>
+                        <span class="role-title">Staff</span>
+                        <span class="role-sub">Faculty / Teacher</span>
+                    </div>
+                </div>
+
+                <!-- Informational hint -->
+                <div class="org-role-hint" id="roleHintBox">
+                    <i class="fas fa-info-circle text-info"></i>
+                    <span id="roleHintText">College & Institution members can sign in as <strong>Admin, HOD, or Staff</strong>.</span>
+                </div>
+
+                <!-- 3. Credentials Input -->
                 <div class="form-group-custom">
-                    <label class="form-label-dark">Email / Mobile</label>
+                    <label class="form-label-dark" id="identifierLabel">Email / Mobile / Username</label>
                     <div class="input-wrap">
-                        <i class="fas fa-envelope input-icon"></i>
-                        <input type="text" name="email" class="form-control-dark"
-                               placeholder="Enter email or mobile" required autofocus>
+                        <i class="fas fa-envelope input-icon" id="identifierIcon"></i>
+                        <input type="text" name="email" id="emailInput" class="form-control-dark"
+                               placeholder="Enter your email or phone number" required autofocus>
                     </div>
                 </div>
 
@@ -144,26 +451,150 @@
                         <i class="fas fa-lock input-icon"></i>
                         <input type="password" name="password" id="pw" class="form-control-dark"
                                placeholder="Enter your password" required>
-                        <button type="button" class="pw-toggle" onclick="togglePw()"><i class="fas fa-eye" id="eyeIcon"></i></button>
+                        <button type="button" class="pw-toggle" onclick="togglePw()">
+                            <i class="fas fa-eye" id="eyeIcon"></i>
+                        </button>
                     </div>
                 </div>
 
-                <button type="submit" class="btn-submit">
-                    <i class="fas fa-sign-in-alt me-2"></i>Login
+                <button type="submit" class="btn-submit" id="submitBtn">
+                    <i class="fas fa-sign-in-alt me-2"></i><span id="submitBtnText">Sign In to Dashboard</span>
                 </button>
             </form>
         </div>
 
         <div class="card-footer-custom">
-            <p>Forgot password? <a href="/forgot-password">Recover via OTP</a></p>
-            <p>Don't have an account? <a href="/staff/register">Register here</a></p>
-            <p><a href="/login"><i class="fas fa-arrow-left me-1"></i> Admin Login</a></p>
+            <p>Forgot your login credentials? <a href="/forgot-password">Recover via OTP</a></p>
+            <p>New staff member? <a href="/staff/register">Register staff account</a></p>
+            <p class="mt-2">
+                <a href="/login" class="me-3"><i class="fas fa-shield-alt me-1"></i> Main Portal Login</a>
+                <a href="/student/login"><i class="fas fa-user-graduate me-1"></i> Student Portal</a>
+            </p>
         </div>
     </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+    // State management
+    let currentOrg = 'college';
+    let currentRole = 'staff';
+
+    // Parse URL search parameters on page load if provided
+    window.addEventListener('DOMContentLoaded', () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const orgParam = urlParams.get('org_type');
+        const roleParam = urlParams.get('role');
+
+        if (orgParam && ['school', 'college', 'institution'].includes(orgParam.toLowerCase())) {
+            currentOrg = orgParam.toLowerCase();
+        }
+
+        if (roleParam && ['admin', 'hod', 'staff'].includes(roleParam.toLowerCase())) {
+            // If school and requested HOD, revert to staff
+            if (currentOrg === 'school' && roleParam.toLowerCase() === 'hod') {
+                currentRole = 'staff';
+            } else {
+                currentRole = roleParam.toLowerCase();
+            }
+        }
+
+        updateUI();
+    });
+
+    function selectOrgType(org) {
+        currentOrg = org;
+        
+        // If school is selected and current role is HOD, reset role to staff
+        if (currentOrg === 'school' && currentRole === 'hod') {
+            currentRole = 'staff';
+        }
+        updateUI();
+    }
+
+    function selectRole(role) {
+        // Prevent selecting HOD for school
+        if (currentOrg === 'school' && role === 'hod') {
+            alert('HOD role is only available for College and Institutions.');
+            return;
+        }
+        currentRole = role;
+        updateUI();
+    }
+
+    function updateUI() {
+        // 1. Update Org Type Segmented Buttons
+        document.querySelectorAll('.segmented-btn').forEach(btn => {
+            if (btn.getAttribute('data-org') === currentOrg) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+        document.getElementById('orgTypeInput').value = currentOrg;
+        document.getElementById('orgBadgeText').textContent = currentOrg.charAt(0).toUpperCase() + currentOrg.slice(1);
+
+        // 2. Control HOD Role Card Visibility for College/Institution vs School
+        const hodCard = document.getElementById('cardRoleHod');
+        const roleContainer = document.getElementById('roleGroupContainer');
+        const hintText = document.getElementById('roleHintText');
+        const hintBox = document.getElementById('roleHintBox');
+
+        if (currentOrg === 'school') {
+            // Hide HOD for school
+            hodCard.style.display = 'none';
+            roleContainer.classList.add('two-roles');
+            hintText.innerHTML = '<i class="fas fa-info-circle me-1"></i> School organizations support <strong>Admin</strong> & <strong>Staff</strong> roles. <em>HOD role is only for College and Institutions.</em>';
+            hintBox.style.borderLeftColor = '#f59e0b';
+        } else {
+            // Show HOD for College and Institution
+            hodCard.style.display = 'block';
+            roleContainer.classList.remove('two-roles');
+            hintText.innerHTML = '<i class="fas fa-check-circle text-success me-1"></i> ' + (currentOrg === 'college' ? 'College' : 'Institution') + ' supports role-based login: <strong>Admin</strong>, <strong>HOD</strong> (Head of Dept), and <strong>Staff</strong>.';
+            hintBox.style.borderLeftColor = '#00f2fe';
+        }
+
+        // 3. Update Role Active Cards
+        document.getElementById('cardRoleAdmin').classList.toggle('active', currentRole === 'admin');
+        document.getElementById('cardRoleHod').classList.toggle('active', currentRole === 'hod');
+        document.getElementById('cardRoleStaff').classList.toggle('active', currentRole === 'staff');
+        document.getElementById('roleInput').value = currentRole;
+        document.getElementById('roleBadgeText').textContent = currentRole.toUpperCase();
+
+        // 4. Update Header Icon, Title & Button
+        const headerIcon = document.getElementById('headerIcon');
+        const headerTitle = document.getElementById('headerTitle');
+        const headerSubtitle = document.getElementById('headerSubtitle');
+        const identifierLabel = document.getElementById('identifierLabel');
+        const emailInput = document.getElementById('emailInput');
+        const submitBtnText = document.getElementById('submitBtnText');
+
+        const orgNameCap = currentOrg.charAt(0).toUpperCase() + currentOrg.slice(1);
+
+        if (currentRole === 'hod') {
+            headerIcon.className = 'fas fa-id-badge';
+            headerTitle.textContent = 'HOD Portal Login';
+            headerSubtitle.textContent = `Head of Department Access • ${orgNameCap}`;
+            identifierLabel.textContent = 'HOD Email or Mobile';
+            emailInput.placeholder = 'Enter registered HOD email or mobile';
+            submitBtnText.textContent = 'Sign In as Head of Dept';
+        } else if (currentRole === 'admin') {
+            headerIcon.className = 'fas fa-crown';
+            headerTitle.textContent = `${orgNameCap} Admin Login`;
+            headerSubtitle.textContent = `Administrative Control Access • ${orgNameCap}`;
+            identifierLabel.textContent = 'Admin Username or Email';
+            emailInput.placeholder = 'Enter admin username or email';
+            submitBtnText.textContent = 'Sign In as Administrator';
+        } else {
+            headerIcon.className = 'fas fa-chalkboard-teacher';
+            headerTitle.textContent = `${orgNameCap} Staff Login`;
+            headerSubtitle.textContent = `Faculty & Teaching Staff Access • ${orgNameCap}`;
+            identifierLabel.textContent = 'Staff Email or Mobile';
+            emailInput.placeholder = 'Enter staff email or mobile number';
+            submitBtnText.textContent = 'Sign In to Staff Dashboard';
+        }
+    }
+
     function togglePw() {
         const input = document.getElementById('pw');
         const icon = document.getElementById('eyeIcon');

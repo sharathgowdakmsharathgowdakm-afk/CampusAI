@@ -5,7 +5,8 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/face_register.css') }}">
 <!-- Select2 CSS -->
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-<link href="https://cdn.jsdelivr.net/npm/@ttskch/select2-bootstrap4-theme@1.5.2/dist/select2-bootstrap4.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/@ttskch/select2-bootstrap4-theme@1.5.2/dist/select2-bootstrap4.min.css"
+  rel="stylesheet" />
 {% endblock %}
 
 {% block content %}
@@ -24,7 +25,8 @@
         <select id="classSelect" class="form-select searchable-select" name="class_id" required>
           <option value="">Choose class...</option>
           {% for class in classes %}
-          <option value="{{ class.id }}" {% if preselected_class == class.id|string %}selected{% endif %}>{{ class.name }} ({{ class.academic_year }})</option>
+          <option value="{{ class.id }}" {% if preselected_class==class.id|string %}selected{% endif %}>{{ class.name }}
+            ({{ class.academic_year }})</option>
           {% endfor %}
         </select>
       </div>
@@ -32,13 +34,23 @@
         <label for="subjectInput" class="form-label fw-bold">Subject Name</label>
         <div class="input-group">
           <span class="input-group-text"><i class="fas fa-book"></i></span>
-          <input type="text" id="subjectInput" class="form-control" placeholder="Subject name (auto-filled from Timetable if available)">
+          <input type="text" id="subjectInput" class="form-control"
+            placeholder="Subject name (auto-filled from Timetable if available)">
         </div>
-        <small class="text-muted"><i class="fas fa-info-circle me-1"></i>Auto-detected from current day timetable schedule, or type manually.</small>
+        <small class="text-muted"><i class="fas fa-info-circle me-1"></i>Auto-detected from current day timetable
+          schedule, or type manually.</small>
       </div>
     </div>
 
     <hr class="my-4" />
+
+    <!-- Fixed 100m Detection Range Badge -->
+    <div class="d-flex align-items-center gap-2 mb-4 px-1">
+      <span class="badge rounded-pill px-3 py-2 fw-semibold" style="background:linear-gradient(135deg,#6c5ce7,#00b894);font-size:0.82rem;">
+        <i class="fas fa-satellite-dish me-1"></i>Face Detection: 100 Meters
+      </span>
+      <small class="text-muted">Extended range active — detects all students up to 100m away.</small>
+    </div>
 
     <!-- Step 2: Choose Source (Upload vs Live Camera) -->
     <div class="d-flex justify-content-center mb-4">
@@ -60,9 +72,10 @@
         <small class="text-muted">Upload a clear classroom photo (JPG/PNG format)</small>
       </div>
       <input type="file" id="fileInput" accept="image/*" style="display:none;" />
-      
+
       <div id="uploadPreviewBox" class="preview-box mt-3 text-center" style="display:none;">
-        <img id="uploadPreviewImg" src="" alt="Selected Image" class="img-fluid rounded-3 shadow-sm" style="max-height:360px;">
+        <img id="uploadPreviewImg" src="" alt="Selected Image" class="img-fluid rounded-3 shadow-sm"
+          style="max-height:360px;">
       </div>
       <div id="reselectContainer" class="text-center mt-3" style="display:none;">
         <button type="button" id="reselectBtn" class="btn btn-outline-secondary rounded-pill px-4 py-2 fw-bold">
@@ -98,39 +111,53 @@
 
         <!-- CCTV URL Input -->
         <div id="cctvWrapper" class="d-none">
-          <label for="cctvUrlInput" class="form-label small text-muted mb-1">CCTV RTSP / HTTP Stream URL or Index:</label>
+          <label for="cctvUrlInput" class="form-label small text-muted mb-1">CCTV RTSP / HTTP Stream URL or
+            Index:</label>
           <div class="input-group mb-2">
             <span class="input-group-text"><i class="fas fa-network-wired"></i></span>
-            <input type="text" id="cctvUrlInput" class="form-control form-control-sm" placeholder="rtsp://admin:pass@192.168.1.100:554/h264 or http://192.168.1.100:8080/video or 0">
+            <input type="text" id="cctvUrlInput" class="form-control form-control-sm"
+              placeholder="rtsp://admin:pass@192.168.1.100:554/h264 or http://192.168.1.100:8080/video or 0">
             <button class="btn btn-primary btn-sm fw-bold" type="button" id="fetchCctvBtn">
               <i class="fas fa-camera me-1"></i>Fetch CCTV Frame
             </button>
           </div>
-          <small class="text-muted d-block"><i class="fas fa-info-circle me-1"></i>Enter your IP camera stream URL or enter <code>0</code> / <code>1</code> for local webcam index.</small>
+          <small class="text-muted d-block"><i class="fas fa-info-circle me-1"></i>Enter your IP camera stream URL or
+            enter <code>0</code> / <code>1</code> for local webcam index.</small>
         </div>
       </div>
 
       <!-- Live Video Feed (for Local Camera) -->
       <div id="videoZoomWrapper" class="video-wrapper position-relative mx-auto rounded-3 shadow">
         <div id="cameraFlash" class="camera-flash"></div>
+        <!-- Distance Range HUD Badge -->
+        <div id="cameraRangeHUD" class="position-absolute top-0 start-0 m-2 px-3 py-1 rounded-pill text-white small fw-bold"
+          style="background:rgba(15, 23, 42, 0.75); backdrop-filter:blur(6px); z-index:3; border:1px solid rgba(255,255,255,0.25);">
+          <i class="fas fa-satellite-dish text-info me-1"></i>Range: <span id="hudDistanceVal" class="text-warning">50m</span>
+        </div>
         <video id="videoFeed" class="w-100 rounded-3" autoplay playsinline></video>
-        <div class="zoom-controls position-absolute top-0 end-0 m-2 p-2 d-flex flex-column align-items-center shadow-sm">
-          <button type="button" id="zoomInBtn" class="btn btn-sm btn-light mb-1" title="Zoom In"><i class="fas fa-search-plus"></i></button>
-          <input type="range" id="zoomSlider" min="1" max="3" step="0.1" value="1" class="form-range mb-1" style="width:60px;" title="Zoom Level">
-          <button type="button" id="zoomOutBtn" class="btn btn-sm btn-light" title="Zoom Out"><i class="fas fa-search-minus"></i></button>
-          <div id="zoomLabel" class="text-white mt-1 small fw-bold">1.0x</div>
+        <div
+          class="zoom-controls position-absolute top-0 end-0 m-2 p-2 d-flex flex-column align-items-center shadow-sm">
+          <button type="button" id="zoomInBtn" class="btn btn-sm btn-light mb-1" title="Zoom In"><i
+              class="fas fa-search-plus"></i></button>
+          <input type="range" id="zoomSlider" min="1" max="3" step="0.1" value="1" class="form-range mb-1"
+            style="width:60px;" title="Zoom Level">
+          <button type="button" id="zoomOutBtn" class="btn btn-sm btn-light" title="Zoom Out"><i
+              class="fas fa-search-minus"></i></button>
+          <div id="zoomLabel" class="text-white mt-1 small fw-bold">3.0x</div>
         </div>
       </div>
 
       <div id="cameraPreviewBox" class="preview-box mt-3 text-center" style="display:none;">
-        <img id="cameraPreviewImg" src="" alt="Captured Frame" class="img-fluid rounded-3 shadow-sm" style="max-height:360px;">
+        <img id="cameraPreviewImg" src="" alt="Captured Frame" class="img-fluid rounded-3 shadow-sm"
+          style="max-height:360px;">
       </div>
 
       <div class="mt-3 text-center d-flex justify-content-center gap-2">
         <button type="button" id="captureBtn" class="btn btn-primary px-4 py-2 fw-bold rounded-pill shadow">
           <i class="fas fa-camera me-2"></i>Capture Photo
         </button>
-        <button type="button" id="retakeBtn" class="btn btn-outline-secondary px-4 py-2 fw-bold rounded-pill" style="display:none;">
+        <button type="button" id="retakeBtn" class="btn btn-outline-secondary px-4 py-2 fw-bold rounded-pill"
+          style="display:none;">
           <i class="fas fa-redo me-2"></i>Retake Photo
         </button>
       </div>

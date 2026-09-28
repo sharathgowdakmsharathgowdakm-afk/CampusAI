@@ -125,7 +125,65 @@ document.addEventListener('DOMContentLoaded', () => {
   if (currentMode === 'camera') {
     startLocalCamera();
   }
+
+  // Wire up Distance Range Mode radio buttons
+  setupDistanceRangeControls();
 });
+
+// ─── Distance Range Mode Controls (50m / 100m / Auto) ─────────────────────────
+function setupDistanceRangeControls() {
+  const distRadios = document.querySelectorAll('input[name="distanceMode"]');
+  if (!distRadios.length) return; // Page doesn't have the range panel
+
+  distRadios.forEach(radio => {
+    radio.addEventListener('change', () => updateDistanceRangeUI(radio.value));
+  });
+}
+
+function updateDistanceRangeUI(mode) {
+  const badge = document.getElementById('rangeAutoBadge');
+  const statusMsg = document.getElementById('rangeStatusMsg');
+  const hudVal = document.getElementById('hudDistanceVal');
+
+  if (mode === '50m') {
+    if (badge) { badge.textContent = '50m Standard'; badge.className = 'badge bg-primary ms-2 rounded-pill px-2 py-1'; badge.style.fontSize = '0.7rem'; }
+    if (statusMsg) statusMsg.textContent = '50m Standard Distance active. Ideal for standard classroom rows up to 50 meters.';
+    if (hudVal) { hudVal.textContent = '50m'; hudVal.className = 'text-warning'; }
+  } else if (mode === '100m') {
+    if (badge) { badge.textContent = '100m Crowd Mode'; badge.className = 'badge bg-success ms-2 rounded-pill px-2 py-1'; badge.style.fontSize = '0.7rem'; }
+    if (statusMsg) statusMsg.textContent = '100m Extended Crowd Mode active. Uses high-resolution scanning for large halls, auditoriums, and dense student groups.';
+    if (hudVal) { hudVal.textContent = '100m'; hudVal.className = 'text-success'; }
+  } else {
+    if (badge) { badge.textContent = 'Auto Detect'; badge.className = 'badge bg-info ms-2 rounded-pill px-2 py-1'; badge.style.fontSize = '0.7rem'; }
+    if (statusMsg) statusMsg.textContent = 'Auto mode: Distance will be determined by student count. ≤15 students → 50m, >15 students → 100m extended scan.';
+    if (hudVal) { hudVal.textContent = 'Auto'; hudVal.className = 'text-info'; }
+  }
+}
+
+// ─── Auto-Detect Student Count on Class Change ────────────────────────────────
+async function autoDetectStudentRange(classId) {
+  if (!classId) return;
+  try {
+    const res = await fetch(`/api/class-students-count/${classId}`);
+    const data = await res.json();
+    const countNum = document.getElementById('classStudentCountNum');
+    const countTag = document.getElementById('classStudentCountTag');
+
+    if (countNum) countNum.textContent = data.student_count || 0;
+    if (countTag) countTag.classList.remove('d-none');
+
+    // Auto-select recommended range if in Auto mode
+    const autoRadio = document.getElementById('distAuto');
+    if (autoRadio && autoRadio.checked) {
+      // Auto mode: let backend decide, just update hint
+      const hint = data.student_count > 15 ? '100m recommended (large class)' : '50m recommended';
+      const statusMsg = document.getElementById('rangeStatusMsg');
+      if (statusMsg) statusMsg.textContent = `Auto mode: ${data.student_count} students detected. ${hint}.`;
+    }
+  } catch (err) {
+    console.error('Failed to fetch student count:', err);
+  }
+}
 
 // ─── Timetable Auto-Fill ──────────────────────────────────────────────────────
 async function onClassSelected() {
@@ -162,6 +220,9 @@ async function onClassSelected() {
   } catch (err) {
     console.error("Failed to fetch timetable subject:", err);
   }
+
+  // Auto-detect student count for distance range recommendation
+  autoDetectStudentRange(classId);
 }
 
 // ─── Camera Source Switching (Local vs CCTV) ──────────────────────────────────
@@ -496,6 +557,9 @@ async function submitAttendance(e) {
   if (csrfToken) formData.append('csrf_token', csrfToken);
   formData.append('attendance_image', dataURLtoBlob(selectedImageBase64), 'attendance.jpg');
   formData.append('image_base64', selectedImageBase64);
+
+  // Fixed 100m detection range for all attendance captures
+  formData.append('detection_range', '100m');
 
   try {
     const headers = {};

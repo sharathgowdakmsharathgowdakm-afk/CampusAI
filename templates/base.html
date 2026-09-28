@@ -1068,7 +1068,7 @@
                     <div class="user-avatar">{{ (session.username or 'U')[0].upper() }}</div>
                     <div>
                         <div class="user-name">{{ session.username or 'User' }}</div>
-                        <div class="user-role">{{ session.org_type or 'Admin' | capitalize }}</div>
+                        <div class="user-role">{% if session.role %}{{ session.role | upper }}{% else %}{{ session.org_type or 'Admin' | capitalize }}{% endif %}</div>
                     </div>
                 </div>
             </div>

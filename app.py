@@ -56,6 +56,7 @@ else:
 
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['TEMPLATES_AUTO_RELOAD'] = True
 
 csrf = CSRFProtect(app)
 limiter = Limiter(
@@ -108,6 +109,7 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(128), nullable=False)
     org_type = db.Column(db.String(20), nullable=False)  # school, college, institution
+    role = db.Column(db.String(50), default='admin')
     organization_id = db.Column(db.Integer, db.ForeignKey('organization.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -253,6 +255,7 @@ class Staff(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     org_email = db.Column(db.String(120), nullable=False)
     password_hash = db.Column(db.String(200), nullable=False)
+    role = db.Column(db.String(50), default='staff')  # admin, hod, staff
     organization_id = db.Column(db.Integer, db.ForeignKey('organization.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
@@ -505,28 +508,119 @@ def serve_uploads(filename):
 def login():
     if request.method == 'POST':
         org_type = request.form.get('org_type')
-        username = request.form.get('username')
-        password = request.form.get('password')
+        username = (request.form.get('username') or '').strip()
+        password = (request.form.get('password') or '').strip()
+        role = (request.form.get('role') or 'admin').strip().lower()
 
         if not all([org_type, username, password]):
             flash('All fields are required', 'danger')
             return redirect(url_for('login'))
 
-        # Support login with either username or email
-        user = User.query.filter_by(username=username, org_type=org_type).first()
-        if not user:
-            user = User.query.filter_by(email=username, org_type=org_type).first()
+        # Enforce that HOD is ONLY for college and institution
+        if role == 'hod' and org_type not in ['college', 'institution']:
+            flash('HOD role is only available for College and Institutions.', 'warning')
+            return redirect(url_for('login'))
 
-        if user and check_password_hash(user.password_hash, password):
-            session.clear()
-            session['user_id'] = user.id
-            session['username'] = user.username
-            session['org_type'] = user.org_type
-            session['org_id'] = user.organization_id
-            session['org_name'] = user.organization.name
+        # Authentication based on role
+        if role == 'hod':
+            # Check Staff table for HOD
+            staff = Staff.query.join(Organization).filter(
+                (Organization.type == org_type) &
+                ((Staff.email == username) | (Staff.phone == username) | (Staff.name == username))
+            ).first()
+            if not staff:
+                staff = Staff.query.filter(
+                    (Staff.email == username) | (Staff.phone == username) | (Staff.name == username)
+                ).first()
 
-            return redirect(url_for('campus.assistant'))
-        else:
+            if staff and check_password_hash(staff.password_hash, password):
+                if staff.organization.type not in ['college', 'institution']:
+                    flash('HOD role is only available for College and Institutions.', 'warning')
+                    return redirect(url_for('login'))
+                session.clear()
+                session['staff_id'] = staff.id
+                session['user_id'] = staff.id
+                session['username'] = staff.name
+                session['org_type'] = staff.organization.type
+                session['org_id'] = staff.organization_id
+                session['org_name'] = staff.organization.name
+                session['role'] = 'hod'
+                session['is_staff'] = True
+                session['is_hod'] = True
+                if getattr(staff, 'role', None) != 'hod':
+                    staff.role = 'hod'
+                    db.session.commit()
+                flash(f'Welcome back, HOD {staff.name}!', 'success')
+                if staff.organization.type == 'college':
+                    return redirect(url_for('college_dashboard'))
+                elif staff.organization.type == 'institution':
+                    return redirect(url_for('institution_dashboard'))
+                return redirect(url_for('staff_dashboard'))
+            else:
+                flash('Invalid credentials for HOD login.', 'danger')
+                return redirect(url_for('login'))
+
+        elif role == 'staff':
+            # Check Staff table
+            staff = Staff.query.join(Organization).filter(
+                (Organization.type == org_type) &
+                ((Staff.email == username) | (Staff.phone == username) | (Staff.name == username))
+            ).first()
+            if not staff:
+                staff = Staff.query.filter(
+                    (Staff.email == username) | (Staff.phone == username) | (Staff.name == username)
+                ).first()
+
+            if staff and check_password_hash(staff.password_hash, password):
+                session.clear()
+                session['staff_id'] = staff.id
+                session['username'] = staff.name
+                session['org_type'] = staff.organization.type
+                session['org_id'] = staff.organization_id
+                session['org_name'] = staff.organization.name
+                session['role'] = 'staff'
+                session['is_staff'] = True
+                flash(f'Welcome, {staff.name}!', 'success')
+                return redirect(url_for('staff_dashboard'))
+            else:
+                flash('Invalid credentials for Staff login.', 'danger')
+                return redirect(url_for('login'))
+
+        else:  # Admin login (default)
+            user = User.query.filter_by(username=username, org_type=org_type).first()
+            if not user:
+                user = User.query.filter_by(email=username, org_type=org_type).first()
+            if not user:
+                user = User.query.filter((User.username == username) | (User.email == username)).first()
+
+            if user and check_password_hash(user.password_hash, password):
+                session.clear()
+                session['user_id'] = user.id
+                session['username'] = user.username
+                session['org_type'] = user.org_type
+                session['org_id'] = user.organization_id
+                session['org_name'] = user.organization.name
+                session['role'] = 'admin'
+                session['is_admin'] = True
+                flash(f'Welcome, Administrator {user.username}!', 'success')
+                return redirect(url_for('campus.assistant'))
+
+            # Fallback: check if staff with role 'admin'
+            staff = Staff.query.filter((Staff.email == username) | (Staff.phone == username)).first()
+            if staff and check_password_hash(staff.password_hash, password) and getattr(staff, 'role', None) == 'admin':
+                session.clear()
+                session['staff_id'] = staff.id
+                session['user_id'] = staff.id
+                session['username'] = staff.name
+                session['org_type'] = staff.organization.type
+                session['org_id'] = staff.organization_id
+                session['org_name'] = staff.organization.name
+                session['role'] = 'admin'
+                session['is_staff'] = True
+                session['is_admin'] = True
+                flash(f'Welcome, Admin {staff.name}!', 'success')
+                return redirect(url_for('campus.assistant'))
+
             flash('Invalid credentials', 'danger')
 
     return render_template('login.html')
@@ -893,7 +987,108 @@ def school_face_register():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-    return render_template('school/face_register.html', students=students, classes=classes)
+# ─────────────────────────────────────────────────────────────
+# DISTANCE-ADAPTIVE FACE DETECTION (50m Standard / 100m Crowd)
+# ─────────────────────────────────────────────────────────────
+
+def process_face_detection_with_range(image_path, detection_range='50m', student_count=0):
+    """
+    Intelligent Distance-Adaptive Face Detection:
+    - 50 Meters: Standard classroom detection (up to 50m) with 2000px resolution & 1x upsampling.
+    - 100 Meters: Long-distance detection (up to 100m) for large halls, auditoriums, and dense student crowds.
+      Uses ultra-high resolution (up to 3600px), CLAHE contrast enhancement for distant faces,
+      and 2x upsampling with adaptive distance tolerance.
+    - Auto-scales: If more students are present (>15 students) or if '100m' is requested,
+      it automatically utilizes 100m deep scan mode.
+    """
+    import cv2
+    import numpy as np
+    import face_recognition
+
+    range_str = str(detection_range or '').lower().strip()
+    if '100' in range_str or range_str in ['crowd', 'extended', 'large']:
+        resolved_meters = 100
+    elif range_str == 'auto' and student_count > 15:
+        resolved_meters = 100
+    elif student_count > 25:
+        resolved_meters = 100
+    else:
+        resolved_meters = 50
+
+    image = face_recognition.load_image_file(image_path)
+    h, w = image.shape[:2]
+
+    if resolved_meters == 100:
+        max_dim = 3600
+        upsample = 2
+        tolerance = 0.52
+        if max(h, w) > max_dim:
+            scale = max_dim / max(h, w)
+            image = cv2.resize(image, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+
+        # Enhance contrast on luminance channel for distant facial features
+        try:
+            lab = cv2.cvtColor(image, cv2.COLOR_RGB2LAB)
+            l_chan, a_chan, b_chan = cv2.split(lab)
+            clahe = cv2.createCLAHE(clipLimit=2.2, tileGridSize=(8, 8))
+            cl = clahe.apply(l_chan)
+            enhanced_lab = cv2.merge((cl, a_chan, b_chan))
+            image = cv2.cvtColor(enhanced_lab, cv2.COLOR_LAB2RGB)
+        except Exception as enh_err:
+            print(f"DEBUG: Contrast enhancement skipped: {enh_err}")
+    else:
+        max_dim = 2000
+        upsample = 1
+        tolerance = 0.48
+        if max(h, w) > max_dim:
+            scale = max_dim / max(h, w)
+            image = cv2.resize(image, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+
+    # Detect face bounding boxes
+    face_locations = face_recognition.face_locations(
+        image,
+        number_of_times_to_upsample=upsample,
+        model='hog'
+    )
+
+    # Auto-escalation: If 50m was active and fewer faces than student_count found in a large group,
+    # automatically re-scan using 100m deep scan
+    if resolved_meters == 50 and student_count > 10 and len(face_locations) < min(student_count, 4):
+        print(f"DEBUG: Auto-escalating from 50m to 100m range because only {len(face_locations)} faces detected for {student_count} students.")
+        resolved_meters = 100
+        image = face_recognition.load_image_file(image_path)
+        h, w = image.shape[:2]
+        if max(h, w) > 3600:
+            scale = 3600 / max(h, w)
+            image = cv2.resize(image, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+        face_locations = face_recognition.face_locations(
+            image,
+            number_of_times_to_upsample=2,
+            model='hog'
+        )
+        tolerance = 0.52
+
+    face_encodings = face_recognition.face_encodings(image, face_locations)
+
+    return {
+        'face_locations': face_locations,
+        'face_encodings': face_encodings,
+        'resolved_meters': resolved_meters,
+        'range_label': f"{resolved_meters} Meters ({'Extended Crowd Mode' if resolved_meters == 100 else 'Standard Room'})",
+        'tolerance': tolerance
+    }
+
+
+@app.route('/api/class-students-count/<int:class_id>', methods=['GET'])
+def get_class_students_count(class_id):
+    count = Student.query.filter_by(class_id=class_id).count()
+    recommended_range = '100m' if count > 15 else '50m'
+    return jsonify({
+        'class_id': class_id,
+        'student_count': count,
+        'recommended_range': recommended_range,
+        'reason': f"Class has {count} students. {'100m Long-Distance mode recommended for crowd coverage.' if count > 15 else '50m Standard distance is optimal.'}"
+    })
 
 
 @app.route('/school/mark-attendance', methods=['GET', 'POST'])
@@ -940,39 +1135,25 @@ def school_mark_attendance():
             return jsonify({'error': 'No image provided. Please capture or upload a classroom photo.'}), 400
 
         try:
-            # Load image using face_recognition
-            image = face_recognition.load_image_file(temp_path)
-            
-            # Resize large images to prevent memory crashes
-            max_dimension = 1200
-            h, w = image.shape[:2]
-            if max(h, w) > max_dimension:
-                scale = max_dimension / max(h, w)
-                new_w, new_h = int(w * scale), int(h * scale)
-                import cv2
-                image = cv2.resize(image, (new_w, new_h))
-                print(f"DEBUG: Resized image from {w}x{h} to {new_w}x{new_h}")
-            
-            # Find all faces using face_recognition HOG detector
-            try:
-                face_locations = face_recognition.face_locations(
-                    image,
-                    model='hog'
-                )
-            except Exception as face_err:
-                print(f"DEBUG: face_locations error: {face_err}")
-                return jsonify({'error': f'Face detection failed: {str(face_err)}'}), 500
-                
-            try:
-                face_encodings = face_recognition.face_encodings(image, face_locations)
-            except Exception as enc_err:
-                print(f"DEBUG: face_encodings error: {enc_err}")
-                return jsonify({'error': f'Face encoding failed: {str(enc_err)}'}), 500
+            detection_range = request.form.get('detection_range', '50m') or (request.json.get('detection_range') if request.is_json else '50m')
+            students = Student.query.filter_by(class_id=int(class_id)).all()
+            student_count = len(students)
+
+            # Process face detection with distance adaptation (50m vs 100m)
+            det_result = process_face_detection_with_range(temp_path, detection_range=detection_range, student_count=student_count)
+            face_locations = det_result['face_locations']
+            face_encodings = det_result['face_encodings']
+            resolved_meters = det_result['resolved_meters']
+            range_label = det_result['range_label']
+            match_tolerance = det_result['tolerance']
 
             if not face_encodings:
-                return jsonify({'error': 'No faces detected in the photo. Please ensure students face the camera clearly.'}), 200
-
-            students = Student.query.filter_by(class_id=int(class_id)).all()
+                return jsonify({
+                    'error': 'No faces detected in the photo. Please ensure students face the camera clearly.',
+                    'detection_range': range_label,
+                    'distance_meters': resolved_meters,
+                    'faces_detected': 0
+                }), 200
             
             # Load all stored encodings for this class
             known_encodings = []
@@ -1000,8 +1181,8 @@ def school_mark_attendance():
             recognized_students = []
 
             for face_encoding in face_encodings:
-                # Compare detected face with all known faces
-                matches = face_recognition.compare_faces(known_encodings, face_encoding, tolerance=0.5)
+                # Compare detected face with all known faces using distance-adjusted tolerance
+                matches = face_recognition.compare_faces(known_encodings, face_encoding, tolerance=match_tolerance)
                 
                 if True in matches:
                     # Use the smallest distance to find the best match
@@ -1072,10 +1253,17 @@ def school_mark_attendance():
             return jsonify({
                 'success': f'Attendance marked for {len(recognized_students)} students',
                 'recognized': recognized_students,
-                'absent_count': len(absent_students)
+                'absent_count': len(absent_students),
+                'detection_range': range_label,
+                'distance_meters': resolved_meters,
+                'faces_detected': len(face_locations),
+                'unknown_faces': max(0, len(face_locations) - len(recognized_students))
             })
 
         except Exception as e:
+            import traceback
+            print(f"ERROR in school_mark_attendance: {e}")
+            traceback.print_exc()
             return jsonify({'error': str(e)}), 500
 
     return render_template('school/mark_attendance.html', classes=classes)
@@ -1766,19 +1954,19 @@ def college_mark_attendance():
             return jsonify({'error': 'No image provided. Please capture or upload a classroom photo.'}), 400
 
         try:
-            # Load image using face_recognition
-            image = face_recognition.load_image_file(temp_path)
-            
-            # Find all faces using face_recognition HOG detector
-            face_locations = face_recognition.face_locations(
-                image,
-                model='hog'
-            )
-            
-            face_encodings = face_recognition.face_encodings(image, face_locations)
+            detection_range = request.form.get('detection_range', '50m') or (request.json.get('detection_range') if request.is_json else '50m')
+            students = Student.query.filter_by(class_id=int(class_id)).all()
+            student_count = len(students)
+
+            det_result = process_face_detection_with_range(temp_path, detection_range=detection_range, student_count=student_count)
+            face_locations = det_result['face_locations']
+            face_encodings = det_result['face_encodings']
+            resolved_meters = det_result['resolved_meters']
+            range_label = det_result['range_label']
+            match_tolerance = det_result['tolerance']
 
             if not face_encodings:
-                return jsonify({'error': 'No faces detected'}), 400
+                return jsonify({'error': 'No faces detected', 'detection_range': range_label, 'distance_meters': resolved_meters}), 400
                 
             students = Student.query.filter_by(class_id=int(class_id)).all()
             
@@ -1813,8 +2001,8 @@ def college_mark_attendance():
                 best_match_index = np.argmin(face_distances)
                 best_distance = face_distances[best_match_index]
                 
-                # Use 0.45 tolerance for better accuracy in crowded scenes
-                if best_distance <= 0.45:
+                # Use distance-adjusted tolerance
+                if best_distance <= match_tolerance:
                     best_match_student = known_students[best_match_index]
                     
                     already_recognized = any(s['roll_number'] == best_match_student.roll_number for s in recognized_students)
@@ -1860,10 +2048,19 @@ def college_mark_attendance():
                         )
                     except Exception as sms_err:
                         print(f"[SMS ERROR] Could not send for {student.name}: {sms_err}")
-            return jsonify({'success': f'Attendance marked for {len(recognized_students)} students',
-                            'recognized': recognized_students,
-                            'total_faces_detected': len(face_locations)})
+            return jsonify({
+                'success': f'Attendance marked for {len(recognized_students)} students',
+                'recognized': recognized_students,
+                'detection_range': range_label,
+                'distance_meters': resolved_meters,
+                'total_faces_detected': len(face_locations),
+                'faces_detected': len(face_locations),
+                'unknown_faces': max(0, len(face_locations) - len(recognized_students))
+            })
         except Exception as e:
+            import traceback
+            print(f"ERROR in college_mark_attendance: {e}")
+            traceback.print_exc()
             return jsonify({'error': str(e)}), 500
 
     return render_template('college/mark_attendance.html', classes=classes, subjects=subjects, course_id=course_id, year=year)
@@ -2612,19 +2809,19 @@ def institution_mark_attendance():
             return jsonify({'error': 'No image provided. Please capture or upload a classroom photo.'}), 400
 
         try:
-            # Load image using face_recognition
-            image = face_recognition.load_image_file(temp_path)
-            
-            # Find all faces using face_recognition HOG detector
-            face_locations = face_recognition.face_locations(
-                image,
-                model='hog'
-            )
-            
-            face_encodings = face_recognition.face_encodings(image, face_locations)
+            detection_range = request.form.get('detection_range', '50m') or (request.json.get('detection_range') if request.is_json else '50m')
+            students = Student.query.filter_by(class_id=int(class_id)).all()
+            student_count = len(students)
+
+            det_result = process_face_detection_with_range(temp_path, detection_range=detection_range, student_count=student_count)
+            face_locations = det_result['face_locations']
+            face_encodings = det_result['face_encodings']
+            resolved_meters = det_result['resolved_meters']
+            range_label = det_result['range_label']
+            match_tolerance = det_result['tolerance']
 
             if not face_encodings:
-                return jsonify({'error': 'No faces detected'}), 400
+                return jsonify({'error': 'No faces detected', 'detection_range': range_label, 'distance_meters': resolved_meters}), 400
                 
             students = Student.query.filter_by(class_id=int(class_id)).all()
             
@@ -2659,8 +2856,8 @@ def institution_mark_attendance():
                 best_match_index = np.argmin(face_distances)
                 best_distance = face_distances[best_match_index]
                 
-                # Use 0.45 tolerance for better accuracy in crowded scenes
-                if best_distance <= 0.45:
+                # Use distance-adjusted tolerance
+                if best_distance <= match_tolerance:
                     best_match_student = known_students[best_match_index]
                     
                     already_recognized = any(s['roll_number'] == best_match_student.roll_number for s in recognized_students)
@@ -2706,10 +2903,19 @@ def institution_mark_attendance():
                         )
                     except Exception as sms_err:
                         print(f"[SMS ERROR] Could not send for {student.name}: {sms_err}")
-            return jsonify({'success': f'Attendance marked for {len(recognized_students)} students',
-                            'recognized': recognized_students,
-                            'total_faces_detected': len(face_locations)})
+            return jsonify({
+                'success': f'Attendance marked for {len(recognized_students)} students',
+                'recognized': recognized_students,
+                'detection_range': range_label,
+                'distance_meters': resolved_meters,
+                'total_faces_detected': len(face_locations),
+                'faces_detected': len(face_locations),
+                'unknown_faces': max(0, len(face_locations) - len(recognized_students))
+            })
         except Exception as e:
+            import traceback
+            print(f"ERROR in institution_mark_attendance: {e}")
+            traceback.print_exc()
             return jsonify({'error': str(e)}), 500
 
     return render_template('institution/mark_attendance.html', classes=classes, subjects=subjects, course_id=course_id, year=year)
@@ -3289,29 +3495,98 @@ def staff_register():
 @limiter.limit("10 per minute")
 def staff_login():
     if request.method == 'POST':
-        email = request.form.get('email')
-        password = request.form.get('password')
+        email = (request.form.get('email') or '').strip()
+        password = (request.form.get('password') or '').strip()
+        org_type = (request.form.get('org_type') or 'college').strip()
+        role = (request.form.get('role') or 'staff').strip().lower()
 
         if not all([email, password]):
             flash('All fields are required.', 'danger')
             return redirect(url_for('staff_login'))
 
-        staff = Staff.query.filter_by(email=email).first()
-        if not staff:
-            staff = Staff.query.filter_by(phone=email).first()
+        # Enforce that HOD is ONLY for college and institution
+        if role == 'hod' and org_type not in ['college', 'institution']:
+            flash('HOD role is only available for College and Institutions.', 'warning')
+            return redirect(url_for('staff_login'))
 
-        if staff and check_password_hash(staff.password_hash, password):
-            session.clear()
-            session['staff_id'] = staff.id
-            session['username'] = staff.name
-            session['org_type'] = staff.organization.type
-            session['org_id'] = staff.organization_id
-            session['org_name'] = staff.organization.name
-            session['is_staff'] = True
+        if role == 'admin':
+            # Check User table first
+            user = User.query.filter((User.username == email) | (User.email == email)).first()
+            if user and check_password_hash(user.password_hash, password):
+                session.clear()
+                session['user_id'] = user.id
+                session['username'] = user.username
+                session['org_type'] = user.org_type
+                session['org_id'] = user.organization_id
+                session['org_name'] = user.organization.name
+                session['role'] = 'admin'
+                session['is_admin'] = True
+                flash(f'Welcome, Administrator {user.username}!', 'success')
+                return redirect(url_for('campus.assistant'))
 
-            return redirect(url_for('staff_dashboard'))
-        else:
-            flash('Invalid credentials. Please check your email and password.', 'danger')
+            # Check Staff with admin role
+            staff = Staff.query.filter((Staff.email == email) | (Staff.phone == email)).first()
+            if staff and check_password_hash(staff.password_hash, password):
+                session.clear()
+                session['staff_id'] = staff.id
+                session['user_id'] = staff.id
+                session['username'] = staff.name
+                session['org_type'] = staff.organization.type
+                session['org_id'] = staff.organization_id
+                session['org_name'] = staff.organization.name
+                session['role'] = 'admin'
+                session['is_staff'] = True
+                session['is_admin'] = True
+                flash(f'Welcome, Admin {staff.name}!', 'success')
+                return redirect(url_for('campus.assistant'))
+
+            flash('Invalid admin credentials.', 'danger')
+            return redirect(url_for('staff_login'))
+
+        elif role == 'hod':
+            staff = Staff.query.filter((Staff.email == email) | (Staff.phone == email) | (Staff.name == email)).first()
+            if staff and check_password_hash(staff.password_hash, password):
+                if staff.organization.type not in ['college', 'institution']:
+                    flash('HOD role is only available for College and Institutions.', 'warning')
+                    return redirect(url_for('staff_login'))
+                session.clear()
+                session['staff_id'] = staff.id
+                session['user_id'] = staff.id
+                session['username'] = staff.name
+                session['org_type'] = staff.organization.type
+                session['org_id'] = staff.organization_id
+                session['org_name'] = staff.organization.name
+                session['role'] = 'hod'
+                session['is_staff'] = True
+                session['is_hod'] = True
+                if getattr(staff, 'role', None) != 'hod':
+                    staff.role = 'hod'
+                    db.session.commit()
+                flash(f'Welcome, HOD {staff.name}!', 'success')
+                if staff.organization.type == 'college':
+                    return redirect(url_for('college_dashboard'))
+                elif staff.organization.type == 'institution':
+                    return redirect(url_for('institution_dashboard'))
+                return redirect(url_for('staff_dashboard'))
+            else:
+                flash('Invalid credentials for HOD. Please check your email/mobile and password.', 'danger')
+                return redirect(url_for('staff_login'))
+
+        else:  # Staff role
+            staff = Staff.query.filter((Staff.email == email) | (Staff.phone == email) | (Staff.name == email)).first()
+            if staff and check_password_hash(staff.password_hash, password):
+                session.clear()
+                session['staff_id'] = staff.id
+                session['username'] = staff.name
+                session['org_type'] = staff.organization.type
+                session['org_id'] = staff.organization_id
+                session['org_name'] = staff.organization.name
+                session['role'] = 'staff'
+                session['is_staff'] = True
+                flash(f'Welcome, {staff.name}!', 'success')
+                return redirect(url_for('staff_dashboard'))
+            else:
+                flash('Invalid credentials. Please check your email and password.', 'danger')
 
     return render_template('staff_login.html')
 

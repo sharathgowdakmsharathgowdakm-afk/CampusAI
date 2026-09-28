@@ -1,0 +1,2169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Academic Calendar - CampusAI App</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script>
+        // Apply theme immediately to prevent flashing
+        (function() {
+            var theme = localStorage.getItem('smart-campus-theme') || 'light';
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
+    <style>
+        /* ===== CSS Custom Properties ===== */
+        :root {
+            /* Light Theme Variables */
+            --bg-primary: #f8f9fc;
+            --bg-secondary: #ffffff;
+            --bg-card: rgba(255, 255, 255, 0.9);
+            --bg-card-hover: rgba(255, 255, 255, 1);
+            --bg-sidebar: linear-gradient(180deg, #ffffff 0%, #f8f9fc 100%);
+            --bg-navbar: rgba(255, 255, 255, 0.85);
+            --text-primary: #1a1b2e;
+            --text-secondary: #4a4a68;
+            --text-muted: #8b8ba7;
+            --border-color: rgba(0, 0, 0, 0.08);
+            --glass-bg: rgba(255, 255, 255, 0.85);
+            --glass-border: 1px solid rgba(0, 0, 0, 0.08);
+            
+            /* Shared Colors */
+            --accent-primary: #6c5ce7;
+            --accent-secondary: #a29bfe;
+            --accent-glow: rgba(108, 92, 231, 0.3);
+            --accent-gradient: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 50%, #74b9ff 100%);
+            --accent-gradient-warm: linear-gradient(135deg, #fd79a8 0%, #e17055 100%);
+            --success: #00b894;
+            --warning: #fdcb6e;
+            --danger: #e17055;
+            --info: #74b9ff;
+            --border-glow: rgba(108, 92, 231, 0.4);
+            --glass-blur: blur(20px);
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.08);
+            --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.12);
+            --shadow-glow: 0 0 30px rgba(108, 92, 231, 0.15);
+            
+            /* Sizing */
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 20px;
+            --sidebar-width: 260px;
+            --sidebar-collapsed: 72px;
+            --navbar-height: 70px;
+            --transition-fast: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-normal: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-slow: 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        [data-theme="dark"] {
+            /* Dark Theme Variables */
+            --bg-primary: #0f0f23;
+            --bg-secondary: #1a1a3e;
+            --bg-card: rgba(255, 255, 255, 0.06);
+            --bg-card-hover: rgba(255, 255, 255, 0.1);
+            --bg-sidebar: linear-gradient(180deg, #0d0d2b 0%, #1a1a3e 50%, #0f0f23 100%);
+            --bg-navbar: rgba(255, 255, 255, 0.04);
+            --text-primary: #e8e8f0;
+            --text-secondary: #8b8ba7;
+            --text-muted: #5a5a7a;
+            --border-color: rgba(255, 255, 255, 0.08);
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: 1px solid rgba(255, 255, 255, 0.08);
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+            --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.4);
+            --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        /* ===== Reset & Base ===== */
+        *, *::before, *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Animated background mesh */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background:
+                radial-gradient(ellipse at 20% 50%, rgba(108, 92, 231, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(116, 185, 255, 0.06) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 80%, rgba(253, 121, 168, 0.05) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* ===== Scrollbar ===== */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(108, 92, 231, 0.3);
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(108, 92, 231, 0.5); }
+
+        /* ===== Glass Card Utility ===== */
+        .glass-card {
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border: var(--glass-border);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+            transition: all var(--transition-normal);
+        }
+        .glass-card:hover {
+            background: var(--bg-card-hover);
+            border-color: rgba(108, 92, 231, 0.2);
+            box-shadow: var(--shadow-md), var(--shadow-glow);
+            transform: translateY(-2px);
+        }
+
+        /* ===== Sidebar ===== */
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: var(--sidebar-width);
+            height: 100vh;
+            background: var(--bg-sidebar);
+            border-right: 1px solid var(--border-color);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            transition: transform var(--transition-normal), width var(--transition-normal);
+            overflow: hidden;
+        }
+
+        .sidebar-header {
+            padding: 24px 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            flex-shrink: 0;
+        }
+
+        .sidebar-logo {
+            width: 40px;
+            height: 40px;
+            background: var(--accent-gradient);
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            color: #fff;
+            flex-shrink: 0;
+            box-shadow: 0 4px 15px rgba(108, 92, 231, 0.4);
+        }
+
+        .sidebar-brand {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-brand h3 {
+            margin: 0;
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: -0.02em;
+            line-height: 1.2;
+        }
+
+        .sidebar-brand small {
+            font-size: 0.65rem;
+            color: var(--accent-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            font-weight: 600;
+        }
+
+        .sidebar-menu {
+            list-style: none;
+            padding: 16px 12px;
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .sidebar-menu-label {
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            padding: 16px 14px 8px;
+        }
+
+        .sidebar-menu li {
+            margin: 2px 0;
+        }
+
+        .sidebar-menu a {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 11px 14px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            border-radius: var(--radius-sm);
+            transition: all var(--transition-fast);
+            font-size: 0.85rem;
+            font-weight: 500;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .sidebar-menu a::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 3px;
+            height: 100%;
+            background: var(--accent-gradient);
+            border-radius: 0 4px 4px 0;
+            opacity: 0;
+            transition: opacity var(--transition-fast);
+        }
+
+        .sidebar-menu a:hover {
+            background: rgba(108, 92, 231, 0.1);
+            color: var(--text-primary);
+        }
+
+        .sidebar-menu a.active {
+            background: rgba(108, 92, 231, 0.15);
+            color: #fff;
+            font-weight: 600;
+        }
+
+        .sidebar-menu a.active::before {
+            opacity: 1;
+        }
+
+        .sidebar-menu a i {
+            width: 20px;
+            font-size: 0.9rem;
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        .sidebar-menu a.active i {
+            color: var(--accent-secondary);
+        }
+
+        .sidebar-divider {
+            height: 1px;
+            background: var(--border-color);
+            margin: 12px 14px;
+        }
+
+        .sidebar-menu .special-link {
+            background: linear-gradient(135deg, rgba(253, 121, 168, 0.15), rgba(225, 112, 85, 0.15));
+            border: 1px solid rgba(253, 121, 168, 0.2);
+            color: #fd79a8 !important;
+            font-weight: 600 !important;
+            margin: 4px 0;
+        }
+
+        .sidebar-menu .special-link:hover {
+            background: linear-gradient(135deg, rgba(253, 121, 168, 0.25), rgba(225, 112, 85, 0.25));
+            border-color: rgba(253, 121, 168, 0.4);
+        }
+
+        /* ===== Sidebar Overlay (Mobile) ===== */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 999;
+            opacity: 0;
+            transition: opacity var(--transition-normal);
+        }
+
+        .sidebar-overlay.active {
+            display: block;
+            opacity: 1;
+        }
+
+        /* ===== Main Content ===== */
+        .main-content {
+            margin-left: var(--sidebar-width);
+            min-height: 100vh;
+            position: relative;
+            z-index: 1;
+            padding: 0;
+        }
+
+        /* ===== Top Navbar ===== */
+        .navbar-top {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            height: var(--navbar-height);
+            background: rgba(15, 15, 35, 0.8);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border-color);
+            padding: 0 28px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .navbar-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .navbar-brand-text {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: -0.02em;
+        }
+
+        .breadcrumb-trail {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .breadcrumb-trail .separator {
+            color: var(--text-muted);
+        }
+
+        .navbar-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .navbar-icon-btn {
+            width: 38px;
+            height: 38px;
+            border-radius: var(--radius-sm);
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            font-size: 0.9rem;
+            position: relative;
+        }
+
+        .navbar-icon-btn:hover {
+            background: rgba(108, 92, 231, 0.15);
+            color: var(--accent-secondary);
+            border-color: rgba(108, 92, 231, 0.3);
+        }
+
+        .notification-dot {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            width: 7px;
+            height: 7px;
+            background: var(--danger);
+            border-radius: 50%;
+            border: 1.5px solid var(--bg-primary);
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 6px 12px 6px 6px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-color);
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+
+        .user-profile:hover {
+            background: rgba(108, 92, 231, 0.1);
+            border-color: rgba(108, 92, 231, 0.3);
+        }
+
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            background: var(--accent-gradient);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-weight: 700;
+            font-size: 0.8rem;
+        }
+
+        .user-name {
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .user-role {
+            font-size: 0.68rem;
+            color: var(--text-muted);
+        }
+
+        /* ===== Content Area ===== */
+        .content-area {
+            padding: 28px;
+        }
+
+        /* ===== Page Title ===== */
+        .page-title {
+            font-size: 1.6rem;
+            font-weight: 800;
+            color: var(--text-primary);
+            margin-bottom: 24px;
+            letter-spacing: -0.03em;
+        }
+
+        /* ===== Cards (override Bootstrap) ===== */
+        .card {
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border: var(--glass-border);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+            transition: all var(--transition-normal);
+            margin-bottom: 20px;
+            color: var(--text-primary);
+        }
+
+        .card:hover {
+            border-color: rgba(108, 92, 231, 0.2);
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
+        }
+
+        .card-header {
+            background: rgba(108, 92, 231, 0.12);
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-primary);
+            font-weight: 600;
+            padding: 16px 20px;
+            border-radius: var(--radius-lg) var(--radius-lg) 0 0 !important;
+        }
+
+        .card-body {
+            padding: 20px;
+            color: var(--text-primary);
+        }
+
+        .card-body p {
+            color: var(--text-secondary);
+        }
+
+        /* ===== Stat Cards ===== */
+        .stat-card {
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border: var(--glass-border);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            text-align: center;
+            margin-bottom: 20px;
+            transition: all var(--transition-normal);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--accent-gradient);
+            opacity: 0;
+            transition: opacity var(--transition-fast);
+        }
+
+        .stat-card:hover {
+            background: var(--bg-card-hover);
+            border-color: rgba(108, 92, 231, 0.25);
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-md), var(--shadow-glow);
+        }
+
+        .stat-card:hover::before {
+            opacity: 1;
+        }
+
+        .stat-card i {
+            font-size: 2rem;
+            margin-bottom: 12px;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+            letter-spacing: -0.03em;
+        }
+
+        .stat-label {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* ===== Buttons ===== */
+        .btn-primary {
+            background: var(--accent-gradient);
+            border: none;
+            border-radius: var(--radius-sm);
+            padding: 10px 20px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            transition: all var(--transition-fast);
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(108, 92, 231, 0.5);
+            color: #fff;
+            background: var(--accent-gradient);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            border-radius: var(--radius-sm);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.12);
+            color: var(--text-primary);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .btn-outline-primary {
+            border-color: rgba(108, 92, 231, 0.4);
+            color: var(--accent-secondary);
+        }
+
+        .btn-outline-primary:hover {
+            background: rgba(108, 92, 231, 0.15);
+            border-color: var(--accent-primary);
+            color: #fff;
+        }
+
+        .btn-outline-secondary {
+            border-color: var(--border-color);
+            color: var(--text-secondary);
+        }
+
+        .btn-outline-secondary:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.2);
+            color: var(--text-primary);
+        }
+
+        .btn-info {
+            background: rgba(116, 185, 255, 0.15);
+            border: 1px solid rgba(116, 185, 255, 0.3);
+            color: var(--info);
+        }
+
+        .btn-info:hover {
+            background: rgba(116, 185, 255, 0.25);
+            color: #fff;
+        }
+
+        .btn-warning {
+            background: rgba(253, 203, 110, 0.15);
+            border: 1px solid rgba(253, 203, 110, 0.3);
+            color: var(--warning);
+        }
+
+        .btn-warning:hover {
+            background: rgba(253, 203, 110, 0.25);
+            color: #fff;
+        }
+
+        .btn-danger {
+            background: rgba(225, 112, 85, 0.15);
+            border: 1px solid rgba(225, 112, 85, 0.3);
+            color: var(--danger);
+        }
+
+        .btn-danger:hover {
+            background: rgba(225, 112, 85, 0.25);
+            color: #fff;
+        }
+
+        .btn-success {
+            background: rgba(0, 184, 148, 0.15);
+            border: 1px solid rgba(0, 184, 148, 0.3);
+            color: var(--success);
+        }
+
+        .btn-success:hover {
+            background: rgba(0, 184, 148, 0.25);
+            color: #fff;
+        }
+
+        /* ===== Tables ===== */
+        .table {
+            background: transparent;
+            color: var(--text-primary);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            box-shadow: none;
+        }
+
+        .table thead {
+            background: rgba(108, 92, 231, 0.15);
+            color: var(--accent-secondary);
+        }
+
+        .table thead th {
+            border-bottom: 1px solid var(--border-color);
+            font-weight: 600;
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 14px 16px;
+            color: var(--accent-secondary);
+        }
+
+        .table tbody tr {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            transition: background var(--transition-fast);
+        }
+
+        .table tbody tr:hover {
+            background: rgba(108, 92, 231, 0.06) !important;
+        }
+
+        .table tbody td {
+            padding: 12px 16px;
+            vertical-align: middle;
+            color: var(--text-primary);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        .table-responsive {
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            border: var(--glass-border);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+        }
+
+        /* ===== Forms ===== */
+        .form-control, .form-select {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            border-radius: var(--radius-sm);
+            padding: 10px 14px;
+            font-family: 'Inter', sans-serif;
+            transition: all var(--transition-fast);
+        }
+
+        .form-control:focus, .form-select:focus {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.15);
+            color: var(--text-primary);
+        }
+
+        .form-control::placeholder {
+            color: var(--text-muted);
+        }
+
+        .form-label {
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 0.82rem;
+        }
+
+        .form-select option {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+
+        .input-group-text {
+            background: rgba(108, 92, 231, 0.1);
+            border: 1px solid var(--border-color);
+            color: var(--accent-secondary);
+        }
+
+        .form-check-input {
+            background-color: rgba(255, 255, 255, 0.08);
+            border-color: var(--border-color);
+        }
+
+        .form-check-input:checked {
+            background-color: var(--accent-primary);
+            border-color: var(--accent-primary);
+        }
+
+        .form-check-label {
+            color: var(--text-secondary);
+        }
+
+        /* ===== Alerts ===== */
+        .alert {
+            border: none;
+            border-radius: var(--radius-md);
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+            font-size: 0.9rem;
+        }
+
+        .alert-success {
+            background: rgba(0, 184, 148, 0.12);
+            border: 1px solid rgba(0, 184, 148, 0.25);
+            color: #55efc4;
+        }
+
+        .alert-danger {
+            background: rgba(225, 112, 85, 0.12);
+            border: 1px solid rgba(225, 112, 85, 0.25);
+            color: #fab1a0;
+        }
+
+        .alert-warning {
+            background: rgba(253, 203, 110, 0.12);
+            border: 1px solid rgba(253, 203, 110, 0.25);
+            color: #ffeaa7;
+        }
+
+        .alert-info {
+            background: rgba(116, 185, 255, 0.12);
+            border: 1px solid rgba(116, 185, 255, 0.25);
+            color: #74b9ff;
+        }
+
+        .btn-close {
+            filter: invert(1);
+        }
+
+        /* ===== Badges ===== */
+        .badge.bg-primary {
+            background: var(--accent-gradient) !important;
+        }
+
+        .badge.bg-secondary {
+            background: rgba(255, 255, 255, 0.1) !important;
+            color: var(--text-secondary);
+        }
+
+        .badge.bg-success {
+            background: rgba(0, 184, 148, 0.2) !important;
+            color: #55efc4;
+        }
+
+        .badge.bg-warning {
+            background: rgba(253, 203, 110, 0.2) !important;
+            color: #ffeaa7;
+        }
+
+        .badge.bg-danger {
+            background: rgba(225, 112, 85, 0.2) !important;
+            color: #fab1a0;
+        }
+
+        .badge.bg-info {
+            background: rgba(116, 185, 255, 0.2) !important;
+            color: #74b9ff;
+        }
+
+        /* ===== Modals ===== */
+        .modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            color: var(--text-primary);
+        }
+
+        .modal-header {
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .modal-footer {
+            border-top: 1px solid var(--border-color);
+        }
+
+        .modal-title {
+            color: var(--text-primary);
+        }
+
+        /* ===== Sidebar Toggle (Mobile) ===== */
+        #sidebarToggle {
+            display: none;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            width: 38px;
+            height: 38px;
+            border-radius: var(--radius-sm);
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+
+        #sidebarToggle:hover {
+            background: rgba(108, 92, 231, 0.15);
+            color: var(--accent-secondary);
+        }
+
+        /* ===== Section Header (used by fees, leave, etc.) ===== */
+        .section-header {
+            background: rgba(108, 92, 231, 0.12) !important;
+            border: 1px solid rgba(108, 92, 231, 0.2);
+            color: var(--text-primary) !important;
+            border-radius: var(--radius-lg);
+            padding: 18px 24px;
+            margin-bottom: 22px;
+        }
+
+        .section-header h5 {
+            color: var(--text-primary);
+        }
+
+        .section-header small {
+            color: var(--text-secondary);
+        }
+
+        /* ===== Responsive ===== */
+        @media (max-width: 992px) {
+            .sidebar {
+                width: 240px;
+                transform: translateX(-100%);
+                z-index: 1001;
+            }
+
+            .sidebar.active {
+                transform: translateX(0);
+            }
+
+            .main-content {
+                margin-left: 0;
+            }
+
+            #sidebarToggle {
+                display: flex;
+            }
+
+            .content-area {
+                padding: 20px 16px;
+            }
+
+            .navbar-top {
+                padding: 0 16px;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .page-title {
+                font-size: 1.25rem;
+            }
+
+            .content-area {
+                padding: 16px 12px;
+            }
+
+            .user-name, .user-role {
+                display: none;
+            }
+
+            .stat-card {
+                padding: 18px;
+            }
+
+            .stat-number {
+                font-size: 1.5rem;
+            }
+        }
+
+        /* ===== Utility Classes ===== */
+        .text-gradient {
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .glow-border {
+            border-color: var(--border-glow) !important;
+            box-shadow: var(--shadow-glow);
+        }
+
+        /* ===== Animations ===== */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .animate-fade-in {
+            animation: fadeInUp 0.5s ease forwards;
+        }
+
+        /* ===== Print ===== */
+        @media print {
+            .sidebar, .navbar-top, .sidebar-overlay, #sidebarToggle { display: none !important; }
+            .main-content { margin-left: 0 !important; }
+            body { background: #fff; color: #000; }
+            .card { background: #fff; border: 1px solid #ddd; }
+        }
+    </style>
+    
+</head>
+<body>
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo">
+                <i class="fas fa-graduation-cap"></i>
+            </div>
+            <div class="sidebar-brand">
+                <h3>Smart Campus</h3>
+                <small>Portal</small>
+            </div>
+        </div>
+        
+        <ul class="sidebar-menu">
+            <li class="sidebar-menu-label">Main</li>
+            
+                <li><a href="/school/dashboard" class=""><i class="fas fa-th-large"></i> Dashboard</a></li>
+                <li><a href="/school/classes" class=""><i class="fas fa-layer-group"></i> Classes</a></li>
+                <li><a href="/school/add-class" class=""><i class="fas fa-plus-square"></i> Add Class</a></li>
+                <li><a href="/school/students" class=""><i class="fas fa-user-graduate"></i> Students</a></li>
+                <li><a href="/school/add-student" class=""><i class="fas fa-user-plus"></i> Add Student</a></li>
+                
+                <li class="sidebar-menu-label">Attendance</li>
+                <li><a href="/school/face-register" class=""><i class="fas fa-portrait"></i> Face Registration</a></li>
+                <li><a href="/school/mark-attendance" class=""><i class="fas fa-camera-retro"></i> Mark Attendance</a></li>
+                <li><a href="/school/attendance-records" class=""><i class="fas fa-clipboard-check"></i> Attendance Records</a></li>
+                
+                <li class="sidebar-menu-label">Management</li>
+                <li><a href="/school/reports" class=""><i class="fas fa-chart-pie"></i> Reports</a></li>
+                <li><a href="/school/academic-calendar" class="active"><i class="fas fa-calendar-alt"></i> Academic Calendar</a></li>
+                <li><a href="/school/fees" class=""><i class="fas fa-receipt"></i> Fee Structure</a></li>
+                <li><a href="/school/leave-applications" class=""><i class="fas fa-file-signature"></i> Leave Applications</a></li>
+            
+            
+            <div class="sidebar-divider"></div>
+            <li>
+                <a href="/campus/assistant" class="special-link"><i class="fas fa-rocket"></i> AI Campus</a>
+            </li>
+            <li>
+                <a href="/logout"><i class="fas fa-sign-out-alt"></i> Logout</a>
+            </li>
+        </ul>
+    </div>
+    
+    <div class="main-content">
+        <div class="navbar-top">
+            <div class="navbar-left">
+                <button id="sidebarToggle" type="button">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <div class="navbar-brand-text">
+                    Academic Calendar
+                </div>
+            </div>
+            <div class="navbar-right">
+                <button id="themeToggleBtn" class="navbar-icon-btn" title="Toggle Theme" style="background:none; border:none; outline:none; color:var(--text-secondary);">
+                    <i class="fas fa-moon"></i>
+                </button>
+                <div class="navbar-icon-btn" title="Notifications">
+                    <i class="fas fa-bell"></i>
+                    <span class="notification-dot"></span>
+                </div>
+                <div class="user-profile">
+                    <div class="user-avatar">S</div>
+                    <div>
+                        <div class="user-name">smvit_school</div>
+                        <div class="user-role">school</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="content-area">
+            
+                
+            
+            
+            
+<div class="academic-calendar-wrapper">
+    <!-- Header Section -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 mb-4">
+        <div>
+            <h2 class="page-title mb-1 d-flex align-items-center flex-wrap gap-2">
+                <i class="fas fa-calendar-alt text-primary"></i>
+                <span>Academic Calendar</span>
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2.5 py-1" style="font-size: 0.8rem; font-weight: 600;">
+                    5 Events
+                </span>
+            </h2>
+            <p class="text-muted mb-0 small">Schedule, manage, and track academic milestones, examinations, and holidays.</p>
+        </div>
+        <div class="d-flex gap-2 w-100 w-md-auto justify-content-start justify-content-md-end flex-wrap">
+            <button class="btn btn-outline-secondary d-none d-sm-inline-flex align-items-center" onclick="window.print()" title="Print Academic Calendar">
+                <i class="fas fa-print me-1.5"></i> <span>Print</span>
+            </button>
+            <button class="btn btn-primary flex-grow-1 flex-md-grow-0 d-inline-flex align-items-center justify-content-center py-2 px-3 shadow-sm" type="button" data-bs-toggle="collapse" data-bs-target="#addEventCollapse" aria-expanded="false" id="toggleAddEventBtn">
+                <i class="fas fa-plus-circle me-1.5"></i> <span>Add New Event</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Quick Stats Cards (Responsive 2x2 on mobile, 4-col on desktop) -->
+    
+    
+    
+    <div class="row g-2 g-sm-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="stat-summary-card">
+                <div class="stat-icon bg-primary-subtle text-primary">
+                    <i class="fas fa-calendar-check"></i>
+                </div>
+                <div>
+                    <div class="stat-val">5</div>
+                    <div class="stat-lbl">Total Events</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stat-summary-card">
+                <div class="stat-icon bg-info-subtle text-info">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <div>
+                    <div class="stat-val">4</div>
+                    <div class="stat-lbl">Upcoming</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stat-summary-card">
+                <div class="stat-icon bg-danger-subtle text-danger">
+                    <i class="fas fa-file-alt"></i>
+                </div>
+                <div>
+                    <div class="stat-val">1</div>
+                    <div class="stat-lbl">Exams</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stat-summary-card">
+                <div class="stat-icon bg-success-subtle text-success">
+                    <i class="fas fa-umbrella-beach"></i>
+                </div>
+                <div>
+                    <div class="stat-val">2</div>
+                    <div class="stat-lbl">Holidays</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Collapsible Add Event Form -->
+    <div class="collapse mb-4" id="addEventCollapse">
+        <div class="card shadow-sm border-0 event-form-card">
+            <div class="card-header py-3 px-3 px-sm-4 d-flex justify-content-between align-items-center">
+                <h5 class="mb-0 text-primary fw-bold fs-6">
+                    <i class="fas fa-plus-circle me-2"></i>Create Academic Event
+                </h5>
+                <button type="button" class="btn-close btn-sm" data-bs-toggle="collapse" data-bs-target="#addEventCollapse" aria-label="Close"></button>
+            </div>
+            <div class="card-body p-3 p-sm-4">
+                <form method="POST" action="">
+                    <input type="hidden" name="csrf_token" value="ImEyZjkwMTlhY2MxNGJkNWE1ZDE5YWEyMGRjNjVhZjcxMjRjZWZhNzki.ard2rg.ooYvrXHjnV_m4oVi1j7Rxzk37hQ"/>
+                    <div class="row g-3">
+                        <div class="col-12 col-md-6">
+                            <label class="form-label fw-semibold small">Event Title <span class="text-danger">*</span></label>
+                            <input type="text" name="title" class="form-control form-control-sm-lg" placeholder="e.g., Mid-Term Examinations, Sports Day, Winter Break" required>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <label class="form-label fw-semibold small">Event Type <span class="text-danger">*</span></label>
+                            <select name="event_type" class="form-select" required>
+                                <option value="Academic" selected>🎓 Academic</option>
+                                <option value="Examination">📝 Examination</option>
+                                <option value="Holiday">🌴 Holiday</option>
+                                <option value="Co-Curricular">🏆 Co-Curricular / Fest</option>
+                                <option value="Meeting">👥 Meeting / PTM</option>
+                                <option value="Other">📌 Other</option>
+                            </select>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <label class="form-label fw-semibold small">Status</label>
+                            <select name="status" class="form-select">
+                                <option value="Upcoming" selected>Upcoming</option>
+                                <option value="Ongoing">Ongoing</option>
+                                <option value="Completed">Completed</option>
+                            </select>
+                        </div>
+
+                        <div class="col-12 col-sm-6">
+                            <label class="form-label fw-semibold small">Start Date <span class="text-danger">*</span></label>
+                            <input type="date" name="start_date" class="form-control" required>
+                        </div>
+                        <div class="col-12 col-sm-6">
+                            <label class="form-label fw-semibold small">End Date <span class="text-muted fw-normal">(Optional)</span></label>
+                            <input type="date" name="end_date" class="form-control">
+                            <div class="form-text small text-muted">Leave empty for a single-day event.</div>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-semibold small">Description / Notes <span class="text-muted fw-normal">(Optional)</span></label>
+                            <textarea name="description" class="form-control" rows="2" placeholder="Venue, batch instructions, or timetable notes..."></textarea>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="d-flex flex-column-reverse flex-sm-row justify-content-sm-end gap-2 mt-2">
+                                <button type="button" class="btn btn-light w-100 w-sm-auto" data-bs-toggle="collapse" data-bs-target="#addEventCollapse">Cancel</button>
+                                <button type="submit" class="btn btn-primary px-4 w-100 w-sm-auto">
+                                    <i class="fas fa-save me-1.5"></i> Save Event
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Pills & Search Section (Mobile Optimized) -->
+    <div class="card shadow-sm border-0 mb-3 filter-card">
+        <div class="card-body p-2 p-sm-3">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-2">
+                <!-- Horizontally Scrollable Pills on Mobile -->
+                <div class="filter-pills-container">
+                    <button type="button" class="filter-pill active" onclick="filterEvents('all', this)">
+                        <span>All</span> <span class="pill-badge">5</span>
+                    </button>
+                    <button type="button" class="filter-pill" onclick="filterEvents('Academic', this)">
+                        <span>Academic</span>
+                    </button>
+                    <button type="button" class="filter-pill" onclick="filterEvents('Examination', this)">
+                        <span>Exams</span>
+                    </button>
+                    <button type="button" class="filter-pill" onclick="filterEvents('Holiday', this)">
+                        <span>Holidays</span>
+                    </button>
+                    <button type="button" class="filter-pill" onclick="filterEvents('Co-Curricular', this)">
+                        <span>Co-Curricular</span>
+                    </button>
+                    <button type="button" class="filter-pill" onclick="filterEvents('Meeting', this)">
+                        <span>Meetings</span>
+                    </button>
+                </div>
+
+                <!-- Quick Search Input -->
+                <div class="calendar-search-wrap">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" id="calendarSearchInput" class="form-control form-control-sm calendar-search-input" placeholder="Search events..." onkeyup="searchEvents(this.value)">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scheduled Events Container -->
+    <div class="card shadow-sm border-0 main-events-card">
+        <div class="card-header py-3 px-3 px-sm-4 d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 fw-bold fs-6 d-flex align-items-center gap-2">
+                <i class="fas fa-list-ul text-primary"></i>
+                <span>Scheduled Events</span>
+            </h5>
+            <span class="text-muted small" id="filteredCountLabel">
+                Showing 5 of 5
+            </span>
+        </div>
+        
+        <div class="card-body p-0">
+            
+            
+            <!-- 1. DESKTOP / TABLET VIEW (Visible on >= 768px) -->
+            <div class="table-responsive d-none d-md-block">
+                <table class="table table-hover mb-0 align-middle" id="desktopEventsTable">
+                    <thead>
+                        <tr>
+                            <th class="ps-4" style="width: 200px;">Date & Duration</th>
+                            <th>Event Details</th>
+                            <th style="width: 140px;">Type</th>
+                            <th style="width: 120px;">Status</th>
+                            <th class="pe-4 text-end" style="width: 90px;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        
+                        <tr class="event-item desktop-event-row" data-type="Holiday" data-title="mahatma gandhi jayanti national holiday on account of gandhi jayanti.">
+                            <td class="ps-4">
+                                <div class="fw-bold">
+                                    <i class="far fa-calendar-alt text-primary me-1.5"></i>
+                                    Oct 02, 2026
+                                </div>
+                                
+                            </td>
+                            <td>
+                                <div class="fw-bold event-item-title">Mahatma Gandhi Jayanti</div>
+                                
+                                <small class="text-muted d-block event-item-desc">National holiday on account of Gandhi Jayanti.</small>
+                                
+                            </td>
+                            <td>
+                                
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1"><i class="fas fa-umbrella-beach me-1"></i>Holiday</span>
+                                
+                            </td>
+                            <td>
+                                
+                                    <span class="badge bg-secondary-subtle text-secondary px-2 py-1">Completed</span>
+                                
+                            </td>
+                            <td class="pe-4 text-end">
+                                <form method="POST" action="/school/academic-calendar/delete/2" onsubmit="return confirm('Are you sure you want to remove this event from the calendar?');" style="display:inline;">
+                                    <input type="hidden" name="csrf_token" value="ImEyZjkwMTlhY2MxNGJkNWE1ZDE5YWEyMGRjNjVhZjcxMjRjZWZhNzki.ard2rg.ooYvrXHjnV_m4oVi1j7Rxzk37hQ"/>
+                                    <button type="submit" class="btn btn-sm btn-outline-danger btn-icon-action" title="Delete Event">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        
+                        <tr class="event-item desktop-event-row" data-type="Examination" data-title="mid-term examinations first semester comprehensive examinations for all standards.">
+                            <td class="ps-4">
+                                <div class="fw-bold">
+                                    <i class="far fa-calendar-alt text-primary me-1.5"></i>
+                                    Oct 12, 2026
+                                </div>
+                                
+                                <small class="text-muted d-block ps-3.5">to Oct 22, 2026</small>
+                                
+                            </td>
+                            <td>
+                                <div class="fw-bold event-item-title">Mid-Term Examinations</div>
+                                
+                                <small class="text-muted d-block event-item-desc">First semester comprehensive examinations for all standards.</small>
+                                
+                            </td>
+                            <td>
+                                
+                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1"><i class="fas fa-file-alt me-1"></i>Examination</span>
+                                
+                            </td>
+                            <td>
+                                
+                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1">Upcoming</span>
+                                
+                            </td>
+                            <td class="pe-4 text-end">
+                                <form method="POST" action="/school/academic-calendar/delete/1" onsubmit="return confirm('Are you sure you want to remove this event from the calendar?');" style="display:inline;">
+                                    <input type="hidden" name="csrf_token" value="ImEyZjkwMTlhY2MxNGJkNWE1ZDE5YWEyMGRjNjVhZjcxMjRjZWZhNzki.ard2rg.ooYvrXHjnV_m4oVi1j7Rxzk37hQ"/>
+                                    <button type="submit" class="btn btn-sm btn-outline-danger btn-icon-action" title="Delete Event">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        
+                        <tr class="event-item desktop-event-row" data-type="Meeting" data-title="parent-teacher interaction meet discussion of first term student performance and academic progress.">
+                            <td class="ps-4">
+                                <div class="fw-bold">
+                                    <i class="far fa-calendar-alt text-primary me-1.5"></i>
+                                    Oct 28, 2026
+                                </div>
+                                
+                            </td>
+                            <td>
+                                <div class="fw-bold event-item-title">Parent-Teacher Interaction Meet</div>
+                                
+                                <small class="text-muted d-block event-item-desc">Discussion of first term student performance and academic progress.</small>
+                                
+                            </td>
+                            <td>
+                                
+                                    <span class="badge bg-info-subtle text-info border border-info-subtle px-2 py-1"><i class="fas fa-users me-1"></i>Meeting</span>
+                                
+                            </td>
+                            <td>
+                                
+                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1">Upcoming</span>
+                                
+                            </td>
+                            <td class="pe-4 text-end">
+                                <form method="POST" action="/school/academic-calendar/delete/4" onsubmit="return confirm('Are you sure you want to remove this event from the calendar?');" style="display:inline;">
+                                    <input type="hidden" name="csrf_token" value="ImEyZjkwMTlhY2MxNGJkNWE1ZDE5YWEyMGRjNjVhZjcxMjRjZWZhNzki.ard2rg.ooYvrXHjnV_m4oVi1j7Rxzk37hQ"/>
+                                    <button type="submit" class="btn btn-sm btn-outline-danger btn-icon-action" title="Delete Event">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        
+                        <tr class="event-item desktop-event-row" data-type="Holiday" data-title="diwali &amp; deepavali vacation festival break for all students and institutional faculty.">
+                            <td class="ps-4">
+                                <div class="fw-bold">
+                                    <i class="far fa-calendar-alt text-primary me-1.5"></i>
+                                    Nov 01, 2026
+                                </div>
+                                
+                                <small class="text-muted d-block ps-3.5">to Nov 06, 2026</small>
+                                
+                            </td>
+                            <td>
+                                <div class="fw-bold event-item-title">Diwali &amp; Deepavali Vacation</div>
+                                
+                                <small class="text-muted d-block event-item-desc">Festival break for all students and institutional faculty.</small>
+                                
+                            </td>
+                            <td>
+                                
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1"><i class="fas fa-umbrella-beach me-1"></i>Holiday</span>
+                                
+                            </td>
+                            <td>
+                                
+                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1">Upcoming</span>
+                                
+                            </td>
+                            <td class="pe-4 text-end">
+                                <form method="POST" action="/school/academic-calendar/delete/5" onsubmit="return confirm('Are you sure you want to remove this event from the calendar?');" style="display:inline;">
+                                    <input type="hidden" name="csrf_token" value="ImEyZjkwMTlhY2MxNGJkNWE1ZDE5YWEyMGRjNjVhZjcxMjRjZWZhNzki.ard2rg.ooYvrXHjnV_m4oVi1j7Rxzk37hQ"/>
+                                    <button type="submit" class="btn btn-sm btn-outline-danger btn-icon-action" title="Delete Event">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        
+                        <tr class="event-item desktop-event-row" data-type="Co-Curricular" data-title="annual sports meet 2026 inter-house athletic competitions and track events at main campus grounds.">
+                            <td class="ps-4">
+                                <div class="fw-bold">
+                                    <i class="far fa-calendar-alt text-primary me-1.5"></i>
+                                    Nov 14, 2026
+                                </div>
+                                
+                                <small class="text-muted d-block ps-3.5">to Nov 16, 2026</small>
+                                
+                            </td>
+                            <td>
+                                <div class="fw-bold event-item-title">Annual Sports Meet 2026</div>
+                                
+                                <small class="text-muted d-block event-item-desc">Inter-house athletic competitions and track events at main campus grounds.</small>
+                                
+                            </td>
+                            <td>
+                                
+                                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1"><i class="fas fa-trophy me-1"></i>Co-Curricular</span>
+                                
+                            </td>
+                            <td>
+                                
+                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1">Upcoming</span>
+                                
+                            </td>
+                            <td class="pe-4 text-end">
+                                <form method="POST" action="/school/academic-calendar/delete/3" onsubmit="return confirm('Are you sure you want to remove this event from the calendar?');" style="display:inline;">
+                                    <input type="hidden" name="csrf_token" value="ImEyZjkwMTlhY2MxNGJkNWE1ZDE5YWEyMGRjNjVhZjcxMjRjZWZhNzki.ard2rg.ooYvrXHjnV_m4oVi1j7Rxzk37hQ"/>
+                                    <button type="submit" class="btn btn-sm btn-outline-danger btn-icon-action" title="Delete Event">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 2. MOBILE CARD VIEW (Visible on < 768px, NO Horizontal Scrolling) -->
+            <div class="mobile-events-list d-block d-md-none p-2 p-sm-3" id="mobileEventsList">
+                
+                <div class="event-item mobile-event-card mb-2.5 p-3" data-type="Holiday" data-title="mahatma gandhi jayanti national holiday on account of gandhi jayanti.">
+                    <div class="d-flex align-items-start gap-3">
+                        <!-- Date Badge Tile -->
+                        <div class="mobile-date-tile flex-shrink-0">
+                            <div class="date-tile-month">Oct</div>
+                            <div class="date-tile-day">02</div>
+                            <div class="date-tile-year">2026</div>
+                        </div>
+
+                        <!-- Main Content -->
+                        <div class="flex-grow-1 min-w-0">
+                            <div class="d-flex justify-content-between align-items-start gap-1 mb-1">
+                                <h6 class="event-title mb-0 text-truncate-2">Mahatma Gandhi Jayanti</h6>
+                                
+                                <!-- Delete Action -->
+                                <form method="POST" action="/school/academic-calendar/delete/2" onsubmit="return confirm('Are you sure you want to remove this event from the calendar?');" class="ms-1 flex-shrink-0">
+                                    <input type="hidden" name="csrf_token" value="ImEyZjkwMTlhY2MxNGJkNWE1ZDE5YWEyMGRjNjVhZjcxMjRjZWZhNzki.ard2rg.ooYvrXHjnV_m4oVi1j7Rxzk37hQ"/>
+                                    <button type="submit" class="btn btn-sm btn-outline-danger mobile-del-btn" title="Delete Event">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </form>
+                            </div>
+
+                            <!-- Duration / Range Text -->
+                            
+
+                            <!-- Badges Row -->
+                            <div class="d-flex flex-wrap align-items-center gap-1.5 mb-1.5">
+                                
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle py-1 px-2"><i class="fas fa-umbrella-beach me-1"></i>Holiday</span>
+                                
+
+                                
+                                    <span class="badge bg-secondary-subtle text-secondary py-1 px-1.5">Completed</span>
+                                
+                            </div>
+
+                            <!-- Description (if any) -->
+                            
+                            <p class="event-desc mb-0">National holiday on account of Gandhi Jayanti.</p>
+                            
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="event-item mobile-event-card mb-2.5 p-3" data-type="Examination" data-title="mid-term examinations first semester comprehensive examinations for all standards.">
+                    <div class="d-flex align-items-start gap-3">
+                        <!-- Date Badge Tile -->
+                        <div class="mobile-date-tile flex-shrink-0">
+                            <div class="date-tile-month">Oct</div>
+                            <div class="date-tile-day">12</div>
+                            <div class="date-tile-year">2026</div>
+                        </div>
+
+                        <!-- Main Content -->
+                        <div class="flex-grow-1 min-w-0">
+                            <div class="d-flex justify-content-between align-items-start gap-1 mb-1">
+                                <h6 class="event-title mb-0 text-truncate-2">Mid-Term Examinations</h6>
+                                
+                                <!-- Delete Action -->
+                                <form method="POST" action="/school/academic-calendar/delete/1" onsubmit="return confirm('Are you sure you want to remove this event from the calendar?');" class="ms-1 flex-shrink-0">
+                                    <input type="hidden" name="csrf_token" value="ImEyZjkwMTlhY2MxNGJkNWE1ZDE5YWEyMGRjNjVhZjcxMjRjZWZhNzki.ard2rg.ooYvrXHjnV_m4oVi1j7Rxzk37hQ"/>
+                                    <button type="submit" class="btn btn-sm btn-outline-danger mobile-del-btn" title="Delete Event">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </form>
+                            </div>
+
+                            <!-- Duration / Range Text -->
+                            
+                            <div class="event-duration mb-1.5">
+                                <i class="far fa-clock me-1 text-primary"></i>
+                                <span>Through Oct 22, 2026</span>
+                            </div>
+                            
+
+                            <!-- Badges Row -->
+                            <div class="d-flex flex-wrap align-items-center gap-1.5 mb-1.5">
+                                
+                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle py-1 px-2"><i class="fas fa-file-alt me-1"></i>Exam</span>
+                                
+
+                                
+                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle py-1 px-1.5">Upcoming</span>
+                                
+                            </div>
+
+                            <!-- Description (if any) -->
+                            
+                            <p class="event-desc mb-0">First semester comprehensive examinations for all standards.</p>
+                            
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="event-item mobile-event-card mb-2.5 p-3" data-type="Meeting" data-title="parent-teacher interaction meet discussion of first term student performance and academic progress.">
+                    <div class="d-flex align-items-start gap-3">
+                        <!-- Date Badge Tile -->
+                        <div class="mobile-date-tile flex-shrink-0">
+                            <div class="date-tile-month">Oct</div>
+                            <div class="date-tile-day">28</div>
+                            <div class="date-tile-year">2026</div>
+                        </div>
+
+                        <!-- Main Content -->
+                        <div class="flex-grow-1 min-w-0">
+                            <div class="d-flex justify-content-between align-items-start gap-1 mb-1">
+                                <h6 class="event-title mb-0 text-truncate-2">Parent-Teacher Interaction Meet</h6>
+                                
+                                <!-- Delete Action -->
+                                <form method="POST" action="/school/academic-calendar/delete/4" onsubmit="return confirm('Are you sure you want to remove this event from the calendar?');" class="ms-1 flex-shrink-0">
+                                    <input type="hidden" name="csrf_token" value="ImEyZjkwMTlhY2MxNGJkNWE1ZDE5YWEyMGRjNjVhZjcxMjRjZWZhNzki.ard2rg.ooYvrXHjnV_m4oVi1j7Rxzk37hQ"/>
+                                    <button type="submit" class="btn btn-sm btn-outline-danger mobile-del-btn" title="Delete Event">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </form>
+                            </div>
+
+                            <!-- Duration / Range Text -->
+                            
+
+                            <!-- Badges Row -->
+                            <div class="d-flex flex-wrap align-items-center gap-1.5 mb-1.5">
+                                
+                                    <span class="badge bg-info-subtle text-info border border-info-subtle py-1 px-2"><i class="fas fa-users me-1"></i>Meeting</span>
+                                
+
+                                
+                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle py-1 px-1.5">Upcoming</span>
+                                
+                            </div>
+
+                            <!-- Description (if any) -->
+                            
+                            <p class="event-desc mb-0">Discussion of first term student performance and academic progress.</p>
+                            
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="event-item mobile-event-card mb-2.5 p-3" data-type="Holiday" data-title="diwali &amp; deepavali vacation festival break for all students and institutional faculty.">
+                    <div class="d-flex align-items-start gap-3">
+                        <!-- Date Badge Tile -->
+                        <div class="mobile-date-tile flex-shrink-0">
+                            <div class="date-tile-month">Nov</div>
+                            <div class="date-tile-day">01</div>
+                            <div class="date-tile-year">2026</div>
+                        </div>
+
+                        <!-- Main Content -->
+                        <div class="flex-grow-1 min-w-0">
+                            <div class="d-flex justify-content-between align-items-start gap-1 mb-1">
+                                <h6 class="event-title mb-0 text-truncate-2">Diwali &amp; Deepavali Vacation</h6>
+                                
+                                <!-- Delete Action -->
+                                <form method="POST" action="/school/academic-calendar/delete/5" onsubmit="return confirm('Are you sure you want to remove this event from the calendar?');" class="ms-1 flex-shrink-0">
+                                    <input type="hidden" name="csrf_token" value="ImEyZjkwMTlhY2MxNGJkNWE1ZDE5YWEyMGRjNjVhZjcxMjRjZWZhNzki.ard2rg.ooYvrXHjnV_m4oVi1j7Rxzk37hQ"/>
+                                    <button type="submit" class="btn btn-sm btn-outline-danger mobile-del-btn" title="Delete Event">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </form>
+                            </div>
+
+                            <!-- Duration / Range Text -->
+                            
+                            <div class="event-duration mb-1.5">
+                                <i class="far fa-clock me-1 text-primary"></i>
+                                <span>Through Nov 06, 2026</span>
+                            </div>
+                            
+
+                            <!-- Badges Row -->
+                            <div class="d-flex flex-wrap align-items-center gap-1.5 mb-1.5">
+                                
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle py-1 px-2"><i class="fas fa-umbrella-beach me-1"></i>Holiday</span>
+                                
+
+                                
+                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle py-1 px-1.5">Upcoming</span>
+                                
+                            </div>
+
+                            <!-- Description (if any) -->
+                            
+                            <p class="event-desc mb-0">Festival break for all students and institutional faculty.</p>
+                            
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="event-item mobile-event-card mb-2.5 p-3" data-type="Co-Curricular" data-title="annual sports meet 2026 inter-house athletic competitions and track events at main campus grounds.">
+                    <div class="d-flex align-items-start gap-3">
+                        <!-- Date Badge Tile -->
+                        <div class="mobile-date-tile flex-shrink-0">
+                            <div class="date-tile-month">Nov</div>
+                            <div class="date-tile-day">14</div>
+                            <div class="date-tile-year">2026</div>
+                        </div>
+
+                        <!-- Main Content -->
+                        <div class="flex-grow-1 min-w-0">
+                            <div class="d-flex justify-content-between align-items-start gap-1 mb-1">
+                                <h6 class="event-title mb-0 text-truncate-2">Annual Sports Meet 2026</h6>
+                                
+                                <!-- Delete Action -->
+                                <form method="POST" action="/school/academic-calendar/delete/3" onsubmit="return confirm('Are you sure you want to remove this event from the calendar?');" class="ms-1 flex-shrink-0">
+                                    <input type="hidden" name="csrf_token" value="ImEyZjkwMTlhY2MxNGJkNWE1ZDE5YWEyMGRjNjVhZjcxMjRjZWZhNzki.ard2rg.ooYvrXHjnV_m4oVi1j7Rxzk37hQ"/>
+                                    <button type="submit" class="btn btn-sm btn-outline-danger mobile-del-btn" title="Delete Event">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </form>
+                            </div>
+
+                            <!-- Duration / Range Text -->
+                            
+                            <div class="event-duration mb-1.5">
+                                <i class="far fa-clock me-1 text-primary"></i>
+                                <span>Through Nov 16, 2026</span>
+                            </div>
+                            
+
+                            <!-- Badges Row -->
+                            <div class="d-flex flex-wrap align-items-center gap-1.5 mb-1.5">
+                                
+                                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle py-1 px-2"><i class="fas fa-trophy me-1"></i>Fest</span>
+                                
+
+                                
+                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle py-1 px-1.5">Upcoming</span>
+                                
+                            </div>
+
+                            <!-- Description (if any) -->
+                            
+                            <p class="event-desc mb-0">Inter-house athletic competitions and track events at main campus grounds.</p>
+                            
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+
+            <!-- Empty Filter State (Shown when filter has 0 matches) -->
+            <div id="noFilterMatch" class="text-center py-5 px-3 d-none">
+                <div class="mb-2">
+                    <i class="fas fa-search text-muted" style="font-size: 2.2rem; opacity: 0.6;"></i>
+                </div>
+                <h6 class="fw-bold mb-1">No Matching Events</h6>
+                <p class="text-muted small mb-3">No academic events found for the selected category or search query.</p>
+                <button type="button" class="btn btn-sm btn-outline-primary" onclick="resetFilters()">
+                    <i class="fas fa-sync-alt me-1"></i> Show All Events
+                </button>
+            </div>
+
+            
+        </div>
+    </div>
+</div>
+
+<script>
+let currentTypeFilter = 'all';
+let currentSearchQuery = '';
+
+function filterEvents(type, btn) {
+    currentTypeFilter = type;
+    
+    // Update active pill state
+    document.querySelectorAll('.filter-pills-container .filter-pill').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+
+    applyFilters();
+}
+
+function searchEvents(query) {
+    currentSearchQuery = (query || '').toLowerCase().trim();
+    applyFilters();
+}
+
+function applyFilters() {
+    const items = document.querySelectorAll('.event-item');
+    let visibleCount = 0;
+
+    items.forEach(item => {
+        const itemType = item.getAttribute('data-type');
+        const itemText = item.getAttribute('data-title') || '';
+
+        const matchesType = (currentTypeFilter === 'all' || itemType === currentTypeFilter);
+        const matchesSearch = (!currentSearchQuery || itemText.includes(currentSearchQuery));
+
+        if (matchesType && matchesSearch) {
+            item.style.display = '';
+            visibleCount++;
+        } else {
+            item.style.display = 'none';
+        }
+    });
+
+    // Update counter label
+    const totalCount = items.length > 0 ? items.length / 2 : 0; // Divided by 2 because items exist in both desktop table and mobile list
+    const actualVisible = Math.ceil(visibleCount / 2);
+    const countLabel = document.getElementById('filteredCountLabel');
+    if (countLabel) {
+        countLabel.textContent = `Showing ${actualVisible} of ${totalCount}`;
+    }
+
+    // Toggle no matches empty state
+    const noMatchEl = document.getElementById('noFilterMatch');
+    if (noMatchEl) {
+        if (visibleCount === 0 && items.length > 0) {
+            noMatchEl.classList.remove('d-none');
+        } else {
+            noMatchEl.classList.add('d-none');
+        }
+    }
+}
+
+function resetFilters() {
+    currentTypeFilter = 'all';
+    currentSearchQuery = '';
+    const searchInput = document.getElementById('calendarSearchInput');
+    if (searchInput) searchInput.value = '';
+    
+    document.querySelectorAll('.filter-pills-container .filter-pill').forEach((b, idx) => {
+        if (idx === 0) b.classList.add('active');
+        else b.classList.remove('active');
+    });
+
+    applyFilters();
+}
+</script>
+
+<style>
+/* Academic Calendar Modern & Responsive Styles */
+.academic-calendar-wrapper {
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+.page-title {
+    font-size: 1.45rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    letter-spacing: -0.02em;
+}
+
+@media (max-width: 576px) {
+    .page-title {
+        font-size: 1.25rem;
+    }
+}
+
+/* Quick Stats Summary Cards */
+.stat-summary-card {
+    background: var(--bg-card, #ffffff);
+    border: 1px solid var(--border-color, rgba(0, 0, 0, 0.08));
+    border-radius: 12px;
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stat-summary-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.stat-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+
+.stat-val {
+    font-size: 1.25rem;
+    font-weight: 800;
+    line-height: 1.1;
+    color: var(--text-primary);
+}
+
+.stat-lbl {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+@media (max-width: 576px) {
+    .stat-summary-card {
+        padding: 10px 12px;
+        gap: 10px;
+    }
+    .stat-icon {
+        width: 34px;
+        height: 34px;
+        font-size: 0.95rem;
+    }
+    .stat-val {
+        font-size: 1.1rem;
+    }
+    .stat-lbl {
+        font-size: 0.68rem;
+    }
+}
+
+/* Add Event Form Card */
+.event-form-card {
+    border-radius: 14px;
+    background: var(--bg-card, #ffffff);
+    border-left: 4px solid var(--accent-primary, #6c5ce7) !important;
+}
+
+.event-form-card .card-header {
+    background: transparent;
+    border-bottom: 1px solid var(--border-color, rgba(0,0,0,0.06));
+}
+
+/* Filter Card & Horizontal Scroll Pills */
+.filter-card {
+    border-radius: 12px;
+    background: var(--bg-card, #ffffff);
+}
+
+.filter-pills-container {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 2px;
+    scrollbar-width: none; /* Firefox */
+}
+
+.filter-pills-container::-webkit-scrollbar {
+    display: none; /* Chrome, Safari */
+}
+
+.filter-pill {
+    background: transparent;
+    border: 1px solid var(--border-color, rgba(0,0,0,0.1));
+    color: var(--text-secondary);
+    padding: 6px 13px;
+    border-radius: 50px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.filter-pill:hover {
+    background: var(--bg-primary, #f8f9fa);
+    color: var(--text-primary);
+    border-color: var(--accent-primary, #6c5ce7);
+}
+
+.filter-pill.active {
+    background: var(--accent-primary, #6c5ce7);
+    color: #ffffff !important;
+    border-color: var(--accent-primary, #6c5ce7);
+    box-shadow: 0 2px 8px rgba(108, 92, 231, 0.25);
+}
+
+.pill-badge {
+    background: rgba(255, 255, 255, 0.25);
+    font-size: 0.72rem;
+    padding: 1px 6px;
+    border-radius: 20px;
+}
+
+.filter-pill:not(.active) .pill-badge {
+    background: var(--bg-primary, #f1f5f9);
+    color: var(--text-secondary);
+}
+
+/* Quick Search Box */
+.calendar-search-wrap {
+    position: relative;
+    min-width: 180px;
+}
+
+.calendar-search-wrap .search-icon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    pointer-events: none;
+}
+
+.calendar-search-input {
+    padding-left: 28px !important;
+    border-radius: 20px !important;
+    border: 1px solid var(--border-color, rgba(0,0,0,0.12));
+    background: var(--bg-secondary, #ffffff);
+    color: var(--text-primary);
+    font-size: 0.8rem;
+}
+
+.calendar-search-input:focus {
+    border-color: var(--accent-primary, #6c5ce7);
+    box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.15);
+}
+
+/* Main Events Card */
+.main-events-card {
+    border-radius: 14px;
+    overflow: hidden;
+    background: var(--bg-card, #ffffff);
+}
+
+.main-events-card .card-header {
+    background: transparent;
+    border-bottom: 1px solid var(--border-color, rgba(0,0,0,0.06));
+}
+
+/* Desktop Table Styles */
+#desktopEventsTable th {
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.6px;
+    background: var(--bg-primary, #f8f9fa);
+    border-bottom: 1px solid var(--border-color, rgba(0,0,0,0.08));
+    padding-top: 11px;
+    padding-bottom: 11px;
+}
+
+#desktopEventsTable td {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border-color, rgba(0,0,0,0.05));
+    color: var(--text-primary);
+}
+
+.desktop-event-row:hover td {
+    background-color: var(--bg-primary, #f8fafc);
+}
+
+.btn-icon-action {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+}
+
+/* =========================================
+   MOBILE EVENT CARDS (Key Mobile Optimization)
+   ========================================= */
+.mobile-event-card {
+    background: var(--bg-secondary, #ffffff);
+    border: 1px solid var(--border-color, rgba(0, 0, 0, 0.08));
+    border-radius: 12px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.mobile-event-card:active {
+    transform: scale(0.99);
+}
+
+/* Mini Calendar Date Tile */
+.mobile-date-tile {
+    width: 48px;
+    background: var(--bg-primary, #f1f5f9);
+    border: 1px solid var(--border-color, rgba(0, 0, 0, 0.08));
+    border-radius: 10px;
+    overflow: hidden;
+    text-align: center;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.date-tile-month {
+    background: var(--accent-primary, #6c5ce7);
+    color: #ffffff;
+    font-size: 0.65rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 2px 0;
+    line-height: 1.2;
+}
+
+.date-tile-day {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    line-height: 1.2;
+    padding-top: 3px;
+}
+
+.date-tile-year {
+    font-size: 0.62rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    padding-bottom: 3px;
+}
+
+.event-title {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.3;
+}
+
+.text-truncate-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.event-duration {
+    font-size: 0.74rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.event-desc {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    line-height: 1.35;
+    background: var(--bg-primary, #f8f9fa);
+    padding: 5px 8px;
+    border-radius: 6px;
+    margin-top: 4px;
+}
+
+.mobile-del-btn {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    font-size: 0.75rem;
+}
+
+/* Empty State Wrapper */
+.empty-icon-wrap {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: var(--bg-primary, #eef2ff);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+}
+</style>
+
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const sidebar = document.querySelector('.sidebar');
+            const toggleBtn = document.getElementById('sidebarToggle');
+            const overlay = document.getElementById('sidebarOverlay');
+            
+            if (toggleBtn && sidebar && overlay) {
+                toggleBtn.addEventListener('click', function() {
+                    sidebar.classList.add('active');
+                    overlay.classList.add('active');
+                });
+                
+                overlay.addEventListener('click', function() {
+                    sidebar.classList.remove('active');
+                    overlay.classList.remove('active');
+                });
+                
+                const menuLinks = sidebar.querySelectorAll('.sidebar-menu a');
+                menuLinks.forEach(link => {
+                    link.addEventListener('click', function() {
+                        if (window.innerWidth <= 992) {
+                            sidebar.classList.remove('active');
+                            overlay.classList.remove('active');
+                        }
+                    });
+                });
+            }
+
+            // Animate content on load
+            const contentArea = document.querySelector('.content-area');
+            if (contentArea) {
+                contentArea.classList.add('animate-fade-in');
+            }
+
+            // Theme Toggle Logic
+            const themeToggleBtn = document.getElementById('themeToggleBtn');
+            if (themeToggleBtn) {
+                const icon = themeToggleBtn.querySelector('i');
+                
+                function updateIcon(theme) {
+                    if (theme === 'dark') {
+                        icon.className = 'fas fa-sun';
+                    } else {
+                        icon.className = 'fas fa-moon';
+                    }
+                }
+
+                const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+                updateIcon(currentTheme);
+
+                themeToggleBtn.addEventListener('click', function() {
+                    const newTheme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+                    document.documentElement.setAttribute('data-theme', newTheme);
+                    localStorage.setItem('smart-campus-theme', newTheme);
+                    updateIcon(newTheme);
+                });
+            }
+        });
+    </script>
+    
+</body>
+</html>

@@ -6,6 +6,7 @@
     <title>Login - CampusAI</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -14,24 +15,25 @@
         }
         
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
+            padding: 20px;
         }
         
         .login-container {
             width: 100%;
-            max-width: 450px;
-            padding: 20px;
+            max-width: 480px;
+            padding: 10px;
         }
         
         .login-card {
             background: white;
-            border-radius: 15px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            border-radius: 20px;
+            box-shadow: 0 15px 45px rgba(0, 0, 0, 0.25);
             overflow: hidden;
             animation: slideUp 0.5s ease-out;
         }
@@ -39,41 +41,47 @@
         .login-header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 40px 20px;
+            padding: 34px 24px;
             text-align: center;
         }
         
         .login-header h2 {
-            font-weight: 700;
-            margin-bottom: 10px;
+            font-weight: 800;
+            margin-bottom: 6px;
+            letter-spacing: -0.02em;
         }
         
         .login-header p {
             opacity: 0.9;
+            font-size: 0.92rem;
             margin: 0;
         }
         
         .login-form {
-            padding: 40px;
+            padding: 32px 30px;
         }
         
         .form-group {
-            margin-bottom: 25px;
+            margin-bottom: 20px;
         }
         
         .form-label {
-            font-weight: 600;
-            color: #333;
+            font-weight: 700;
+            color: #2d3748;
             margin-bottom: 8px;
-            display: block;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            letter-spacing: 0.02em;
         }
         
         .form-control, .form-select {
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
             padding: 12px 15px;
             font-size: 0.95rem;
-            transition: all 0.3s;
+            transition: all 0.25s ease;
         }
         
         .form-control:focus, .form-select:focus {
@@ -82,48 +90,128 @@
         }
         
         .input-group-text {
-            border-color: #e0e0e0;
-            background: transparent;
+            border-color: #e2e8f0;
+            background: #f8fafc;
+            color: #64748b;
+            border-radius: 10px 0 0 10px;
         }
         
         .input-group .form-control {
             border-left: none;
+            border-radius: 0 10px 10px 0;
         }
-        
-        .input-group-text {
-            border-right: none;
+
+        /* Role Selector Pills */
+        .role-pill-group {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-top: 6px;
+        }
+
+        .role-pill-group.two-roles {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .role-pill-btn {
+            border: 2px solid #e2e8f0;
+            background: #f8fafc;
+            border-radius: 10px;
+            padding: 10px 6px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            position: relative;
+            color: #4a5568;
+            font-size: 0.84rem;
+            font-weight: 600;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .role-pill-btn:hover {
+            border-color: #cbd5e1;
+            background: #f1f5f9;
+        }
+
+        .role-pill-btn.active {
+            border-color: #667eea;
+            background: #f0f4ff;
+            color: #4338ca;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.25);
+        }
+
+        .role-pill-btn i {
+            font-size: 1.15rem;
+            color: #667eea;
+        }
+
+        .role-pill-btn.active i {
+            color: #4338ca;
+        }
+
+        .badge-exclusive {
+            position: absolute;
+            top: -7px;
+            right: 4px;
+            background: linear-gradient(135deg, #f59e0b, #ef4444);
+            color: #fff;
+            font-size: 0.58rem;
+            font-weight: 700;
+            padding: 1px 5px;
+            border-radius: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+
+        .role-hint-banner {
+            font-size: 0.77rem;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-left: 3px solid #667eea;
+            padding: 7px 10px;
+            border-radius: 8px;
+            margin-top: 8px;
+            color: #64748b;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
         
         .btn-login {
             width: 100%;
-            padding: 12px;
+            padding: 13px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             border: none;
-            border-radius: 8px;
+            border-radius: 10px;
             color: white;
-            font-weight: 600;
+            font-weight: 700;
             font-size: 1rem;
             cursor: pointer;
             transition: transform 0.2s, box-shadow 0.2s;
             margin-top: 10px;
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.35);
         }
         
         .btn-login:hover {
             transform: translateY(-2px);
-            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.45);
             color: white;
         }
         
         .login-footer {
             text-align: center;
-            padding: 20px;
-            background: #f8f9fa;
-            border-top: 1px solid #e0e0e0;
+            padding: 20px 24px;
+            background: #f8fafc;
+            border-top: 1px solid #edf2f7;
         }
         
         .login-footer p {
-            margin-bottom: 10px;
-            color: #666;
+            margin-bottom: 8px;
+            color: #64748b;
+            font-size: 0.88rem;
         }
         
         .login-footer a {
@@ -135,14 +223,16 @@
         
         .login-footer a:hover {
             color: #764ba2;
+            text-decoration: underline;
         }
         
         .register-link {
             display: inline-block;
-            margin-top: 10px;
+            margin-top: 8px;
             color: #667eea;
             text-decoration: none;
             font-weight: 600;
+            font-size: 0.88rem;
         }
         
         .register-link:hover {
@@ -150,29 +240,10 @@
         }
         
         .alert {
-            border-radius: 8px;
+            border-radius: 10px;
             border: none;
+            font-size: 0.9rem;
             margin-bottom: 20px;
-        }
-        
-        .alert-success {
-            background-color: #d4edda;
-            color: #155724;
-        }
-        
-        .alert-danger {
-            background-color: #f8d7da;
-            color: #721c24;
-        }
-        
-        .alert-warning {
-            background-color: #fff3cd;
-            color: #856404;
-        }
-        
-        .alert-info {
-            background-color: #d1ecf1;
-            color: #0c5460;
         }
         
         @keyframes slideUp {
@@ -187,15 +258,16 @@
         }
         
         .icon-box {
-            width: 60px;
-            height: 60px;
+            width: 62px;
+            height: 62px;
             background: rgba(255, 255, 255, 0.2);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin: 0 auto 20px;
-            font-size: 28px;
+            margin: 0 auto 16px;
+            font-size: 26px;
+            border: 2px solid rgba(255, 255, 255, 0.35);
         }
     </style>
 </head>
@@ -203,11 +275,11 @@
     <div class="login-container">
         <div class="login-card">
             <div class="login-header">
-                <div class="icon-box">
-                    <i class="fas fa-shield-alt"></i>
+                <div class="icon-box" id="loginHeaderIconBox">
+                    <i class="fas fa-shield-alt" id="loginHeaderIcon"></i>
                 </div>
-                <h2>CampusAI</h2>
-                <p>Next Generation Smart Campus</p>
+                <h2 id="loginTitle">CampusAI</h2>
+                <p id="loginSubtitle">Next Generation Smart Campus Portal</p>
             </div>
             
             <div class="login-form">
@@ -222,52 +294,98 @@
                     {% endif %}
                 {% endwith %}
                 
-                <form method="POST">
+                <form method="POST" id="mainLoginForm">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <input type="hidden" name="role" id="loginRoleInput" value="admin"/>
+                    
+                    <!-- Organization Type -->
                     <div class="form-group">
-                        <label class="form-label">Organization Type</label>
-                        <select name="org_type" class="form-select" required>
+                        <label class="form-label" for="orgTypeSelect">
+                            <span>Organization Type</span>
+                            <span class="badge bg-light text-dark border" id="selectedOrgBadge">School</span>
+                        </label>
+                        <select name="org_type" id="orgTypeSelect" class="form-select" onchange="onOrgTypeChanged()" required>
                             <option value="school" selected>School</option>
                             <option value="college">College</option>
                             <option value="institution">Institution</option>
                         </select>
                     </div>
-                    
+
+                    <!-- Role Selector (Admin, HOD, Staff) -->
                     <div class="form-group">
-                        <label class="form-label">Username or Email</label>
-                        <div class="input-group">
-                            <span class="input-group-text">
-                                <i class="fas fa-user"></i>
-                            </span>
-                            <input type="text" name="username" class="form-control" placeholder="Enter username or email" required>
+                        <label class="form-label">
+                            <span>Role / Designation</span>
+                            <span class="badge bg-primary text-white" id="selectedRoleBadge">ADMIN</span>
+                        </label>
+                        <div class="role-pill-group" id="rolePillGroup">
+                            <!-- Admin Role -->
+                            <div class="role-pill-btn active" id="pillAdmin" onclick="setRole('admin')">
+                                <i class="fas fa-crown"></i>
+                                <span>Admin</span>
+                            </div>
+
+                            <!-- HOD Role (Visible only for College and Institution) -->
+                            <div class="role-pill-btn" id="pillHod" onclick="setRole('hod')">
+                                <span class="badge-exclusive">College/Inst</span>
+                                <i class="fas fa-id-badge"></i>
+                                <span>HOD</span>
+                            </div>
+
+                            <!-- Staff Role -->
+                            <div class="role-pill-btn" id="pillStaff" onclick="setRole('staff')">
+                                <i class="fas fa-chalkboard-teacher"></i>
+                                <span>Staff</span>
+                            </div>
+                        </div>
+
+                        <!-- Informative hint banner -->
+                        <div class="role-hint-banner" id="roleHintBanner">
+                            <i class="fas fa-info-circle text-primary"></i>
+                            <span id="roleHintSpan">School organizations utilize Admin and Staff roles. HOD is dedicated to College & Institutions.</span>
                         </div>
                     </div>
                     
+                    <!-- Username / Email / Mobile Input -->
+                    <div class="form-group">
+                        <label class="form-label" id="usernameLabel">Username or Email</label>
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="fas fa-user" id="usernameIcon"></i>
+                            </span>
+                            <input type="text" name="username" id="usernameInput" class="form-control" placeholder="Enter username or email" required autofocus>
+                        </div>
+                    </div>
+                    
+                    <!-- Password Input -->
                     <div class="form-group">
                         <label class="form-label">Password</label>
                         <div class="input-group">
                             <span class="input-group-text">
                                 <i class="fas fa-lock"></i>
                             </span>
-                            <input type="password" name="password" class="form-control" placeholder="Enter password" required>
+                            <input type="password" name="password" id="passwordInput" class="form-control" placeholder="Enter password" required>
                             <button class="btn btn-outline-secondary bg-white border-start-0" type="button" onclick="togglePassword(this)">
                                 <i class="fas fa-eye"></i>
                             </button>
                         </div>
                     </div>
                     
-                    <button type="submit" class="btn btn-login">
-                        <i class="fas fa-sign-in-alt"></i> Login
+                    <button type="submit" class="btn btn-login" id="mainSubmitBtn">
+                        <i class="fas fa-sign-in-alt me-1"></i> <span id="submitText">Login as Admin</span>
                     </button>
                 </form>
             </div>
             
             <div class="login-footer">
-                <p>Don't have an account? <a href="{{ url_for('register') }}">Register here</a></p>
+                <p>Don't have an account? <a href="{{ url_for('register') }}">Register organization here</a></p>
                 <p><a href="/forgot-password">Forgot Password?</a></p>
                 <p>
-                    <a href="/staff/login" class="register-link me-3"><i class="fas fa-user-tie"></i> Staff Login</a>
-                    <a href="/student/login" class="register-link"><i class="fas fa-user-graduate"></i> Student Login</a>
+                    <a href="/staff/login?org_type=college&role=staff" class="register-link me-3" id="staffPortalLink">
+                        <i class="fas fa-user-tie me-1"></i> Dedicated Staff/HOD Login
+                    </a>
+                    <a href="/student/login" class="register-link">
+                        <i class="fas fa-user-graduate me-1"></i> Student Login
+                    </a>
                 </p>
             </div>
         </div>
@@ -275,6 +393,104 @@
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        let currentRole = 'admin';
+        let currentOrg = 'school';
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const orgParam = urlParams.get('org_type');
+            const roleParam = urlParams.get('role');
+
+            if (orgParam && ['school', 'college', 'institution'].includes(orgParam.toLowerCase())) {
+                document.getElementById('orgTypeSelect').value = orgParam.toLowerCase();
+            }
+            if (roleParam && ['admin', 'hod', 'staff'].includes(roleParam.toLowerCase())) {
+                currentRole = roleParam.toLowerCase();
+            }
+
+            onOrgTypeChanged();
+        });
+
+        function onOrgTypeChanged() {
+            const orgSelect = document.getElementById('orgTypeSelect');
+            currentOrg = orgSelect.value;
+            document.getElementById('selectedOrgBadge').textContent = currentOrg.toUpperCase();
+
+            const pillHod = document.getElementById('pillHod');
+            const rolePillGroup = document.getElementById('rolePillGroup');
+            const roleHintSpan = document.getElementById('roleHintSpan');
+            const roleHintBanner = document.getElementById('roleHintBanner');
+            const staffPortalLink = document.getElementById('staffPortalLink');
+
+            // Update dedicated staff login link to maintain current organization
+            staffPortalLink.href = `/staff/login?org_type=${currentOrg}&role=${currentRole === 'hod' ? 'hod' : 'staff'}`;
+
+            if (currentOrg === 'school') {
+                // School has no HOD!
+                pillHod.style.display = 'none';
+                rolePillGroup.classList.add('two-roles');
+                roleHintSpan.innerHTML = 'School organizations use <strong>Admin</strong> & <strong>Staff</strong> roles. <em>HOD role is for College & Institutions only.</em>';
+                roleHintBanner.style.borderLeftColor = '#f59e0b';
+
+                // If user was on HOD when switching to school, switch to Admin
+                if (currentRole === 'hod') {
+                    currentRole = 'admin';
+                }
+            } else {
+                // College and Institution have Admin, HOD, and Staff!
+                pillHod.style.display = 'flex';
+                rolePillGroup.classList.remove('two-roles');
+                const orgDisplay = currentOrg === 'college' ? 'College' : 'Institution';
+                roleHintSpan.innerHTML = `<strong>${orgDisplay}</strong> supports role-based access: <strong>Admin</strong>, <strong>HOD</strong> (Head of Dept), and <strong>Staff</strong>.`;
+                roleHintBanner.style.borderLeftColor = '#667eea';
+            }
+
+            applyRoleUI();
+        }
+
+        function setRole(role) {
+            if (currentOrg === 'school' && role === 'hod') {
+                alert('HOD role is only available for College and Institutions.');
+                return;
+            }
+            currentRole = role;
+            applyRoleUI();
+        }
+
+        function applyRoleUI() {
+            // Update hidden role input
+            document.getElementById('loginRoleInput').value = currentRole;
+            document.getElementById('selectedRoleBadge').textContent = currentRole.toUpperCase();
+
+            // Update active pill classes
+            document.getElementById('pillAdmin').classList.toggle('active', currentRole === 'admin');
+            document.getElementById('pillHod').classList.toggle('active', currentRole === 'hod');
+            document.getElementById('pillStaff').classList.toggle('active', currentRole === 'staff');
+
+            // Dynamic labels and placeholders
+            const usernameLabel = document.getElementById('usernameLabel');
+            const usernameInput = document.getElementById('usernameInput');
+            const submitText = document.getElementById('submitText');
+            const loginHeaderIcon = document.getElementById('loginHeaderIcon');
+
+            if (currentRole === 'hod') {
+                usernameLabel.textContent = 'HOD Email, Mobile or Username';
+                usernameInput.placeholder = 'Enter registered HOD email or phone';
+                submitText.textContent = 'Login as Head of Department';
+                loginHeaderIcon.className = 'fas fa-id-badge';
+            } else if (currentRole === 'staff') {
+                usernameLabel.textContent = 'Staff Email, Mobile or Username';
+                usernameInput.placeholder = 'Enter staff email or phone';
+                submitText.textContent = 'Login as Staff / Faculty';
+                loginHeaderIcon.className = 'fas fa-chalkboard-teacher';
+            } else {
+                usernameLabel.textContent = 'Admin Username or Email';
+                usernameInput.placeholder = 'Enter admin username or email';
+                submitText.textContent = 'Login as Administrator';
+                loginHeaderIcon.className = 'fas fa-crown';
+            }
+        }
+
         function togglePassword(btn) {
             const input = btn.previousElementSibling;
             const icon = btn.querySelector('i');
@@ -288,8 +504,6 @@
                 icon.classList.add('fa-eye');
             }
         }
-
-
     </script>
 </body>
 </html>

@@ -5,7 +5,8 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/face_register.css') }}">
 <!-- Select2 CSS -->
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-<link href="https://cdn.jsdelivr.net/npm/@ttskch/select2-bootstrap4-theme@1.5.2/dist/select2-bootstrap4.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/@ttskch/select2-bootstrap4-theme@1.5.2/dist/select2-bootstrap4.min.css"
+  rel="stylesheet" />
 {% endblock %}
 
 {% block content %}
@@ -32,7 +33,8 @@
         <select id="studentSelect" class="form-select searchable-select" name="student_id" required>
           <option value="">Choose student...</option>
           {% for student in students %}
-          <option value="{{ student.id }}" data-class-id="{{ student.class_id }}">{{ student.name }} (Roll: {{ student.roll_number }})</option>
+          <option value="{{ student.id }}" data-class-id="{{ student.class_id }}">{{ student.name }} (Roll: {{
+            student.roll_number }})</option>
           {% endfor %}
         </select>
       </div>
@@ -99,15 +101,18 @@
 
         <!-- CCTV URL Input -->
         <div id="cctvWrapper" class="d-none">
-          <label for="cctvUrlInput" class="form-label small text-muted mb-1">CCTV RTSP / HTTP Stream URL or Index:</label>
+          <label for="cctvUrlInput" class="form-label small text-muted mb-1">CCTV RTSP / HTTP Stream URL or
+            Index:</label>
           <div class="input-group mb-2">
             <span class="input-group-text"><i class="fas fa-network-wired"></i></span>
-            <input type="text" id="cctvUrlInput" class="form-control form-control-sm" placeholder="rtsp://admin:pass@192.168.1.100:554/h264 or http://192.168.1.100:8080/video or 0">
+            <input type="text" id="cctvUrlInput" class="form-control form-control-sm"
+              placeholder="rtsp://admin:pass@192.168.1.100:554/h264 or http://192.168.1.100:8080/video or 0">
             <button class="btn btn-primary btn-sm fw-bold" type="button" id="fetchCctvBtn">
               <i class="fas fa-camera me-1"></i>Fetch CCTV Frame
             </button>
           </div>
-          <small class="text-muted d-block"><i class="fas fa-info-circle me-1"></i>Enter your IP camera stream URL or enter <code>0</code> / <code>1</code> for local webcam index.</small>
+          <small class="text-muted d-block"><i class="fas fa-info-circle me-1"></i>Enter your IP camera stream
+            URL or enter <code>0</code> / <code>1</code> for local webcam index.</small>
         </div>
       </div>
 
@@ -115,11 +120,15 @@
       <div id="videoZoomWrapper" class="video-wrapper position-relative mx-auto rounded-3 shadow">
         <div id="cameraFlash" class="camera-flash"></div>
         <video id="videoFeed" class="w-100 rounded-3" autoplay playsinline></video>
-        <div class="zoom-controls position-absolute top-0 end-0 m-2 p-2 d-flex flex-column align-items-center shadow-sm">
-          <button type="button" id="zoomInBtn" class="btn btn-sm btn-light mb-1" title="Zoom In"><i class="fas fa-search-plus"></i></button>
-          <input type="range" id="zoomSlider" min="1" max="3" step="0.1" value="1" class="form-range mb-1" style="width:60px;" title="Zoom Level">
-          <button type="button" id="zoomOutBtn" class="btn btn-sm btn-light" title="Zoom Out"><i class="fas fa-search-minus"></i></button>
-          <div id="zoomLabel" class="text-white mt-1 small fw-bold">1.0x</div>
+        <div
+          class="zoom-controls position-absolute top-0 end-0 m-2 p-2 d-flex flex-column align-items-center shadow-sm">
+          <button type="button" id="zoomInBtn" class="btn btn-sm btn-light mb-1" title="Zoom In"><i
+              class="fas fa-search-plus"></i></button>
+          <input type="range" id="zoomSlider" min="2" max="3" step="0.1" value="1" class="form-range mb-1"
+            style="width:60px;" title="Zoom Level">
+          <button type="button" id="zoomOutBtn" class="btn btn-sm btn-light" title="Zoom Out"><i
+              class="fas fa-search-minus"></i></button>
+          <div id="zoomLabel" class="text-white mt-1 small fw-bold">2.0x</div>
         </div>
       </div>
 
@@ -143,13 +152,14 @@
         </div>
       </div>
       <div id="poseGallery" class="d-flex flex-wrap gap-3">
-        <div class="text-muted small italic text-center w-100 py-3">No poses captured yet. Click "Start Auto 5-Pose Capture" to capture 5 photos automatically.</div>
+        <div class="text-muted small italic text-center w-100 py-3">No poses captured yet. Click "Start Auto 5-Pose
+          Capture" to capture 5 photos automatically.</div>
       </div>
     </div>
 
     <!-- Submit Section -->
     <div class="mt-4 text-center">
-      <button type="button" id="submitBtn" class="btn btn-primary btn-lg px-5 py-3 rounded-pill fw-bold shadow" disabled>
+      <button type="button" id="submitBtn" class="btn btn-primary btn-lg px-5 py-3 rounded-pill fw-bold shadow" enabled>
         <i class="fas fa-user-check me-2"></i>Register Face
       </button>
     </div>
