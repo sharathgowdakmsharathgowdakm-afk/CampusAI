@@ -230,34 +230,52 @@ def process_classroom_attendance(
     matching_time = time.perf_counter() - t_match_0
 
     # Step 6: Deduplication and Attendance Recording
+    # Enforce strict 1-to-1 assignment: In a single classroom image, a student can only be ONE person.
+    # The face detection with the highest confidence keeps the student identity; all other detections
+    # claiming that same student are demoted to Unknown, ensuring they don't appear repeatedly on the photo.
     t_db_0 = time.perf_counter()
     from app import Attendance, india_now
 
     today = india_now().date()
     current_time = india_now().time()
 
-    recognized_by_student_id: Dict[int, Dict[str, Any]] = {}
+    # Sort indices of match_results by confidence descending
+    sorted_indices = sorted(
+        range(len(match_results)),
+        key=lambda i: (match_results[i].confidence_pct if match_results[i].is_recognized else -1.0),
+        reverse=True
+    )
+
+    assigned_student_ids = set()
     duplicate_count = 0
     unknown_count = 0
+    recognized_by_student_id: Dict[int, Dict[str, Any]] = {}
 
-    for idx, match in enumerate(match_results):
-        if match.is_recognized:
-            sid = match.student_id
-            if sid in recognized_by_student_id:
+    for idx in sorted_indices:
+        m = match_results[idx]
+        if m.is_recognized:
+            sid = m.student_id
+            if sid in assigned_student_ids:
+                # Demote this lower-confidence duplicate detection to Unknown
                 duplicate_count += 1
-                if match.confidence_pct > recognized_by_student_id[sid]['confidence']:
-                    recognized_by_student_id[sid]['confidence'] = match.confidence_pct
-                    recognized_by_student_id[sid]['similarity'] = match.similarity
-                    recognized_by_student_id[sid]['distance'] = match.distance
+                unknown_count += 1
+                match_results[idx] = MatchResult(
+                    is_recognized=False,
+                    similarity=m.similarity,
+                    confidence_pct=0.0,
+                    distance=m.distance,
+                    model_type=m.model_type
+                )
             else:
+                assigned_student_ids.add(sid)
                 recognized_by_student_id[sid] = {
                     'student_id': sid,
-                    'name': match.student_name,
-                    'roll_number': match.roll_number,
-                    'confidence': match.confidence_pct,
-                    'similarity': match.similarity,
-                    'distance': match.distance,
-                    'model_type': match.model_type
+                    'name': m.student_name,
+                    'roll_number': m.roll_number,
+                    'confidence': m.confidence_pct,
+                    'similarity': m.similarity,
+                    'distance': m.distance,
+                    'model_type': m.model_type
                 }
         else:
             unknown_count += 1

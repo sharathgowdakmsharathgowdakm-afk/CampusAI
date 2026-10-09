@@ -165,8 +165,8 @@ class ClassScopedGalleryMatcher:
         metadata_512: List[Dict[str, Any]],
         matrix_128: np.ndarray,
         metadata_128: List[Dict[str, Any]],
-        threshold_512: float = 0.42,
-        tolerance_128: float = 0.48
+        threshold_512: float = 0.48,
+        tolerance_128: float = 0.46
     ):
         self.class_id = int(class_id)
         self.organization_id = int(organization_id)

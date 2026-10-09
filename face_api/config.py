@@ -41,7 +41,7 @@ MAX_IMAGE_DIMENSION = 2560
 # ArcFace Recognition Settings
 # Cosine similarity threshold for ArcFace (embeddings are normalized to unit sphere)
 # Values >= threshold indicate a verified match
-FACE_RECOGNITION_THRESHOLD = float(os.environ.get("FACE_RECOGNITION_THRESHOLD", "0.42"))
+FACE_RECOGNITION_THRESHOLD = float(os.environ.get("FACE_RECOGNITION_THRESHOLD", "0.48"))
 
 # Embedding vector dimensionality
 EMBEDDING_DIM = 512

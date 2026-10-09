@@ -1042,63 +1042,112 @@ def legacy_process_classroom_attendance(image_path, db_session, organization_id,
             'timings': {'total_sec': round(time.perf_counter() - t_start, 2)}
         }
 
-    recognized = []
-    matched_student_ids = set()
-    tolerance = 0.55
+    tolerance = 0.48
+    candidate_matches = []
 
-    for face_enc in face_encs:
+    for f_idx, face_enc in enumerate(face_encs):
         distances = face_recognition.face_distance(known_encodings, face_enc)
         if len(distances) == 0:
             continue
         best_idx = int(np.argmin(distances))
         best_dist = float(distances[best_idx])
         if best_dist <= tolerance:
-            student_id = known_student_ids[best_idx]
-            if student_id in matched_student_ids:
-                continue  # deduplicate
-            matched_student_ids.add(student_id)
-            student = student_map.get(student_id)
-            if not student:
-                continue
+            candidate_matches.append((best_dist, f_idx, known_student_ids[best_idx]))
 
-            # Write attendance record
-            existing = Attendance.query.filter_by(
+    # Sort candidates by best distance ascending (closest, highest-confidence match first)
+    candidate_matches.sort(key=lambda x: x[0])
+
+    assigned_students = set()
+    face_to_student = {}  # f_idx -> (student_id, best_dist)
+
+    for best_dist, f_idx, student_id in candidate_matches:
+        if student_id not in assigned_students and f_idx not in face_to_student:
+            assigned_students.add(student_id)
+            face_to_student[f_idx] = (student_id, best_dist)
+
+    recognized = []
+
+    for f_idx, (student_id, best_dist) in face_to_student.items():
+        student = student_map.get(student_id)
+        if not student:
+            continue
+
+        # Write attendance record
+        existing = Attendance.query.filter_by(
+            student_id=student_id,
+            class_id=int(class_id),
+            date=today
+        ).first()
+        if not existing:
+            att = Attendance(
                 student_id=student_id,
                 class_id=int(class_id),
-                date=today
-            ).first()
-            if not existing:
-                att = Attendance(
-                    student_id=student_id,
-                    class_id=int(class_id),
-                    subject_id=subject_id,
-                    date=today,
-                    time=now_dt.time(),
-                    status='present'
-                )
-                db_session.add(att)
-                status_str = 'present'
-            else:
-                status_str = 'already present' if existing.status == 'present' else existing.status
+                subject_id=subject_id,
+                date=today,
+                time=now_dt.time(),
+                status='present'
+            )
+            db_session.add(att)
+            status_str = 'present'
+        else:
+            status_str = 'already present' if existing.status == 'present' else existing.status
 
-            confidence_pct = round(max(0.0, (1.0 - best_dist)) * 100, 1)
-            recognized.append({
-                'student_id': student_id,
-                'name': student.name,
-                'roll_number': getattr(student, 'roll_number', ''),
-                'status': status_str,
-                'confidence': confidence_pct,
-                'similarity': round(1.0 - best_dist, 3),
-                'distance': round(best_dist, 4),
-                'model_type': 'dlib_128d',
-                'engine': 'legacy_dlib'
-            })
+        confidence_pct = round(max(0.0, (1.0 - best_dist)) * 100, 1)
+        recognized.append({
+            'student_id': student_id,
+            'name': student.name,
+            'roll_number': getattr(student, 'roll_number', ''),
+            'status': status_str,
+            'confidence': confidence_pct,
+            'similarity': round(1.0 - best_dist, 3),
+            'distance': round(best_dist, 4),
+            'model_type': 'dlib_128d',
+            'engine': 'legacy_dlib'
+        })
 
     try:
         db_session.commit()
     except Exception as e:
         db_session.rollback()
         print(f"[LEGACY ATT] DB commit error: {e}")
+
+    # Generate annotated image with bounding boxes
+    annotated_b64 = None
+    try:
+        import cv2
+        import base64
+        # img is RGB from face_recognition.load_image_file
+        annotated_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+        h, w = annotated_bgr.shape[:2]
+        base_dim = max(h, w)
+        font_scale = max(0.4, min(0.85, base_dim / 1400.0))
+        line_thick = max(1, int(round(base_dim / 600.0)))
+
+        for f_idx, (top, right, bottom, left) in enumerate(face_locations):
+            if f_idx in face_to_student:
+                s_id, dist = face_to_student[f_idx]
+                student = student_map.get(s_id)
+                s_name = student.name if student else f"Student #{s_id}"
+                conf = round(max(0.0, (1.0 - dist)) * 100, 1)
+                color = (46, 204, 113)  # Bright Green in BGR
+                badge_color = (39, 174, 96)
+                label = f"{s_name} ({conf}%)"
+            else:
+                color = (0, 165, 255)  # Orange in BGR
+                badge_color = (0, 140, 230)
+                label = "? Unknown"
+
+            cv2.rectangle(annotated_bgr, (left, top), (right, bottom), color, line_thick)
+            t_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, font_scale, 1)[0]
+            badge_y1 = max(0, top - t_size[1] - 8)
+            cv2.rectangle(annotated_bgr, (left, badge_y1), (left + t_size[0] + 10, top), badge_color, -1)
+            cv2.putText(annotated_bgr, label, (left + 5, top - 4), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255), 1, cv2.LINE_AA)
+
+        encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 88]
+        _, buf = cv2.imencode('.jpg', annotated_bgr, encode_param)
+        annotated_b64 = f"data:image/jpeg;base64,{base64.b64encode(buf).decode('utf-8')}"
+    except Exception as e:
+        print(f"[LEGACY ATT] Annotation error: {e}")
 
     total_faces = len(face_locations)
     unknown_faces = max(0, total_faces - len(recognized))
@@ -1112,11 +1161,11 @@ def legacy_process_classroom_attendance(image_path, db_session, organization_id,
         'unknown_faces': unknown_faces,
         'rejected_faces': [],
         'rejected_count': 0,
-        'duplicate_removed': 0,
+        'duplicate_removed': max(0, len(candidate_matches) - len(assigned_students)),
         'attendance_marked': len(recognized),
         'detection_range': detection_range,
         'distance_meters': 50,
-        'annotated_image': None,
+        'annotated_image': annotated_b64,
         'stats': {
             'total_faces': total_faces,
             'recognized': len(recognized),
