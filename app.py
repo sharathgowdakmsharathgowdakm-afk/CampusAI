@@ -950,10 +950,54 @@ def legacy_process_classroom_attendance(image_path, db_session, organization_id,
     Returns the exact dict format expected by mark_attendance.js.
     Used when onnxruntime / SCRFD+ArcFace engine is unavailable (e.g. on PythonAnywhere).
     """
-    import time
-    t_start = time.perf_counter()
+    import time as sys_time
+    t_start = sys_time.perf_counter()
     today = india_now().date()
     now_dt = india_now()
+    import datetime
+
+    # Timetable validation (only if subject is provided)
+    if subject_id:
+        day_str = today.strftime('%A')
+        schedules = Timetable.query.filter_by(
+            class_id=int(class_id),
+            subject_id=subject_id,
+            day_of_week=day_str
+        ).all()
+        
+        if schedules:
+            current_time = now_dt.time()
+            is_valid_time = False
+            for sch in schedules:
+                try:
+                    start_h, start_m = map(int, sch.start_time.split(':'))
+                    end_h, end_m = map(int, sch.end_time.split(':'))
+                    start_t = datetime.time(start_h, start_m)
+                    end_t = datetime.time(end_h, end_m)
+                    if start_t <= current_time <= end_t:
+                        is_valid_time = True
+                        break
+                except Exception:
+                    pass
+            
+            if not is_valid_time:
+                return {
+                    'error': f'Outside scheduled time! Attendance for this subject can only be marked during its timetable slot on {day_str}.',
+                    'faces_detected': 0,
+                    'recognized': [],
+                    'recognized_count': 0,
+                    'unknown_faces': 0,
+                    'rejected_faces': [],
+                    'rejected_count': 0,
+                    'duplicate_removed': 0,
+                    'attendance_marked': 0,
+                    'detection_range': detection_range,
+                    'distance_meters': 50,
+                    'annotated_image': None,
+                    'stats': {'total_faces': 0, 'recognized': 0, 'unrecognized': 0},
+                    'engine': 'legacy_dlib',
+                    'timings': {'total_sec': round(sys_time.perf_counter() - t_start, 2)}
+                }
 
     # Load all 128-d encodings for students in this class / org
     students = Student.query.filter_by(
@@ -1016,7 +1060,7 @@ def legacy_process_classroom_attendance(image_path, db_session, organization_id,
             'annotated_image': None,
             'stats': {'total_faces': 0, 'recognized': 0, 'unrecognized': 0},
             'engine': 'none',
-            'timings': {'total_sec': round(time.perf_counter() - t_start, 2)}
+            'timings': {'total_sec': round(sys_time.perf_counter() - t_start, 2)}
         }
 
     # Detect faces in classroom image
@@ -1075,12 +1119,16 @@ def legacy_process_classroom_attendance(image_path, db_session, organization_id,
         if not student:
             continue
 
-        # Write attendance record
-        existing = Attendance.query.filter_by(
-            student_id=student_id,
-            class_id=int(class_id),
-            date=today
-        ).first()
+        # Write attendance record (scoped by subject if provided)
+        query_kwargs = {
+            'student_id': student_id,
+            'class_id': int(class_id),
+            'date': today
+        }
+        if subject_id:
+            query_kwargs['subject_id'] = subject_id
+            
+        existing = Attendance.query.filter_by(**query_kwargs).first()
         if not existing:
             att = Attendance(
                 student_id=student_id,
@@ -1160,7 +1208,7 @@ def legacy_process_classroom_attendance(image_path, db_session, organization_id,
 
     total_faces = len(face_locations)
     unknown_faces = max(0, total_faces - len(recognized))
-    total_time = round(time.perf_counter() - t_start, 2)
+    total_time = round(sys_time.perf_counter() - t_start, 2)
 
     return {
         'success': f'Attendance marked for {len(recognized)} students',
