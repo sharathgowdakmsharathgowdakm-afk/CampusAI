@@ -942,6 +942,48 @@ def school_api_face_status(student_id):
 # LEGACY DLIB ATTENDANCE (fallback when onnxruntime / face_api not available)
 # Uses face_recognition (dlib HOG + 128-d encoding) for PythonAnywhere compat.
 # ─────────────────────────────────────────────────────────────────────────────
+
+def _detect_faces_opencv_dnn(img_rgb):
+    """
+    OpenCV DNN ResNet face detector — far more accurate than HOG for classroom
+    group photos (handles angles, small faces, varied lighting).
+    Returns face_recognition-format list of (top, right, bottom, left) tuples,
+    or None if the model files are not present.
+    Model files needed in face_models/:
+      - deploy.prototxt       (~27 KB)
+      - res10_300x300_ssd_iter_140000.caffemodel  (~10 MB)
+    """
+    try:
+        import cv2
+        base = os.path.dirname(os.path.abspath(__file__))
+        proto  = os.path.join(base, 'face_models', 'deploy.prototxt')
+        caffe  = os.path.join(base, 'face_models', 'res10_300x300_ssd_iter_140000.caffemodel')
+        if not os.path.exists(proto) or not os.path.exists(caffe):
+            return None
+        net = cv2.dnn.readNetFromCaffe(proto, caffe)
+        h, w = img_rgb.shape[:2]
+        bgr = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
+        blob = cv2.dnn.blobFromImage(
+            cv2.resize(bgr, (300, 300)), 1.0, (300, 300), (104.0, 177.0, 123.0)
+        )
+        net.setInput(blob)
+        detections = net.forward()
+        locations = []
+        for i in range(detections.shape[2]):
+            confidence = float(detections[0, 0, i, 2])
+            if confidence < 0.50:
+                continue
+            box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
+            x1, y1, x2, y2 = box.astype(int)
+            x1, y1 = max(0, x1), max(0, y1)
+            x2, y2 = min(w - 1, x2), min(h - 1, y2)
+            # face_recognition format: (top, right, bottom, left)
+            locations.append((y1, x2, y2, x1))
+        return locations
+    except Exception as e:
+        print(f'[OpenCV DNN] Not available: {e}')
+        return None
+
 def legacy_process_classroom_attendance(image_path, db_session, organization_id,
                                         class_id, subject_id=None, detection_range="50m", student_count=0, **kwargs):
     """
@@ -1021,7 +1063,13 @@ def legacy_process_classroom_attendance(image_path, db_session, organization_id,
     # Detect faces in classroom image
     try:
         img = face_recognition.load_image_file(image_path)
-        face_locations = face_recognition.face_locations(img, model='hog')
+        # Try OpenCV DNN detector first (much better for group/classroom photos)
+        face_locations = _detect_faces_opencv_dnn(img)
+        if face_locations is None:
+            # Fallback: HOG with upsample=2 catches smaller/more distant faces
+            face_locations = face_recognition.face_locations(
+                img, model='hog', number_of_times_to_upsample=2
+            )
         face_encs = face_recognition.face_encodings(img, face_locations)
     except Exception as e:
         return {
