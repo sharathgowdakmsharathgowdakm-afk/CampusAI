@@ -22,8 +22,10 @@ RECOGNIZER_MODEL_PATH = os.environ.get(
 def ensure_model_weights():
     """
     Ensure the large ONNX models exist and are valid.
-    If w600k_r50.onnx is missing or smaller than 150MB, reassembles it from part files if present.
+    Uses zero-overhead stream-assembly that immediately deletes each part as it is
+    consumed, ensuring strict compliance with tight disk quotas (e.g. PythonAnywhere 512MB).
     """
+    import shutil
     arcface_path = RECOGNIZER_MODEL_PATH
     parts = [
         os.path.join(MODELS_DIR, "w600k_r50.part1"),
@@ -32,12 +34,27 @@ def ensure_model_weights():
     ]
     if all(os.path.exists(p) for p in parts):
         if not os.path.exists(arcface_path) or os.path.getsize(arcface_path) < 150 * 1024 * 1024:
-            print("[CampusAI Biometrics] Assembling ArcFace model weights from parts...")
+            print("[CampusAI Biometrics] Assembling ArcFace model weights with zero-overhead streaming...")
             try:
-                with open(arcface_path, "wb") as out_f:
-                    for p in parts:
-                        with open(p, "rb") as in_f:
-                            out_f.write(in_f.read())
+                # If a corrupted/partial file exists, remove it first
+                if os.path.exists(arcface_path):
+                    os.remove(arcface_path)
+
+                # Step 1: Move part1 directly into arcface_path (0 bytes extra disk used)
+                shutil.move(parts[0], arcface_path)
+
+                # Step 2: Stream-append part2 and immediately remove part2
+                with open(arcface_path, "ab") as out_f:
+                    with open(parts[1], "rb") as in_f:
+                        shutil.copyfileobj(in_f, out_f, length=4 * 1024 * 1024)
+                os.remove(parts[1])
+
+                # Step 3: Stream-append part3 and immediately remove part3
+                with open(arcface_path, "ab") as out_f:
+                    with open(parts[2], "rb") as in_f:
+                        shutil.copyfileobj(in_f, out_f, length=4 * 1024 * 1024)
+                os.remove(parts[2])
+
                 print(f"[CampusAI Biometrics] Successfully assembled ArcFace model: {os.path.getsize(arcface_path)} bytes")
             except Exception as e:
                 print(f"[CampusAI Biometrics] Error assembling ArcFace model: {e}")
