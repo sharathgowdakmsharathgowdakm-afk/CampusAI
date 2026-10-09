@@ -937,6 +937,292 @@ def school_api_face_status(student_id):
     return jsonify({'has_face': count > 0, 'encoding_count': count})
 
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# LEGACY DLIB ATTENDANCE (fallback when onnxruntime / face_api not available)
+# Uses face_recognition (dlib HOG + 128-d encoding) for PythonAnywhere compat.
+# ─────────────────────────────────────────────────────────────────────────────
+def legacy_process_classroom_attendance(image_path, db_session, organization_id,
+                                        class_id, subject_id=None, detection_range="50m", student_count=0, **kwargs):
+    """
+    Fallback attendance engine using face_recognition (dlib 128-d HOG).
+    Returns the exact dict format expected by mark_attendance.js.
+    Used when onnxruntime / SCRFD+ArcFace engine is unavailable (e.g. on PythonAnywhere).
+    """
+    import time
+    t_start = time.perf_counter()
+    today = india_now().date()
+    now_dt = india_now()
+
+    # Load all 128-d encodings for students in this class / org
+    students = Student.query.filter_by(
+        class_id=int(class_id), organization_id=int(organization_id)
+    ).all()
+    student_map = {s.id: s for s in students}
+
+    known_encodings = []  # list of np.array (128,)
+    known_student_ids = []  # parallel list of student_id
+
+    for student in students:
+        enc_records = FaceEncoding.query.filter_by(student_id=student.id).all()
+        for rec in enc_records:
+            enc_data = rec.encoding_data
+            if enc_data and isinstance(enc_data, list) and len(enc_data) == 128:
+                known_encodings.append(np.array(enc_data, dtype=np.float64))
+                known_student_ids.append(student.id)
+            elif rec.encoding_path and os.path.exists(rec.encoding_path):
+                try:
+                    with open(rec.encoding_path, 'rb') as pf:
+                        loaded = pickle.load(pf)
+                    if isinstance(loaded, np.ndarray) and loaded.shape == (128,):
+                        known_encodings.append(loaded.astype(np.float64))
+                        known_student_ids.append(student.id)
+                except Exception:
+                    pass
+
+    if not known_encodings:
+        return {
+            'error': 'No registered face encodings found for this class. Please register students\' faces first.',
+            'faces_detected': 0,
+            'recognized': [],
+            'recognized_count': 0,
+            'unknown_faces': 0,
+            'rejected_faces': [],
+            'rejected_count': 0,
+            'duplicate_removed': 0,
+            'attendance_marked': 0,
+            'detection_range': detection_range,
+            'distance_meters': 50,
+            'annotated_image': None,
+            'stats': {'total_faces': 0, 'recognized': 0, 'unrecognized': 0},
+            'engine': 'legacy_dlib',
+            'timings': {'total_sec': round(time.perf_counter() - t_start, 2)}
+        }
+
+    if not FACE_RECOGNITION_AVAILABLE:
+        return {
+            'error': 'Face recognition library (face_recognition / dlib) is not installed on this server.',
+            'faces_detected': 0,
+            'recognized': [],
+            'recognized_count': 0,
+            'unknown_faces': 0,
+            'rejected_faces': [],
+            'rejected_count': 0,
+            'duplicate_removed': 0,
+            'attendance_marked': 0,
+            'detection_range': detection_range,
+            'distance_meters': 50,
+            'annotated_image': None,
+            'stats': {'total_faces': 0, 'recognized': 0, 'unrecognized': 0},
+            'engine': 'none',
+            'timings': {'total_sec': round(time.perf_counter() - t_start, 2)}
+        }
+
+    # Detect faces in classroom image
+    try:
+        img = face_recognition.load_image_file(image_path)
+        face_locations = face_recognition.face_locations(img, model='hog')
+        face_encs = face_recognition.face_encodings(img, face_locations)
+    except Exception as e:
+        return {
+            'error': f'Image processing failed: {str(e)}',
+            'faces_detected': 0,
+            'recognized': [],
+            'recognized_count': 0,
+            'unknown_faces': 0,
+            'rejected_faces': [],
+            'rejected_count': 0,
+            'duplicate_removed': 0,
+            'attendance_marked': 0,
+            'detection_range': detection_range,
+            'distance_meters': 50,
+            'annotated_image': None,
+            'stats': {'total_faces': 0, 'recognized': 0, 'unrecognized': 0},
+            'engine': 'legacy_dlib',
+            'timings': {'total_sec': round(time.perf_counter() - t_start, 2)}
+        }
+
+    recognized = []
+    matched_student_ids = set()
+    tolerance = 0.55
+
+    for face_enc in face_encs:
+        distances = face_recognition.face_distance(known_encodings, face_enc)
+        if len(distances) == 0:
+            continue
+        best_idx = int(np.argmin(distances))
+        best_dist = float(distances[best_idx])
+        if best_dist <= tolerance:
+            student_id = known_student_ids[best_idx]
+            if student_id in matched_student_ids:
+                continue  # deduplicate
+            matched_student_ids.add(student_id)
+            student = student_map.get(student_id)
+            if not student:
+                continue
+
+            # Write attendance record
+            existing = Attendance.query.filter_by(
+                student_id=student_id,
+                class_id=int(class_id),
+                date=today
+            ).first()
+            if not existing:
+                att = Attendance(
+                    student_id=student_id,
+                    class_id=int(class_id),
+                    subject_id=subject_id,
+                    date=today,
+                    time=now_dt.time(),
+                    status='present',
+                    organization_id=int(organization_id)
+                )
+                db_session.add(att)
+                status_str = 'present'
+            else:
+                status_str = 'already present' if existing.status == 'present' else existing.status
+
+            confidence_pct = round(max(0.0, (1.0 - best_dist)) * 100, 1)
+            recognized.append({
+                'student_id': student_id,
+                'name': student.name,
+                'roll_number': getattr(student, 'roll_number', ''),
+                'status': status_str,
+                'confidence': confidence_pct,
+                'similarity': round(1.0 - best_dist, 3),
+                'distance': round(best_dist, 4),
+                'model_type': 'dlib_128d',
+                'engine': 'legacy_dlib'
+            })
+
+    try:
+        db_session.commit()
+    except Exception as e:
+        db_session.rollback()
+        print(f"[LEGACY ATT] DB commit error: {e}")
+
+    total_faces = len(face_locations)
+    unknown_faces = max(0, total_faces - len(recognized))
+    total_time = round(time.perf_counter() - t_start, 2)
+
+    return {
+        'success': f'Attendance marked for {len(recognized)} students',
+        'faces_detected': total_faces,
+        'recognized': recognized,
+        'recognized_count': len(recognized),
+        'unknown_faces': unknown_faces,
+        'rejected_faces': [],
+        'rejected_count': 0,
+        'duplicate_removed': 0,
+        'attendance_marked': len(recognized),
+        'detection_range': detection_range,
+        'distance_meters': 50,
+        'annotated_image': None,
+        'stats': {
+            'total_faces': total_faces,
+            'recognized': len(recognized),
+            'unrecognized': unknown_faces
+        },
+        'engine': 'legacy_dlib',
+        'timings': {
+            'total_sec': total_time
+        }
+    }
+
+
+def legacy_process_student_face_registration(student_id, organization_id, images_b64=None, files=None):
+    """
+    Fallback Student Face Registration using face_recognition (dlib 128-d).
+    Active on environments without onnxruntime / SCRFD+ArcFace.
+    """
+    if not FACE_RECOGNITION_AVAILABLE:
+        return {'success': False, 'error': 'Face recognition library is not installed on this server.'}, 503
+
+    if not student_id:
+        return {'success': False, 'error': 'Student not selected'}, 400
+
+    student = db.session.get(Student, int(student_id))
+    if not student:
+        return {'success': False, 'error': 'Student not found'}, 404
+
+    if student.organization_id != int(organization_id):
+        return {'success': False, 'error': 'Unauthorized: Student does not belong to active organization'}, 403
+
+    import io
+    from PIL import Image
+
+    images_to_process = []
+    if images_b64:
+        import base64
+        for b64 in images_b64:
+            if b64:
+                try:
+                    if ',' in b64:
+                        b64 = b64.split(',', 1)[1]
+                    raw = base64.b64decode(b64)
+                    images_to_process.append(raw)
+                except Exception:
+                    pass
+
+    if files:
+        for f in files:
+            if f and f.filename != '':
+                if allowed_file(f.filename):
+                    content = f.read()
+                    if content:
+                        images_to_process.append(content)
+
+    if not images_to_process:
+        return {'success': False, 'error': 'No facial image provided. Please capture or upload a photo.'}, 400
+
+    success_count = 0
+    errors = []
+
+    for idx, raw_bytes in enumerate(images_to_process[:5]):
+        try:
+            pil_img = Image.open(io.BytesIO(raw_bytes)).convert('RGB')
+            np_img = np.array(pil_img)
+            locations = face_recognition.face_locations(np_img, model='hog')
+
+            if len(locations) == 0:
+                errors.append(f"Image {idx+1}: No usable face detected. Please upload a clearer image.")
+                continue
+
+            if len(locations) > 1:
+                errors.append(f"Image {idx+1}: Multiple faces detected. Please upload an image containing only this student.")
+                continue
+
+            encs = face_recognition.face_encodings(np_img, locations)
+            if not encs:
+                errors.append(f"Image {idx+1}: Could not compute face encoding.")
+                continue
+
+            record = FaceEncoding(
+                student_id=student.id,
+                encoding_path="",
+                encoding_data=encs[0].tolist(),
+                created_at=datetime.utcnow()
+            )
+            db.session.add(record)
+            success_count += 1
+        except Exception as e:
+            errors.append(f"Image {idx+1}: {str(e)}")
+
+    if success_count > 0:
+        try:
+            db.session.commit()
+            return {
+                'success': True,
+                'message': f"Successfully registered {success_count} face sample(s) for {student.name}."
+            }
+        except Exception as e:
+            db.session.rollback()
+            return {'success': False, 'error': f"Database error: {str(e)}"}, 500
+    else:
+        err_msg = "; ".join(errors) if errors else "Face registration failed."
+        return {'success': False, 'error': err_msg}, 400
+
+
 def process_student_face_registration(student_id, organization_id, images_b64=None, files=None):
     """
     Unified Student Face Registration using SCRFD (detection) + Face Quality Filter + ArcFace (512-d embedding).
@@ -949,10 +1235,11 @@ def process_student_face_registration(student_id, organization_id, images_b64=No
     - Scoped strictly to student and organization
     - Invalidates organization embedding cache
     """
+    if not FACE_API_AVAILABLE:
+        return legacy_process_student_face_registration(student_id, organization_id, images_b64=images_b64, files=files)
+
     from face_api.pipeline import get_pipeline, decode_image
     from face_api import config
-    if not FACE_API_AVAILABLE:
-        return {'success': False, 'error': 'Face recognition engine is not available on this server. Please contact admin.'}, 503
     pipeline = get_pipeline()
 
     if not student_id:
@@ -1162,21 +1449,33 @@ def school_mark_attendance():
             return jsonify({'error': 'No image provided. Please capture or upload a classroom photo.'}), 400
 
         try:
-            if not FACE_API_AVAILABLE:
-                return jsonify({'error': 'Face recognition engine (onnxruntime) is not available on this server. Please use a server with onnxruntime installed.'}), 503
             detection_range = request.form.get('detection_range', '50m') or (request.json.get('detection_range') if request.is_json else '50m')
             students = Student.query.filter_by(class_id=int(class_id)).all()
             student_count = len(students)
 
-            att_result = process_classroom_attendance(
-                image_input=temp_path,
-                db_session=db.session,
-                organization_id=int(session.get('org_id')),
-                class_id=int(class_id),
-                subject_id=None,
-                detection_range=detection_range,
-                student_count=student_count
-            )
+            if FACE_API_AVAILABLE:
+                att_result = process_classroom_attendance(
+                    image_input=temp_path,
+                    db_session=db.session,
+                    organization_id=int(session.get('org_id')),
+                    class_id=int(class_id),
+                    subject_id=None,
+                    detection_range=detection_range,
+                    student_count=student_count
+                )
+            else:
+                att_result = legacy_process_classroom_attendance(
+                    image_path=temp_path,
+                    db_session=db.session,
+                    organization_id=int(session.get('org_id')),
+                    class_id=int(class_id),
+                    subject_id=None,
+                    detection_range=detection_range,
+                    student_count=student_count
+                )
+
+            if 'error' in att_result and not att_result.get('recognized'):
+                return jsonify(att_result), 400
 
             # --- SMS Notification for Absent Students ---
             today = india_now().date()
@@ -1849,15 +2148,29 @@ def college_mark_attendance():
             students = Student.query.filter_by(class_id=int(class_id)).all()
             student_count = len(students)
 
-            att_result = process_classroom_attendance(
-                image_input=temp_path,
-                db_session=db.session,
-                organization_id=int(session.get('org_id')),
-                class_id=int(class_id),
-                subject_id=subj_id_int,
-                detection_range=detection_range,
-                student_count=student_count
-            )
+            if FACE_API_AVAILABLE:
+                att_result = process_classroom_attendance(
+                    image_input=temp_path,
+                    db_session=db.session,
+                    organization_id=int(session.get('org_id')),
+                    class_id=int(class_id),
+                    subject_id=subj_id_int,
+                    detection_range=detection_range,
+                    student_count=student_count
+                )
+            else:
+                att_result = legacy_process_classroom_attendance(
+                    image_path=temp_path,
+                    db_session=db.session,
+                    organization_id=int(session.get('org_id')),
+                    class_id=int(class_id),
+                    subject_id=subj_id_int,
+                    detection_range=detection_range,
+                    student_count=student_count
+                )
+
+            if 'error' in att_result and not att_result.get('recognized'):
+                return jsonify(att_result), 400
 
             # --- SMS Notification for Absent Students ---
             today = india_now().date()
@@ -2595,15 +2908,29 @@ def institution_mark_attendance():
             students = Student.query.filter_by(class_id=int(class_id)).all()
             student_count = len(students)
 
-            att_result = process_classroom_attendance(
-                image_input=temp_path,
-                db_session=db.session,
-                organization_id=int(session.get('org_id')),
-                class_id=int(class_id),
-                subject_id=subj_id_int,
-                detection_range=detection_range,
-                student_count=student_count
-            )
+            if FACE_API_AVAILABLE:
+                att_result = process_classroom_attendance(
+                    image_input=temp_path,
+                    db_session=db.session,
+                    organization_id=int(session.get('org_id')),
+                    class_id=int(class_id),
+                    subject_id=subj_id_int,
+                    detection_range=detection_range,
+                    student_count=student_count
+                )
+            else:
+                att_result = legacy_process_classroom_attendance(
+                    image_path=temp_path,
+                    db_session=db.session,
+                    organization_id=int(session.get('org_id')),
+                    class_id=int(class_id),
+                    subject_id=subj_id_int,
+                    detection_range=detection_range,
+                    student_count=student_count
+                )
+
+            if 'error' in att_result and not att_result.get('recognized'):
+                return jsonify(att_result), 400
 
             recognized_students = att_result.get('recognized', [])
             stats = att_result.get('stats', {})
