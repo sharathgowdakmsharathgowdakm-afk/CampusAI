@@ -1241,9 +1241,9 @@ def legacy_process_student_face_registration(student_id, organization_id, images
                 errors.append(f"Image {idx+1}: Multiple faces detected. Please upload a photo with only this student.")
                 continue
 
-            # num_jitters=10: compute encoding 10 times with small random perturbations
-            # and average them → much more robust and accurate 128-d vector
-            encs = face_recognition.face_encodings(np_img, locations, num_jitters=10)
+            # num_jitters=3: average 3 perturbed versions for robustness without timeout
+            # (num_jitters=10 would exceed PythonAnywhere's 30s request limit for 5 photos)
+            encs = face_recognition.face_encodings(np_img, locations, num_jitters=3)
             if not encs:
                 errors.append(f"Image {idx+1}: Could not compute face encoding.")
                 continue
@@ -1265,7 +1265,7 @@ def legacy_process_student_face_registration(student_id, organization_id, images
             return {
                 'success': True,
                 'message': f"Successfully registered {success_count} face sample(s) for {student.name}."
-            }
+            }, 200  # Always return (dict, code) tuple so routes can unpack correctly
         except Exception as e:
             db.session.rollback()
             return {'success': False, 'error': f"Database error: {str(e)}"}, 500
