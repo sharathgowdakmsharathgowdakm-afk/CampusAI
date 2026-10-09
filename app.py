@@ -13,9 +13,23 @@ import os
 import numpy as np
 import pickle
 import random
-import face_recognition
-import face_api
-from face_api import get_pipeline, process_classroom_attendance, register_single_student_face
+try:
+    import face_recognition
+    FACE_RECOGNITION_AVAILABLE = True
+except ImportError:
+    face_recognition = None
+    FACE_RECOGNITION_AVAILABLE = False
+
+try:
+    import face_api
+    from face_api import get_pipeline, process_classroom_attendance, register_single_student_face
+    FACE_API_AVAILABLE = True
+except ImportError:
+    face_api = None
+    get_pipeline = None
+    process_classroom_attendance = None
+    register_single_student_face = None
+    FACE_API_AVAILABLE = False
 from io import BytesIO
 import smtplib
 from email.message import EmailMessage
@@ -937,6 +951,8 @@ def process_student_face_registration(student_id, organization_id, images_b64=No
     """
     from face_api.pipeline import get_pipeline, decode_image
     from face_api import config
+    if not FACE_API_AVAILABLE:
+        return {'success': False, 'error': 'Face recognition engine is not available on this server. Please contact admin.'}, 503
     pipeline = get_pipeline()
 
     if not student_id:
@@ -1053,22 +1069,28 @@ def school_face_register():
     return jsonify(resp), code
 
 # ─────────────────────────────────────────────────────────────
-# DISTANCdef process_face_detection_with_range(image_path, detection_range='50m', student_count=0):
+# DISTANCE-ADAPTIVE FACE DETECTION
+def process_face_detection_with_range(image_path, detection_range='50m', student_count=0):
     """
     Intelligent Distance-Adaptive Face Detection using SCRFD + ArcFace:
     - 50 Meters: Standard classroom detection (640x640 SCRFD)
     - 100 Meters: Extended crowd deep scan mode (1280x1280 SCRFD)
+    Requires FACE_API_AVAILABLE (onnxruntime + ONNX models).
     """
+    if not FACE_API_AVAILABLE:
+        raise RuntimeError('Face recognition engine (onnxruntime) is not available on this server.')
+
+    from face_api import config as fa_config, decode_image as fa_decode_image
     pipeline = get_pipeline()
     range_str = str(detection_range or '').lower().strip()
     if '100' in range_str or range_str in ['crowd', 'extended', 'large'] or student_count > 15:
         resolved_meters = 100
-        input_size = face_api.config.DEEP_SCAN_INPUT_SIZE
+        input_size = fa_config.DEEP_SCAN_INPUT_SIZE
     else:
         resolved_meters = 50
-        input_size = face_api.config.DETECTION_INPUT_SIZE
+        input_size = fa_config.DETECTION_INPUT_SIZE
 
-    img = face_api.decode_image(image_path)
+    img = fa_decode_image(image_path)
     faces = pipeline.detector.detect(img, input_size=input_size)
 
     valid_faces = []
@@ -1081,14 +1103,14 @@ def school_face_register():
         landmarks = [f.landmarks for f in valid_faces]
         embeddings = pipeline.recognizer.extract_embeddings_batch(img, landmarks)
     else:
-        embeddings = np.empty((0, face_api.config.EMBEDDING_DIM), dtype=np.float32)
+        embeddings = np.empty((0, fa_config.EMBEDDING_DIM), dtype=np.float32)
 
     return {
         'face_locations': [f.bbox for f in valid_faces],
         'face_encodings': embeddings,
         'resolved_meters': resolved_meters,
         'range_label': f"{resolved_meters} Meters ({'Extended Crowd Mode' if resolved_meters == 100 else 'Standard Room'})",
-        'tolerance': face_api.config.FACE_RECOGNITION_THRESHOLD
+        'tolerance': fa_config.FACE_RECOGNITION_THRESHOLD
     }
 
 
@@ -1140,6 +1162,8 @@ def school_mark_attendance():
             return jsonify({'error': 'No image provided. Please capture or upload a classroom photo.'}), 400
 
         try:
+            if not FACE_API_AVAILABLE:
+                return jsonify({'error': 'Face recognition engine (onnxruntime) is not available on this server. Please use a server with onnxruntime installed.'}), 503
             detection_range = request.form.get('detection_range', '50m') or (request.json.get('detection_range') if request.is_json else '50m')
             students = Student.query.filter_by(class_id=int(class_id)).all()
             student_count = len(students)
@@ -3387,6 +3411,9 @@ def staff_api_register_face():
     if not images_b64:
         return jsonify({'success': False, 'error': 'No facial images provided.'}), 400
 
+    if not FACE_API_AVAILABLE:
+        return jsonify({'success': False, 'error': 'Face recognition engine not available on this server.'}), 503
+
     pipeline = get_pipeline()
     success_count = 0
     errors = []
@@ -3575,6 +3602,8 @@ def staff_api_mark_attendance():
         with open(temp_path, 'wb') as f:
             f.write(base64.b64decode(image_b64))
 
+        if not FACE_API_AVAILABLE:
+            return jsonify({'success': False, 'error': 'Face recognition engine not available on this server.'}), 503
         pipeline = get_pipeline()
         from face_api.pipeline import decode_image
         captured_img = decode_image(temp_path)
@@ -4677,6 +4706,8 @@ def staff_leave():
 def api_biometrics_status():
     """System biometric diagnostics and engine status."""
     try:
+        if not FACE_API_AVAILABLE:
+            return jsonify({'engine': 'unavailable', 'error': 'onnxruntime not installed on this server', 'face_api_available': False})
         pipeline = get_pipeline()
         diag = pipeline.get_diagnostics()
 
