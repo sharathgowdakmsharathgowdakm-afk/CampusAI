@@ -11,8 +11,9 @@ uploads/
 test_photos/
 venv311/
 
-# Large ONNX model weights (download separately - see README)
-face_models/
+# Exclude the full reassembled 174MB model file (auto-assembled from parts)
+face_models/w600k_r50.onnx
+face_models/*.zip
 
 # Developer scratch / one-off scripts
 scratch/

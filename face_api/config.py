@@ -19,6 +19,31 @@ RECOGNIZER_MODEL_PATH = os.environ.get(
     os.path.join(MODELS_DIR, "w600k_r50.onnx")
 )
 
+def ensure_model_weights():
+    """
+    Ensure the large ONNX models exist and are valid.
+    If w600k_r50.onnx is missing or smaller than 150MB, reassembles it from part files if present.
+    """
+    arcface_path = RECOGNIZER_MODEL_PATH
+    parts = [
+        os.path.join(MODELS_DIR, "w600k_r50.part1"),
+        os.path.join(MODELS_DIR, "w600k_r50.part2"),
+        os.path.join(MODELS_DIR, "w600k_r50.part3")
+    ]
+    if all(os.path.exists(p) for p in parts):
+        if not os.path.exists(arcface_path) or os.path.getsize(arcface_path) < 150 * 1024 * 1024:
+            print("[CampusAI Biometrics] Assembling ArcFace model weights from parts...")
+            try:
+                with open(arcface_path, "wb") as out_f:
+                    for p in parts:
+                        with open(p, "rb") as in_f:
+                            out_f.write(in_f.read())
+                print(f"[CampusAI Biometrics] Successfully assembled ArcFace model: {os.path.getsize(arcface_path)} bytes")
+            except Exception as e:
+                print(f"[CampusAI Biometrics] Error assembling ArcFace model: {e}")
+
+ensure_model_weights()
+
 # Detection Thresholds
 # Minimum confidence required for SCRFD face detection
 FACE_DETECTION_THRESHOLD = float(os.environ.get("FACE_DETECTION_THRESHOLD", "0.50"))
