@@ -85,4 +85,11 @@ document.getElementById('searchInput').addEventListener('keyup', function() {
     <i class="fas fa-info-circle"></i> No subjects created yet. <a href="/school/add-subject">Add your first subject</a>
 </div>
 {% endif %}
+
+<script>
+// Ensure modals aren't trapped by z-index stacking contexts
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.modal').forEach(m => document.body.appendChild(m));
+});
+</script>
 {% endblock %}

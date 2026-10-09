@@ -236,4 +236,11 @@ document.getElementById('searchInput').addEventListener('keyup', function() {
     </a>
 </div>
 {% endif %}
+
+<script>
+// Ensure modals aren't trapped by z-index stacking contexts
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.modal').forEach(m => document.body.appendChild(m));
+});
+</script>
 {% endblock %}

@@ -92,4 +92,11 @@ document.getElementById('courseSearch').addEventListener('keyup', function() {
     });
 });
 </script>
+
+<script>
+// Ensure modals aren't trapped by z-index stacking contexts
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.modal').forEach(m => document.body.appendChild(m));
+});
+</script>
 {% endblock %}
