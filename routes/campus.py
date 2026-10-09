@@ -459,16 +459,17 @@ def timetable():
         class_name = slot_class.name if slot_class else f"Class #{slot.class_id}"
         total_students = len(slot_class.students) if slot_class else 0
         
-        # Check attendance for this class today
-        present_count = Attendance.query.filter_by(
-            class_id=slot.class_id, 
-            date=today_date, 
-            _status='present'
-        ).count()
-        total_marked = Attendance.query.filter_by(
-            class_id=slot.class_id, 
+        # Check attendance for this timetable slot today, scoped by subject
+        att_base = Attendance.query.filter_by(
+            class_id=slot.class_id,
             date=today_date
-        ).count()
+        )
+        if slot.subject_id:
+            att_base_subj = att_base.filter_by(subject_id=slot.subject_id)
+        else:
+            att_base_subj = att_base
+        present_count = att_base_subj.filter_by(_status='present').count()
+        total_marked = att_base_subj.count()
 
         today_slots.append({
             'id': slot.id,
