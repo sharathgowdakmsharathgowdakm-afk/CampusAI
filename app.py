@@ -1095,7 +1095,12 @@ def legacy_process_classroom_attendance(image_path, db_session, organization_id,
         else:
             status_str = 'already present' if existing.status == 'present' else existing.status
 
-        confidence_pct = round(max(0.0, (1.0 - best_dist)) * 100, 1)
+        # Dlib distances: 0.0 is perfect match, 0.48 is the cutoff.
+        # A typical good match is 0.35 - 0.45.
+        # We scale this so 0.0 = 100% and 0.48 (tolerance) = ~88%
+        raw_score = 100.0 - (best_dist / tolerance) * 12.0
+        confidence_pct = round(min(100.0, max(0.0, raw_score)), 1)
+        
         recognized.append({
             'student_id': student_id,
             'name': student.name,
