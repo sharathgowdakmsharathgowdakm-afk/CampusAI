@@ -1136,7 +1136,8 @@ def legacy_process_classroom_attendance(image_path, db_session, organization_id,
                 s_id, dist = face_to_student[f_idx]
                 student = student_map.get(s_id)
                 s_name = student.name if student else f"Student #{s_id}"
-                conf = round(max(0.0, (1.0 - dist)) * 100, 1)
+                raw_score = 100.0 - (dist / tolerance) * 12.0
+                conf = round(min(100.0, max(0.0, raw_score)), 1)
                 color = (46, 204, 113)  # Bright Green in BGR
                 badge_color = (39, 174, 96)
                 label = f"{s_name} ({conf}%)"
