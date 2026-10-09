@@ -52,6 +52,15 @@
         font-size: 0.78rem;
         font-weight: 600;
     }
+    .face-count-badge {
+        background: rgba(0, 184, 148, 0.15);
+        border: 1px solid rgba(0, 184, 148, 0.35);
+        color: #00b894;
+        padding: 5px 14px;
+        border-radius: 50px;
+        font-size: 0.78rem;
+        font-weight: 600;
+    }
     .students-table-wrap {
         background: var(--glass-bg);
         backdrop-filter: var(--glass-blur);
@@ -147,6 +156,10 @@
         </a>
         {% if students %}
         <span class="student-count-badge">{{ students|length }} students</span>
+        {% set face_reg_count = students|selectattr('has_registered_face')|list|length %}
+        <span class="face-count-badge">
+            <i class="fas fa-camera me-1"></i>{{ face_reg_count }}/{{ students|length }} Faces Registered
+        </span>
         {% endif %}
     </div>
     <div class="search-wrap">
@@ -164,6 +177,7 @@
                 <th>Name</th>
                 <th>Roll Number</th>
                 <th>Class</th>
+                <th>Face Registered</th>
                 <th>Phone</th>
                 <th>Actions</th>
             </tr>
@@ -175,6 +189,17 @@
                 <td><span class="student-name">{{ student.name }}</span></td>
                 <td><span class="roll-chip">{{ student.roll_number }}</span></td>
                 <td><span class="class-badge">{{ student.class_.name }}</span></td>
+                <td>
+                    {% if student.has_registered_face %}
+                    <span class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-25 px-2 py-1 rounded-pill" style="font-size: 0.75rem;">
+                        <i class="fas fa-check-circle me-1"></i>Registered ({{ student.face_encodings_count }})
+                    </span>
+                    {% else %}
+                    <span class="badge bg-danger bg-opacity-25 text-danger border border-danger border-opacity-25 px-2 py-1 rounded-pill" style="font-size: 0.75rem;">
+                        <i class="fas fa-times-circle me-1"></i>Not Registered
+                    </span>
+                    {% endif %}
+                </td>
                 <td style="color: var(--text-secondary);">{{ student.phone or '—' }}</td>
                 <td>
                     <div class="actions-cell">

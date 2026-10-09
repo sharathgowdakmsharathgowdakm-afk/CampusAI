@@ -1,0 +1,636 @@
+{% extends "base.html" %}
+{% block title %}Faculty Attendance Check-In (GPS) - Smart Campus Portal{% endblock %}
+{% block navbar_title %}Faculty Attendance (GPS){% endblock %}
+
+{% block extra_css %}
+<!-- Leaflet Map CSS for location pin -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<style>
+    .att-container {
+        max-width: 1100px;
+        margin: 0 auto;
+    }
+    
+    .scanner-card {
+        background: var(--glass-bg, rgba(255, 255, 255, 0.9));
+        backdrop-filter: var(--glass-blur, blur(20px));
+        border: 1px solid var(--border-color, rgba(0, 0, 0, 0.08));
+        border-radius: var(--radius-xl, 20px);
+        box-shadow: 0 8px 32px rgba(108, 92, 231, 0.08);
+        overflow: hidden;
+    }
+    
+    .camera-viewport {
+        position: relative;
+        width: 100%;
+        max-width: 480px;
+        aspect-ratio: 4/3;
+        margin: 0 auto;
+        background: #090d16;
+        border-radius: 18px;
+        overflow: hidden;
+        box-shadow: inset 0 0 30px rgba(0,0,0,0.6);
+        border: 2px solid rgba(108, 92, 231, 0.3);
+    }
+    
+    #videoElement {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transform: scaleX(-1);
+    }
+    
+    .target-ring {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 60%;
+        height: 72%;
+        border: 2px dashed rgba(108, 92, 231, 0.8);
+        border-radius: 50%;
+        pointer-events: none;
+        transition: all 0.3s ease;
+    }
+    
+    .target-ring.scanning {
+        border-color: #00cec9;
+        box-shadow: 0 0 25px rgba(0, 206, 201, 0.5);
+    }
+    
+    .target-ring.verified {
+        border-color: #00b894;
+        box-shadow: 0 0 30px rgba(0, 184, 148, 0.6);
+    }
+    
+    .scanner-beam {
+        position: absolute;
+        top: 15%;
+        left: 15%;
+        right: 15%;
+        height: 3px;
+        background: linear-gradient(90deg, transparent, #00cec9, #6c5ce7, transparent);
+        box-shadow: 0 0 12px #00cec9;
+        animation: beamMove 2.2s infinite ease-in-out;
+        display: none;
+    }
+    
+    @keyframes beamMove {
+        0%, 100% { top: 18%; opacity: 0.2; }
+        50% { top: 82%; opacity: 1; }
+    }
+    
+    /* Location Map Card */
+    .gps-card {
+        background: var(--glass-bg, rgba(255, 255, 255, 0.9));
+        backdrop-filter: var(--glass-blur, blur(20px));
+        border: 1px solid var(--border-color, rgba(0, 0, 0, 0.08));
+        border-radius: var(--radius-xl, 20px);
+        overflow: hidden;
+    }
+    
+    #mapPreview {
+        height: 180px;
+        width: 100%;
+        border-radius: 12px;
+        border: 1px solid var(--border-color, rgba(0,0,0,0.1));
+        z-index: 1;
+    }
+    
+    .gps-status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 12px;
+        border-radius: 30px;
+        font-size: 0.78rem;
+        font-weight: 700;
+    }
+    
+    .gps-pulsing-dot {
+        width: 8px;
+        height: 8px;
+        background-color: #00b894;
+        border-radius: 50%;
+        box-shadow: 0 0 0 0 rgba(0, 184, 148, 0.7);
+        animation: pulseDot 1.8s infinite;
+    }
+    
+    @keyframes pulseDot {
+        0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 184, 148, 0.7); }
+        70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(0, 184, 148, 0); }
+        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 184, 148, 0); }
+    }
+    
+    .btn-verify-checkin {
+        background: linear-gradient(135deg, #00b894 0%, #00cec9 100%);
+        color: #ffffff;
+        border: none;
+        border-radius: 50px;
+        padding: 14px 32px;
+        font-size: 1.05rem;
+        font-weight: 800;
+        letter-spacing: -0.01em;
+        box-shadow: 0 6px 20px rgba(0, 184, 148, 0.35);
+        transition: all 0.25s ease;
+    }
+    
+    .btn-verify-checkin:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0, 184, 148, 0.45);
+        color: #ffffff;
+    }
+    
+    .status-confirmed-card {
+        background: linear-gradient(135deg, rgba(0, 184, 148, 0.12) 0%, rgba(0, 206, 201, 0.08) 100%);
+        border: 1px solid rgba(0, 184, 148, 0.3) !important;
+        border-radius: 16px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="att-container py-2">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+        <div>
+            <h2 class="page-title mb-1">
+                <i class="fas fa-map-marker-alt text-primary me-2"></i>Faculty Attendance &amp; Check-In
+            </h2>
+            <p class="text-muted mb-0 small">
+                Dual-verification check-in: AI facial recognition biometrics + high-precision GPS campus location.
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="/staff/face-register" class="btn btn-outline-secondary rounded-pill px-3 py-2 btn-sm">
+                <i class="fas fa-id-badge me-1.5"></i> Face Enrollment
+            </a>
+            <a href="/staff/attendance-records" class="btn btn-outline-primary rounded-pill px-3 py-2 btn-sm">
+                <i class="fas fa-history me-1.5"></i> My Attendance Log
+            </a>
+        </div>
+    </div>
+
+    <!-- Alert if Face Not Enrolled -->
+    {% if not has_face %}
+    <div class="alert alert-warning border-0 shadow-sm d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4" style="border-radius: 14px; background: rgba(253, 203, 110, 0.2); border-left: 4px solid #e17055 !important;">
+        <div class="d-flex align-items-center gap-2">
+            <i class="fas fa-exclamation-circle text-danger fs-5"></i>
+            <div>
+                <strong>Face Biometrics Not Found:</strong> You must enroll your face profile before marking attendance.
+            </div>
+        </div>
+        <a href="/staff/face-register" class="btn btn-sm btn-primary rounded-pill px-3">
+            <i class="fas fa-camera me-1"></i> Enroll Face Now
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- Today's Status Banner -->
+    <div class="card shadow-sm border-0 mb-4 {% if today_record %}status-confirmed-card{% else %}bg-card{% endif %}" style="border-radius: 16px;">
+        <div class="card-body p-3 p-md-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div class="d-flex align-items-center gap-3">
+                <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 52px; height: 52px; background: {% if today_record %}rgba(0, 184, 148, 0.2){% else %}rgba(108, 92, 231, 0.15){% endif %}; color: {% if today_record %}#00b894{% else %}#6c5ce7{% endif %}; font-size: 1.5rem;">
+                    <i class="fas {% if today_record %}fa-check-double{% else %}fa-clock{% endif %}"></i>
+                </div>
+                <div>
+                    <h5 class="fw-bold mb-0" style="color: var(--text-primary);">
+                        {% if today_record %}
+                            Checked In Today &bull; {{ today_record.time.strftime('%I:%M %p') }}
+                        {% else %}
+                            Not Checked In Yet Today
+                        {% endif %}
+                    </h5>
+                    <div class="small text-muted">
+                        <span><i class="far fa-calendar-alt me-1"></i>{{ today.strftime('%A, %B %d, %Y') }}</span>
+                        {% if today_record and today_record.latitude %}
+                        <span class="mx-2">&bull;</span>
+                        <span><i class="fas fa-map-pin me-1 text-danger"></i>GPS Logged ({{ "%.4f"|format(today_record.latitude) }}, {{ "%.4f"|format(today_record.longitude) }})</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                {% if today_record %}
+                    <span class="badge {% if today_record.status == 'late' %}bg-warning-subtle text-warning border border-warning-subtle{% else %}bg-success-subtle text-success border border-success-subtle{% endif %} rounded-pill px-3 py-2 fs-6">
+                        <i class="fas fa-check-circle me-1"></i> {{ today_record.status | upper }}
+                    </span>
+                {% else %}
+                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-2 fs-6">
+                        <i class="fas fa-hourglass-half me-1"></i> Awaiting Check-In
+                    </span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Grid: Left Camera Scanner / Right Location & Map -->
+    <div class="row g-4 mb-4">
+        <!-- 1. Left Column: Camera Scanner -->
+        <div class="col-lg-7">
+            <div class="scanner-card p-3 p-sm-4 text-center">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="fw-bold small text-primary d-flex align-items-center gap-1.5">
+                        <i class="fas fa-camera"></i> Live Facial Recognition Viewport
+                    </span>
+                    <span class="text-muted small" id="camStatusBadge">Ready</span>
+                </div>
+
+                <!-- Video Frame -->
+                <div class="camera-viewport mb-3">
+                    <video id="videoElement" autoplay playsinline muted></video>
+                    <div class="target-ring" id="targetRing"></div>
+                    <div class="scanner-beam" id="scannerBeam"></div>
+                    <canvas id="snapshotCanvas" style="display: none;"></canvas>
+                </div>
+
+                <!-- Live Camera Controls -->
+                <div class="d-flex justify-content-center gap-2 mb-3">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-3 btn-sm" id="toggleCamBtn" onclick="toggleCamera()">
+                        <i class="fas fa-video me-1"></i> Start Camera
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-3 btn-sm" id="flipCamBtn" onclick="flipCamera()" style="display: none;">
+                        <i class="fas fa-sync-alt me-1"></i> Flip Camera
+                    </button>
+                </div>
+
+                <!-- Action Button -->
+                <div class="mt-2">
+                    <button type="button" class="btn btn-verify-checkin w-100" id="markAttendanceBtn" onclick="verifyAndCheckIn()" disabled>
+                        <i class="fas fa-fingerprint me-2"></i> Verify Face &amp; Check In with GPS
+                    </button>
+                    <div class="text-muted small mt-2" id="verificationHintText">
+                        Acquiring GPS location and starting camera...
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Right Column: GPS Location & Map -->
+        <div class="col-lg-5">
+            <div class="gps-card p-3 p-sm-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold mb-0 text-primary fs-6">
+                        <i class="fas fa-satellite-dish me-1.5"></i> Real-Time Location (GPS)
+                    </h5>
+                    <span class="gps-status-badge bg-warning-subtle text-warning border border-warning-subtle" id="gpsStatusBadge">
+                        <span class="spinner-grow spinner-grow-sm me-1"></span> Locating...
+                    </span>
+                </div>
+
+                <!-- Live Coordinates Display -->
+                <div class="p-3 rounded-3 mb-3" style="background: var(--bg-primary, #f8f9fa); border: 1px solid var(--border-color, rgba(0,0,0,0.08));">
+                    <div class="row g-2 small">
+                        <div class="col-6">
+                            <span class="text-muted d-block">Latitude:</span>
+                            <strong class="fs-6 text-dark" id="displayLat">--.----°</strong>
+                        </div>
+                        <div class="col-6">
+                            <span class="text-muted d-block">Longitude:</span>
+                            <strong class="fs-6 text-dark" id="displayLng">--.----°</strong>
+                        </div>
+                        <div class="col-6">
+                            <span class="text-muted d-block">Precision / Accuracy:</span>
+                            <span class="fw-bold text-success" id="displayAcc">-- m</span>
+                        </div>
+                        <div class="col-6">
+                            <span class="text-muted d-block">Status:</span>
+                            <span class="fw-bold" id="displayLocStatus">Waiting for GPS</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Embedded Live Leaflet Map -->
+                <div class="mb-3">
+                    <div id="mapPreview"></div>
+                </div>
+
+                <!-- Map Action Links -->
+                <div class="d-flex justify-content-between align-items-center small">
+                    <a href="#" target="_blank" id="gmapsLink" class="text-decoration-none text-primary fw-semibold" style="pointer-events: none; opacity: 0.5;">
+                        <i class="fas fa-external-link-alt me-1"></i> Open in Google Maps
+                    </a>
+                    <button class="btn btn-link btn-sm text-decoration-none p-0 text-muted" onclick="requestGeolocation()">
+                        <i class="fas fa-redo me-1"></i> Refresh GPS
+                    </button>
+                </div>
+            </div>
+
+            <!-- Attendance Policy Note -->
+            <div class="card shadow-sm border-0 mt-3" style="border-radius: 14px; background: var(--glass-bg);">
+                <div class="card-body p-3 small text-muted">
+                    <div class="d-flex align-items-start gap-2">
+                        <i class="fas fa-info-circle text-primary mt-1"></i>
+                        <div>
+                            <strong>Check-In Policy:</strong> Check-ins logged after <strong>09:30 AM</strong> are automatically recorded as <em>Late</em>. Both facial biometrics and GPS coordinates are stamped on the permanent institutional ledger.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. Recent Check-in History Card -->
+    <div class="card shadow-sm border-0" style="border-radius: 16px; background: var(--glass-bg);">
+        <div class="card-header bg-transparent border-0 pt-4 pb-2 px-4 d-flex justify-content-between align-items-center">
+            <h5 class="fw-bold mb-0" style="color: var(--text-primary); font-size: 1rem;">
+                <i class="fas fa-history me-2 text-primary"></i>My Recent Check-In History
+            </h5>
+            <a href="/staff/attendance-records" class="small text-primary text-decoration-none fw-semibold">
+                View All Records &rarr;
+            </a>
+        </div>
+        <div class="card-body p-0">
+            {% if recent_records %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light small">
+                        <tr>
+                            <th class="ps-4">Date &amp; Day</th>
+                            <th>Time</th>
+                            <th>Status</th>
+                            <th>GPS Coordinates</th>
+                            <th class="pe-4 text-end">Map Link</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in recent_records %}
+                        <tr>
+                            <td class="ps-4">
+                                <strong>{{ r.date.strftime('%b %d, %Y') }}</strong>
+                                <small class="text-muted d-block">{{ r.day }}</small>
+                            </td>
+                            <td>
+                                <span class="fw-bold text-dark">{{ r.time.strftime('%I:%M:%S %p') }}</span>
+                            </td>
+                            <td>
+                                {% if r.status == 'late' %}
+                                    <span class="badge bg-warning-subtle text-warning border border-warning-subtle px-2 py-1">Late</span>
+                                {% else %}
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">Present</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if r.latitude and r.longitude %}
+                                    <small class="text-muted"><i class="fas fa-map-pin me-1 text-danger"></i>{{ "%.4f"|format(r.latitude) }}, {{ "%.4f"|format(r.longitude) }} (±{{ "%.0f"|format(r.accuracy_meters or 0) }}m)</small>
+                                {% else %}
+                                    <small class="text-muted">Standard Check-In</small>
+                                {% endif %}
+                            </td>
+                            <td class="pe-4 text-end">
+                                {% if r.latitude and r.longitude %}
+                                    <a href="https://www.google.com/maps?q={{ r.latitude }},{{ r.longitude }}" target="_blank" class="btn btn-sm btn-outline-info rounded-pill px-2.5 py-1" style="font-size: 0.75rem;">
+                                        <i class="fas fa-map-marker-alt me-1"></i> View
+                                    </a>
+                                {% else %}
+                                    <span class="text-muted small">--</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="p-4 text-center text-muted small">
+                No check-in history found yet. Mark your first check-in above!
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Leaflet Map JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+<script>
+let videoStream = null;
+let currentFacingMode = 'user';
+let userLocation = { lat: null, lng: null, accuracy: null };
+let leafletMap = null;
+let mapMarker = null;
+let mapAccuracyCircle = null;
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', () => {
+    requestGeolocation();
+    startCamera();
+});
+
+// 1. Geolocation Handling
+function requestGeolocation() {
+    const statusBadge = document.getElementById('gpsStatusBadge');
+    statusBadge.className = 'gps-status-badge bg-warning-subtle text-warning border border-warning-subtle';
+    statusBadge.innerHTML = '<span class="spinner-grow spinner-grow-sm me-1"></span> Locating...';
+    
+    if (!navigator.geolocation) {
+        statusBadge.className = 'gps-status-badge bg-danger-subtle text-danger border border-danger-subtle';
+        statusBadge.innerHTML = '<i class="fas fa-times-circle me-1"></i> GPS Unsupported';
+        alert('Geolocation is not supported by your browser.');
+        return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+        (pos) => {
+            userLocation.lat = pos.coords.latitude;
+            userLocation.lng = pos.coords.longitude;
+            userLocation.accuracy = pos.coords.accuracy;
+
+            document.getElementById('displayLat').textContent = pos.coords.latitude.toFixed(5) + '°';
+            document.getElementById('displayLng').textContent = pos.coords.longitude.toFixed(5) + '°';
+            document.getElementById('displayAcc').textContent = '±' + Math.round(pos.coords.accuracy) + ' m';
+            document.getElementById('displayLocStatus').textContent = 'Campus GPS Verified';
+            document.getElementById('displayLocStatus').className = 'fw-bold text-success';
+
+            statusBadge.className = 'gps-status-badge bg-success-subtle text-success border border-success-subtle';
+            statusBadge.innerHTML = '<span class="gps-pulsing-dot me-1.5"></span> GPS Verified';
+
+            // Google Maps Link
+            const gmapsLink = document.getElementById('gmapsLink');
+            gmapsLink.href = `https://www.google.com/maps?q=${userLocation.lat},${userLocation.lng}`;
+            gmapsLink.style.pointerEvents = 'auto';
+            gmapsLink.style.opacity = '1';
+
+            // Update Leaflet Map
+            updateMap(userLocation.lat, userLocation.lng, userLocation.accuracy);
+            checkReadyState();
+        },
+        (err) => {
+            statusBadge.className = 'gps-status-badge bg-danger-subtle text-danger border border-danger-subtle';
+            statusBadge.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i> GPS Denied';
+            document.getElementById('displayLocStatus').textContent = 'Permission Required';
+            document.getElementById('displayLocStatus').className = 'fw-bold text-danger';
+            document.getElementById('verificationHintText').textContent = 'Location permission denied. Please allow location in browser settings.';
+            alert('Location access is required to mark faculty attendance. Error: ' + err.message);
+        },
+        { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+    );
+}
+
+function updateMap(lat, lng, accuracy) {
+    if (!leafletMap) {
+        leafletMap = L.map('mapPreview', { zoomControl: false }).setView([lat, lng], 16);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap'
+        }).addTo(leafletMap);
+        
+        mapMarker = L.marker([lat, lng]).addTo(leafletMap)
+            .bindPopup('<b>Current Verified Location</b><br>Accuracy: ±' + Math.round(accuracy) + 'm')
+            .openPopup();
+            
+        mapAccuracyCircle = L.circle([lat, lng], {
+            color: '#00b894',
+            fillColor: '#00cec9',
+            fillOpacity: 0.15,
+            radius: Math.max(accuracy, 20)
+        }).addTo(leafletMap);
+    } else {
+        leafletMap.setView([lat, lng], 16);
+        mapMarker.setLatLng([lat, lng]);
+        mapAccuracyCircle.setLatLng([lat, lng]);
+        mapAccuracyCircle.setRadius(Math.max(accuracy, 20));
+    }
+}
+
+// 2. Camera Handling
+async function startCamera() {
+    try {
+        const video = document.getElementById('videoElement');
+        if (videoStream) {
+            videoStream.getTracks().forEach(t => t.stop());
+        }
+        
+        videoStream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: currentFacingMode },
+            audio: false
+        });
+        video.srcObject = videoStream;
+        
+        document.getElementById('camStatusBadge').textContent = 'Live stream active';
+        document.getElementById('camStatusBadge').className = 'text-success small fw-semibold';
+        document.getElementById('toggleCamBtn').innerHTML = '<i class="fas fa-video-slash me-1"></i> Pause Camera';
+        document.getElementById('flipCamBtn').style.display = 'inline-block';
+        document.getElementById('targetRing').classList.add('scanning');
+        document.getElementById('scannerBeam').style.display = 'block';
+
+        checkReadyState();
+    } catch (err) {
+        document.getElementById('camStatusBadge').textContent = 'Camera error';
+        document.getElementById('camStatusBadge').className = 'text-danger small';
+        console.error('Camera access error:', err);
+    }
+}
+
+function toggleCamera() {
+    if (videoStream && videoStream.active) {
+        videoStream.getTracks().forEach(t => t.stop());
+        document.getElementById('toggleCamBtn').innerHTML = '<i class="fas fa-video me-1"></i> Start Camera';
+        document.getElementById('camStatusBadge').textContent = 'Camera paused';
+        document.getElementById('scannerBeam').style.display = 'none';
+        document.getElementById('targetRing').classList.remove('scanning');
+        document.getElementById('markAttendanceBtn').disabled = true;
+    } else {
+        startCamera();
+    }
+}
+
+function flipCamera() {
+    currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+    startCamera();
+}
+
+function checkReadyState() {
+    const btn = document.getElementById('markAttendanceBtn');
+    const hint = document.getElementById('verificationHintText');
+    const hasGps = (userLocation.lat !== null && userLocation.lng !== null);
+    const hasCam = (videoStream && videoStream.active);
+    
+    if (hasGps && hasCam) {
+        btn.disabled = false;
+        hint.innerHTML = '<span class="text-success fw-bold"><i class="fas fa-check-circle me-1"></i> Ready: GPS and camera live. Look at the camera and click Check In.</span>';
+    } else if (!hasGps) {
+        btn.disabled = true;
+        hint.textContent = 'Waiting for GPS location verification...';
+    } else if (!hasCam) {
+        btn.disabled = true;
+        hint.textContent = 'Please start camera stream to verify your face.';
+    }
+}
+
+// 3. Mark Attendance Submission
+async function verifyAndCheckIn() {
+    if (!userLocation.lat || !userLocation.lng) {
+        alert('GPS location not detected. Please refresh GPS.');
+        return;
+    }
+
+    const video = document.getElementById('videoElement');
+    const canvas = document.getElementById('snapshotCanvas');
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    const ctx = canvas.getContext('2d');
+    
+    // Mirror if user facing
+    if (currentFacingMode === 'user') {
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+    }
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const imageB64 = canvas.toDataURL('image/jpeg', 0.88);
+
+    const btn = document.getElementById('markAttendanceBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Comparing 128D Face & Logging Location...';
+
+    const targetRing = document.getElementById('targetRing');
+    targetRing.classList.add('scanning');
+
+    try {
+        const payload = {
+            image_base64: imageB64,
+            latitude: userLocation.lat,
+            longitude: userLocation.lng,
+            accuracy: userLocation.accuracy,
+            location_name: 'Campus Verified (GPS)'
+        };
+
+        const res = await fetch('/staff/api/mark-attendance', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+            targetRing.classList.remove('scanning');
+            targetRing.classList.add('verified');
+
+            const alertType = data.already_marked ? 'info' : 'success';
+            const icon = data.already_marked ? 'ℹ️' : '🎉';
+
+            alert(`${icon} ${data.message}\nTime: ${data.time}\nStatus: ${data.status.toUpperCase()}\nConfidence: ${data.confidence}\nGPS: ${data.latitude.toFixed(4)}, ${data.longitude.toFixed(4)}`);
+            window.location.reload();
+        } else {
+            targetRing.classList.remove('verified');
+            targetRing.classList.remove('scanning');
+            alert('❌ Check-In Error: ' + (data.error || 'Failed to verify face.'));
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-fingerprint me-2"></i> Verify Face &amp; Check In with GPS';
+        }
+    } catch (err) {
+        alert('Network/Server error: ' + err.message);
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-fingerprint me-2"></i> Verify Face &amp; Check In with GPS';
+    }
+}
+
+// Stop streams on page exit
+window.addEventListener('beforeunload', () => {
+    if (videoStream) {
+        videoStream.getTracks().forEach(t => t.stop());
+    }
+});
+</script>
+{% endblock %}

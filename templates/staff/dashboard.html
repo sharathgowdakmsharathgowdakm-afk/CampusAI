@@ -128,6 +128,12 @@
         </div>
     </div>
     <div class="banner-actions d-flex gap-2 flex-wrap">
+        <a href="/staff/mark-attendance" class="btn btn-success text-white" style="border-radius:50px; font-size:0.85rem; background:linear-gradient(135deg, #00b894, #00cec9); border:none; box-shadow:0 4px 15px rgba(0,184,148,0.3); font-weight:600;">
+            <i class="fas fa-map-marker-alt me-1"></i> Mark Attendance (GPS)
+        </a>
+        <a href="/staff/face-register" class="btn btn-outline-light" style="border-radius:50px; font-size:0.85rem;">
+            <i class="fas fa-portrait me-1"></i> Face Biometrics
+        </a>
         {% if session.role == 'hod' and session.org_type in ['college', 'institution'] %}
             <a href="/{{ session.org_type }}/dashboard" class="btn btn-outline-info" style="border-radius:50px; font-size:0.85rem; border-color:#00cec9; color:#00cec9;">
                 <i class="fas fa-graduation-cap me-1"></i> {{ session.org_type | capitalize }} Dashboard
@@ -142,7 +148,7 @@
     </div>
 </div>
 
-<div class="kpi-grid">
+<div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
     <div class="kpi-card kpi-classes">
         <div class="kpi-icon"><i class="fas fa-chalkboard-teacher"></i></div>
         <div class="kpi-value">{{ total_classes }}</div>
@@ -156,7 +162,128 @@
     <div class="kpi-card kpi-attendance">
         <div class="kpi-icon"><i class="fas fa-clipboard-check"></i></div>
         <div class="kpi-value">{{ today_attendance }}</div>
-        <div class="kpi-label">Today's Attendance</div>
+        <div class="kpi-label">Class Student Attendance</div>
+    </div>
+    <div class="kpi-card" style="border-left: 3px solid {% if staff_today_attendance %}#00b894{% else %}#fdcb6e{% endif %};">
+        <div class="kpi-icon" style="background:{% if staff_today_attendance %}rgba(0,184,148,0.15){% else %}rgba(253,203,110,0.15){% endif %}; color:{% if staff_today_attendance %}#55efc4{% else %}#ffeaa7{% endif %};">
+            <i class="fas fa-user-check"></i>
+        </div>
+        <div class="kpi-value" style="font-size:1.4rem;">
+            {% if staff_today_attendance %}
+                <span class="text-success">{{ staff_today_attendance.status | capitalize }}</span>
+            {% else %}
+                <span class="text-warning">Pending</span>
+            {% endif %}
+        </div>
+        <div class="kpi-label">My Attendance Today</div>
+    </div>
+</div>
+
+<!-- Biometric Check-in & GPS Section -->
+<div class="row g-4 mb-4">
+    <div class="col-lg-8">
+        <div class="classes-card p-4 h-100" style="position:relative; overflow:hidden;">
+            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-3">
+                    <div style="width:48px; height:48px; border-radius:12px; background:rgba(108,92,231,0.15); display:flex; align-items:center; justify-content:center; color:#a29bfe; font-size:1.3rem;">
+                        <i class="fas fa-map-marker-alt"></i>
+                    </div>
+                    <div>
+                        <h5 class="mb-0 fw-bold text-white">Daily Geolocation Check-in</h5>
+                        <small class="text-muted">High-precision GPS tagging &amp; facial biometric verification</small>
+                    </div>
+                </div>
+                <a href="/staff/attendance-records" class="btn btn-sm btn-outline-light" style="border-radius:20px;">
+                    <i class="fas fa-history me-1"></i> Attendance Log
+                </a>
+            </div>
+
+            {% if staff_today_attendance %}
+            <div class="p-3 rounded-3" style="background:rgba(0,184,148,0.08); border:1px solid rgba(0,184,148,0.25);">
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <div>
+                        <span class="badge bg-success px-3 py-2 me-2" style="font-size:0.85rem; border-radius:50px;">
+                            <i class="fas fa-check-circle me-1"></i> Checked In: {{ staff_today_attendance.status | upper }}
+                        </span>
+                        <span class="text-white fw-semibold">
+                            <i class="fas fa-clock me-1 text-muted"></i> {{ staff_today_attendance.timestamp.strftime('%I:%M %p') }}
+                        </span>
+                    </div>
+                    {% if staff_today_attendance.latitude and staff_today_attendance.longitude %}
+                    <a href="https://www.google.com/maps?q={{ staff_today_attendance.latitude }},{{ staff_today_attendance.longitude }}" target="_blank" class="btn btn-sm btn-outline-success" style="border-radius:20px;">
+                        <i class="fas fa-external-link-alt me-1"></i> View GPS Map
+                    </a>
+                    {% endif %}
+                </div>
+                <div class="mt-2 text-muted small">
+                    <i class="fas fa-location-arrow me-1 text-success"></i> Location: <strong class="text-white">{{ staff_today_attendance.location_label or 'Campus Premises' }}</strong>
+                    {% if staff_today_attendance.latitude %}
+                        &bull; Lat: {{ "%.5f"|format(staff_today_attendance.latitude) }}, Lng: {{ "%.5f"|format(staff_today_attendance.longitude) }}
+                    {% endif %}
+                    {% if staff_today_attendance.accuracy %}
+                        &bull; Accuracy: &plusmn;{{ staff_today_attendance.accuracy|round(1) }}m
+                    {% endif %}
+                </div>
+            </div>
+            {% else %}
+            <div class="p-3 rounded-3" style="background:rgba(253,203,110,0.08); border:1px solid rgba(253,203,110,0.25);">
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+                    <div>
+                        <div class="text-warning fw-bold mb-1">
+                            <i class="fas fa-exclamation-circle me-1"></i> Not Checked In Today
+                        </div>
+                        <div class="text-secondary small">
+                            Mark your attendance by capturing your live webcam photo and GPS location coordinates.
+                        </div>
+                    </div>
+                    <a href="/staff/mark-attendance" class="btn btn-success px-4 py-2" style="border-radius:50px; background:linear-gradient(135deg, #00b894, #00cec9); border:none; font-weight:600; box-shadow:0 4px 15px rgba(0,184,148,0.35);">
+                        <i class="fas fa-camera-retro me-1"></i> Check In Now
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="classes-card p-4 h-100">
+            <div class="d-flex align-items-center gap-3 mb-3">
+                <div style="width:48px; height:48px; border-radius:12px; background:rgba(116,185,255,0.15); display:flex; align-items:center; justify-content:center; color:#74b9ff; font-size:1.3rem;">
+                    <i class="fas fa-fingerprint"></i>
+                </div>
+                <div>
+                    <h5 class="mb-0 fw-bold text-white">Face Biometrics</h5>
+                    <small class="text-muted">128D AI facial embeddings</small>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                {% if staff_face_count > 0 %}
+                <div class="d-flex align-items-center justify-content-between p-2 rounded" style="background:rgba(255,255,255,0.03);">
+                    <span class="text-muted small">Status:</span>
+                    <span class="badge bg-success" style="border-radius:50px;"><i class="fas fa-shield-alt me-1"></i> Enrolled ({{ staff_face_count }} samples)</span>
+                </div>
+                <div class="mt-3">
+                    <a href="/staff/face-register" class="btn btn-sm btn-outline-info w-100" style="border-radius:20px;">
+                        <i class="fas fa-sync-alt me-1"></i> Re-scan / Update Faces
+                    </a>
+                </div>
+                {% else %}
+                <div class="d-flex align-items-center justify-content-between p-2 rounded" style="background:rgba(255,255,255,0.03);">
+                    <span class="text-muted small">Status:</span>
+                    <span class="badge bg-warning text-dark" style="border-radius:50px;"><i class="fas fa-exclamation-triangle me-1"></i> Not Registered</span>
+                </div>
+                <div class="mt-3">
+                    <a href="/staff/face-register" class="btn btn-sm btn-primary w-100" style="border-radius:20px;">
+                        <i class="fas fa-portrait me-1"></i> Enroll Face Profile Now
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+            <div class="text-muted small">
+                <i class="fas fa-info-circle me-1"></i> Face registration captures multi-angle samples to enable touchless check-in.
+            </div>
+        </div>
     </div>
 </div>
 
@@ -164,7 +291,7 @@
     <div class="col-12">
         <div class="classes-card">
             <div class="classes-card-header">
-                <h5><i class="fas fa-list me-2 text-gradient"></i> My Classes</h5>
+                <h5><i class="fas fa-list me-2 text-gradient"></i> My Assigned Classes</h5>
             </div>
             {% if classes %}
             <div class="table-responsive">

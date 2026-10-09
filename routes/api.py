@@ -84,8 +84,9 @@ def register_face():
     """JWT-authenticated face registration (mobile/API clients).
     Accepts JSON: { student_id, images_base64: [data-URI, ...] }"""
     import base64, uuid, os
+    from datetime import datetime
     from app import app, FaceEncoding, db
-    import face_recognition
+    from face_api import register_single_student_face
 
     data = request.get_json()
     student_id = data.get('student_id')
@@ -99,6 +100,7 @@ def register_face():
         return jsonify({'success': False, 'error': 'Missing student_id or image data'}), 400
 
     success_count = 0
+    errors = []
     for img_b64 in images_b64[:5]:
         try:
             if ',' in img_b64:
@@ -109,22 +111,29 @@ def register_face():
             with open(temp_path, 'wb') as f:
                 f.write(img_data)
 
-            image = face_recognition.load_image_file(temp_path)
-            locations = face_recognition.face_locations(image, model='hog')
-            if not locations:
+            res = register_single_student_face(student_id=int(student_id), image_source=temp_path)
+            if res.get('success'):
+                rec = FaceEncoding(
+                    student_id=int(student_id),
+                    encoding_path="",
+                    encoding_data=res['embedding'],
+                    created_at=datetime.utcnow()
+                )
+                db.session.add(rec)
+                success_count += 1
+            else:
+                errors.append(res.get('error', 'Face validation failed'))
+
+            if os.path.exists(temp_path):
                 os.remove(temp_path)
-                continue
-            encoding = face_recognition.face_encodings(image, known_face_locations=locations)[0]
-            encoding_entry = FaceEncoding(student_id=student_id, encoding_data=encoding.tolist())
-            db.session.add(encoding_entry)
-            success_count += 1
-            os.remove(temp_path)
-        except Exception:
+        except Exception as e:
+            errors.append(str(e))
             continue
 
     if success_count == 0:
-        return jsonify({'success': False, 'error': 'No faces detected in provided images'}), 400
+        err_msg = 'No usable face detected. ' + '; '.join(errors) if errors else 'No usable face detected.'
+        return jsonify({'success': False, 'error': err_msg}), 400
 
     db.session.commit()
-    return jsonify({'success': True, 'message': f'{success_count} face encoding(s) registered successfully'}), 200
+    return jsonify({'success': True, 'message': f'{success_count} ArcFace face encoding(s) registered successfully'}), 200
 

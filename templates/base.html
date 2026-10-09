@@ -983,7 +983,20 @@
         
         <ul class="sidebar-menu">
             <li class="sidebar-menu-label">Main</li>
-            {% if session.org_type == 'school' %}
+            {% if session.is_staff and session.role in ['staff', 'hod'] %}
+                <li><a href="/staff/dashboard" class="{% if request.endpoint == 'staff_dashboard' %}active{% endif %}"><i class="fas fa-th-large"></i> Staff Dashboard</a></li>
+                
+                <li class="sidebar-menu-label">My Biometrics & Check-in</li>
+                <li><a href="/staff/face-register" class="{% if request.endpoint == 'staff_face_register' %}active{% endif %}"><i class="fas fa-portrait"></i> Face Registration</a></li>
+                <li><a href="/staff/mark-attendance" class="{% if request.endpoint == 'staff_mark_attendance' %}active{% endif %}"><i class="fas fa-map-marker-alt"></i> Mark Attendance (GPS)</a></li>
+                <li><a href="/staff/attendance-records" class="{% if request.endpoint == 'staff_attendance_records' %}active{% endif %}"><i class="fas fa-clipboard-check"></i> My Attendance Log</a></li>
+                
+                <li class="sidebar-menu-label">Staff Services</li>
+                <li><a href="/staff/leave" class="{% if request.endpoint == 'staff_leave' %}active{% endif %}"><i class="fas fa-file-signature"></i> Apply Leave</a></li>
+                {% if session.role == 'hod' and session.org_type in ['college', 'institution'] %}
+                    <li><a href="/{{ session.org_type }}/dashboard"><i class="fas fa-graduation-cap"></i> {{ session.org_type | capitalize }} Dashboard</a></li>
+                {% endif %}
+            {% elif session.org_type == 'school' %}
                 <li><a href="/school/dashboard" class="{% if request.endpoint == 'school_dashboard' %}active{% endif %}"><i class="fas fa-th-large"></i> Dashboard</a></li>
                 <li><a href="/school/classes" class="{% if request.endpoint == 'school_classes' %}active{% endif %}"><i class="fas fa-layer-group"></i> Classes</a></li>
                 <li><a href="/school/add-class" class="{% if request.endpoint == 'school_add_class' %}active{% endif %}"><i class="fas fa-plus-square"></i> Add Class</a></li>
@@ -996,6 +1009,7 @@
                 <li><a href="/school/attendance-records" class="{% if request.endpoint == 'school_attendance_records' %}active{% endif %}"><i class="fas fa-clipboard-check"></i> Attendance Records</a></li>
                 
                 <li class="sidebar-menu-label">Management</li>
+                <li><a href="/school/staff-attendance" class="{% if request.endpoint == 'admin_staff_attendance' %}active{% endif %}"><i class="fas fa-user-check"></i> Staff Attendance</a></li>
                 <li><a href="/school/reports" class="{% if request.endpoint == 'school_reports' %}active{% endif %}"><i class="fas fa-chart-pie"></i> Reports</a></li>
                 <li><a href="/school/academic-calendar" class="{% if request.endpoint == 'school_academic_calendar' %}active{% endif %}"><i class="fas fa-calendar-alt"></i> Academic Calendar</a></li>
                 <li><a href="/school/fees" class="{% if request.endpoint == 'school_fees' %}active{% endif %}"><i class="fas fa-receipt"></i> Fee Structure</a></li>
@@ -1013,6 +1027,7 @@
                 <li><a href="/college/attendance-records" class="{% if request.endpoint == 'college_attendance_records' %}active{% endif %}"><i class="fas fa-clipboard-check"></i> Attendance Records</a></li>
                 
                 <li class="sidebar-menu-label">Management</li>
+                <li><a href="/college/staff-attendance" class="{% if request.endpoint == 'admin_staff_attendance' %}active{% endif %}"><i class="fas fa-user-check"></i> Staff Attendance</a></li>
                 <li><a href="/college/reports" class="{% if request.endpoint == 'college_reports' %}active{% endif %}"><i class="fas fa-chart-pie"></i> Reports</a></li>
                 <li><a href="/college/academic-calendar" class="{% if request.endpoint == 'college_academic_calendar' %}active{% endif %}"><i class="fas fa-calendar-alt"></i> Academic Calendar</a></li>
                 <li><a href="/college/fees" class="{% if request.endpoint == 'college_fees' %}active{% endif %}"><i class="fas fa-receipt"></i> Fee Structure</a></li>
@@ -1030,6 +1045,7 @@
                 <li><a href="/institution/attendance-records" class="{% if request.endpoint == 'institution_attendance_records' %}active{% endif %}"><i class="fas fa-clipboard-check"></i> Attendance Records</a></li>
                 
                 <li class="sidebar-menu-label">Management</li>
+                <li><a href="/institution/staff-attendance" class="{% if request.endpoint == 'admin_staff_attendance' %}active{% endif %}"><i class="fas fa-user-check"></i> Staff Attendance</a></li>
                 <li><a href="/institution/reports" class="{% if request.endpoint == 'institution_reports' %}active{% endif %}"><i class="fas fa-chart-pie"></i> Reports</a></li>
                 <li><a href="/institution/academic-calendar" class="{% if request.endpoint == 'institution_academic_calendar' %}active{% endif %}"><i class="fas fa-calendar-alt"></i> Academic Calendar</a></li>
                 <li><a href="/institution/fees" class="{% if request.endpoint == 'institution_fees' %}active{% endif %}"><i class="fas fa-receipt"></i> Fee Structure</a></li>

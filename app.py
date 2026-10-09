@@ -14,6 +14,8 @@ import numpy as np
 import pickle
 import random
 import face_recognition
+import face_api
+from face_api import get_pipeline, process_classroom_attendance, register_single_student_face
 from io import BytesIO
 import smtplib
 from email.message import EmailMessage
@@ -52,7 +54,8 @@ if flask_env == 'production':
     app.config['SESSION_COOKIE_SECURE'] = True
 else:
     app.config['SECRET_KEY'] = secret_key or 'dev-fallback-secret-key-for-local-testing'
-    Talisman(app, content_security_policy=None, force_https=False)
+    Talisman(app, content_security_policy=None, force_https=False, session_cookie_secure=False)
+    app.config['SESSION_COOKIE_SECURE'] = False
 
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
@@ -217,6 +220,16 @@ class Student(db.Model):
     attendances = db.relationship('Attendance', backref='student', lazy=True)
     face_encodings = db.relationship('FaceEncoding', backref='student', lazy=True)
 
+    @property
+    def face_encodings_count(self):
+        """Returns the count of registered face encodings for this student."""
+        return len(self.face_encodings) if self.face_encodings else 0
+
+    @property
+    def has_registered_face(self):
+        """True if the student has at least one registered face encoding."""
+        return self.face_encodings_count > 0
+
 class Attendance(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     student_id = db.Column(db.Integer, db.ForeignKey('student.id'), nullable=False)
@@ -260,6 +273,46 @@ class Staff(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     organization = db.relationship('Organization', backref='staffs', lazy=True)
+    face_encodings = db.relationship('StaffFaceEncoding', backref='staff', lazy=True, cascade='all, delete-orphan')
+    attendances = db.relationship('StaffAttendance', backref='staff', lazy=True, cascade='all, delete-orphan')
+
+class StaffFaceEncoding(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    staff_id = db.Column(db.Integer, db.ForeignKey('staff.id'), nullable=False)
+    encoding_path = db.Column(db.String(200), nullable=True)
+    encoding_data = db.Column(db.JSON, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class StaffAttendance(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    staff_id = db.Column(db.Integer, db.ForeignKey('staff.id'), nullable=False)
+    organization_id = db.Column(db.Integer, db.ForeignKey('organization.id'), nullable=False)
+    date = db.Column(db.Date, nullable=False)
+    time = db.Column(db.Time, nullable=False)
+    status = db.Column(db.String(20), nullable=False, default='present')  # present, late
+    latitude = db.Column(db.Float, nullable=True)
+    longitude = db.Column(db.Float, nullable=True)
+    location_name = db.Column(db.String(255), nullable=True)
+    accuracy_meters = db.Column(db.Float, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    organization = db.relationship('Organization', backref=db.backref('staff_attendances', lazy=True))
+
+    @property
+    def day(self):
+        return self.date.strftime('%A')
+
+    @property
+    def timestamp(self):
+        return self.created_at or datetime.utcnow()
+
+    @property
+    def accuracy(self):
+        return self.accuracy_meters
+
+    @property
+    def location_label(self):
+        return self.location_name
 
 class OTPVerification(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -478,6 +531,15 @@ def login_required(f):
     def decorated_function(*args, **kwargs):
         if 'user_id' not in session and 'staff_id' not in session:
             return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+def staff_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get('is_staff') or not session.get('staff_id'):
+            flash('Please log in as staff to access this page.', 'danger')
+            return redirect(url_for('staff_login'))
         return f(*args, **kwargs)
     return decorated_function
 
@@ -861,237 +923,172 @@ def school_api_face_status(student_id):
     return jsonify({'has_face': count > 0, 'encoding_count': count})
 
 
+def process_student_face_registration(student_id, organization_id, images_b64=None, files=None):
+    """
+    Unified Student Face Registration using SCRFD (detection) + Face Quality Filter + ArcFace (512-d embedding).
+    Enforces requirements:
+    - Exactly one usable face per image
+    - Rejects multiple faces: "Multiple faces detected. Please upload an image containing only this student."
+    - Rejects 0 faces: "No usable face detected. Please upload a clearer image."
+    - Rejects low quality: "Face quality check failed: [reason]. Please upload a clearer image."
+    - Saves 512-d normalized ArcFace embedding to FaceEncoding table
+    - Scoped strictly to student and organization
+    - Invalidates organization embedding cache
+    """
+    from face_api.pipeline import get_pipeline, decode_image
+    from face_api import config
+    pipeline = get_pipeline()
+
+    if not student_id:
+        return {'success': False, 'error': 'Student not selected'}, 400
+
+    student = db.session.get(Student, int(student_id))
+    if not student:
+        return {'success': False, 'error': 'Student not found'}, 404
+
+    if student.organization_id != int(organization_id):
+        return {'success': False, 'error': 'Unauthorized: Student does not belong to active organization'}, 403
+
+    images_to_process = []
+    if images_b64:
+        for b64 in images_b64:
+            if b64:
+                images_to_process.append(b64)
+
+    if files:
+        for f in files:
+            if f and f.filename != '':
+                if allowed_file(f.filename):
+                    content = f.read()
+                    if content:
+                        images_to_process.append(content)
+
+    if not images_to_process:
+        return {'success': False, 'error': 'No facial image provided. Please capture or upload a photo.'}, 400
+
+    success_count = 0
+    errors = []
+
+    for idx, img_source in enumerate(images_to_process[:5]):
+        try:
+            img = decode_image(img_source)
+            faces = pipeline.detector.detect(img, threshold=config.FACE_DETECTION_THRESHOLD)
+
+            if len(faces) == 0:
+                errors.append(f"Image {idx+1}: No usable face detected. Please upload a clearer image.")
+                continue
+
+            if len(faces) > 1:
+                errors.append(f"Image {idx+1}: Multiple faces detected. Please upload an image containing only this student.")
+                continue
+
+            face = faces[0]
+            q_res = pipeline.quality_filter.evaluate(img, face)
+            if not q_res.is_valid:
+                errors.append(f"Image {idx+1}: Face quality check failed ({q_res.reason}). Please upload a clearer image.")
+                continue
+
+            # Extract 512-d normalized ArcFace embedding
+            embedding = pipeline.recognizer.extract_embedding(img, face.landmarks)
+            record = FaceEncoding(
+                student_id=student.id,
+                encoding_path="",
+                encoding_data=embedding.tolist(),
+                created_at=datetime.utcnow()
+            )
+            db.session.add(record)
+            success_count += 1
+        except Exception as e:
+            errors.append(f"Image {idx+1}: {str(e)}")
+
+    if success_count == 0:
+        err_text = errors[0] if len(errors) == 1 else "No faces could be registered: " + "; ".join(errors)
+        return {'success': False, 'error': err_text, 'errors': errors}, 400
+
+    db.session.commit()
+    pipeline.embedding_store.invalidate_cache(organization_id=int(organization_id))
+
+    msg = f"{success_count} biometric ArcFace face sample(s) registered successfully for {student.name}."
+    if errors:
+        msg += " (Notes: " + "; ".join(errors) + ")"
+
+    return {
+        'success': True,
+        'message': msg,
+        'registered_count': success_count,
+        'student_name': student.name,
+        'roll_number': student.roll_number
+    }, 200
+
+
 @app.route('/school/api/register-face', methods=['POST'])
 @csrf.exempt
 @org_required(['school'])
 def school_api_register_face():
     """Accept JSON with student_id and images_base64 (list of data-URI strings).
-    Process each image, extract face encodings, and store them."""
-    import base64, uuid
-    data = request.get_json(force=True)
+    Process each image using SCRFD + ArcFace, and store 512-d embeddings."""
+    data = request.get_json(force=True) if request.is_json else (request.form or {})
     student_id = data.get('student_id')
     images_b64 = data.get('images_base64', [])
-
-    if not student_id:
-        return jsonify({'success': False, 'error': 'Missing student_id'}), 400
-    if not images_b64:
-        return jsonify({'success': False, 'error': 'No images provided'}), 400
-
-    student = Student.query.get(student_id)
-    if not student:
-        return jsonify({'success': False, 'error': 'Student not found'}), 404
-
-    success_count = 0
-    errors = []
-
-    for idx, img_b64 in enumerate(images_b64[:5]):  # cap at 5 poses
-        try:
-            # Strip data-URI header if present
-            if ',' in img_b64:
-                img_b64 = img_b64.split(',', 1)[1]
-            img_data = base64.b64decode(img_b64)
-            filename = f"face_temp_{uuid.uuid4().hex}.jpg"
-            temp_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            with open(temp_path, 'wb') as f:
-                f.write(img_data)
-
-            image = face_recognition.load_image_file(temp_path)
-            face_locations = face_recognition.face_locations(image, model='hog')
-            if not face_locations:
-                errors.append(f'Image {idx+1}: no face detected')
-                os.remove(temp_path)
-                continue
-
-            face_enc = face_recognition.face_encodings(image, [face_locations[0]])[0]
-            record = FaceEncoding(
-                student_id=int(student_id),
-                encoding_path="",
-                encoding_data=face_enc.tolist(),
-                created_at=datetime.utcnow()
-            )
-            db.session.add(record)
-            success_count += 1
-            os.remove(temp_path)
-        except Exception as e:
-            errors.append(f'Image {idx+1}: {str(e)}')
-
-    if success_count == 0:
-        return jsonify({'success': False, 'error': 'No faces registered. ' + '; '.join(errors)}), 400
-
-    db.session.commit()
-    msg = f'{success_count} face encoding(s) registered successfully.'
-    if errors:
-        msg += ' Warnings: ' + '; '.join(errors)
-    return jsonify({'success': True, 'message': msg})
+    if not images_b64 and data.get('image_base64'):
+        images_b64 = [data['image_base64']]
+    resp, code = process_student_face_registration(student_id, session.get('org_id'), images_b64=images_b64)
+    return jsonify(resp), code
 
 
 @app.route('/school/face-register', methods=['GET', 'POST'])
 @org_required(['school'])
 def school_face_register():
-    # Load classes and students for the dropdowns
     classes = Class_.query.filter_by(organization_id=session.get('org_id')).all()
     students = Student.query.filter_by(organization_id=session.get('org_id')).all()
 
     if request.method == 'GET':
-        # Render the face registration page with premium UI
         return render_template('school/face_register.html', classes=classes, students=students)
 
-    # POST handling (existing logic)
-    student_id = request.form.get('student_id', '')
+    student_id = request.form.get('student_id', '') or (request.json.get('student_id') if request.is_json else '')
+    images_b64 = request.json.get('images_base64') if request.is_json else []
+    files = request.files.getlist('face_images') if 'face_images' in request.files else []
 
-    if not student_id:
-        return jsonify({'error': 'Student not selected'}), 400
-
-    files = request.files.getlist('face_images')
-    if not files or all(f.filename == '' for f in files):
-        return jsonify({'error': 'No file selected'}), 400
-
-    success_count = 0
-    try:
-        for file in files:
-            if file.filename == '':
-                continue
-            if not allowed_file(file.filename):
-                continue
-            filename = secure_filename(file.filename)
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            file.save(filepath)
-
-            # Load image using face_recognition
-            image = face_recognition.load_image_file(filepath)
-            
-            # Detect faces using face_recognition HOG detector
-            face_locations = face_recognition.face_locations(
-                image,
-                model='hog'
-            )
-
-            if not face_locations:
-                continue
-
-            # Use the first detected face
-            face_location = face_locations[0]
-
-            # Find face encoding
-            face_encodings = face_recognition.face_encodings(
-                image,
-                [face_location]
-            )
-
-            if len(face_encodings) == 0:
-                continue
-
-            # Use the first detected face encoding
-            face_encoding = face_encodings[0]
-
-            # Save face encoding to database as JSON list
-            face_record = FaceEncoding(
-                student_id=int(student_id),
-                encoding_path="",
-                encoding_data=face_encoding.tolist(),
-                created_at=datetime.utcnow()
-            )
-            db.session.add(face_record)
-            success_count += 1
-            
-        if success_count == 0:
-            return jsonify({'error': 'No faces could be extracted from the provided images.'}), 400
-            
-        db.session.commit()
-        return jsonify({'success': f'{success_count} face encodings registered successfully'})
-
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    resp, code = process_student_face_registration(student_id, session.get('org_id'), images_b64=images_b64, files=files)
+    return jsonify(resp), code
 
 # ─────────────────────────────────────────────────────────────
-# DISTANCE-ADAPTIVE FACE DETECTION (50m Standard / 100m Crowd)
-# ─────────────────────────────────────────────────────────────
-
-def process_face_detection_with_range(image_path, detection_range='50m', student_count=0):
+# DISTANCdef process_face_detection_with_range(image_path, detection_range='50m', student_count=0):
     """
-    Intelligent Distance-Adaptive Face Detection:
-    - 50 Meters: Standard classroom detection (up to 50m) with 2000px resolution & 1x upsampling.
-    - 100 Meters: Long-distance detection (up to 100m) for large halls, auditoriums, and dense student crowds.
-      Uses ultra-high resolution (up to 3600px), CLAHE contrast enhancement for distant faces,
-      and 2x upsampling with adaptive distance tolerance.
-    - Auto-scales: If more students are present (>15 students) or if '100m' is requested,
-      it automatically utilizes 100m deep scan mode.
+    Intelligent Distance-Adaptive Face Detection using SCRFD + ArcFace:
+    - 50 Meters: Standard classroom detection (640x640 SCRFD)
+    - 100 Meters: Extended crowd deep scan mode (1280x1280 SCRFD)
     """
-    import cv2
-    import numpy as np
-    import face_recognition
-
+    pipeline = get_pipeline()
     range_str = str(detection_range or '').lower().strip()
-    if '100' in range_str or range_str in ['crowd', 'extended', 'large']:
+    if '100' in range_str or range_str in ['crowd', 'extended', 'large'] or student_count > 15:
         resolved_meters = 100
-    elif range_str == 'auto' and student_count > 15:
-        resolved_meters = 100
-    elif student_count > 25:
-        resolved_meters = 100
+        input_size = face_api.config.DEEP_SCAN_INPUT_SIZE
     else:
         resolved_meters = 50
+        input_size = face_api.config.DETECTION_INPUT_SIZE
 
-    image = face_recognition.load_image_file(image_path)
-    h, w = image.shape[:2]
+    img = face_api.decode_image(image_path)
+    faces = pipeline.detector.detect(img, input_size=input_size)
 
-    if resolved_meters == 100:
-        max_dim = 3600
-        upsample = 2
-        tolerance = 0.52
-        if max(h, w) > max_dim:
-            scale = max_dim / max(h, w)
-            image = cv2.resize(image, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+    valid_faces = []
+    for f in faces:
+        q = pipeline.quality_filter.evaluate(img, f)
+        if q.is_valid:
+            valid_faces.append(f)
 
-        # Enhance contrast on luminance channel for distant facial features
-        try:
-            lab = cv2.cvtColor(image, cv2.COLOR_RGB2LAB)
-            l_chan, a_chan, b_chan = cv2.split(lab)
-            clahe = cv2.createCLAHE(clipLimit=2.2, tileGridSize=(8, 8))
-            cl = clahe.apply(l_chan)
-            enhanced_lab = cv2.merge((cl, a_chan, b_chan))
-            image = cv2.cvtColor(enhanced_lab, cv2.COLOR_LAB2RGB)
-        except Exception as enh_err:
-            print(f"DEBUG: Contrast enhancement skipped: {enh_err}")
+    if valid_faces:
+        landmarks = [f.landmarks for f in valid_faces]
+        embeddings = pipeline.recognizer.extract_embeddings_batch(img, landmarks)
     else:
-        max_dim = 2000
-        upsample = 1
-        tolerance = 0.48
-        if max(h, w) > max_dim:
-            scale = max_dim / max(h, w)
-            image = cv2.resize(image, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
-
-    # Detect face bounding boxes
-    face_locations = face_recognition.face_locations(
-        image,
-        number_of_times_to_upsample=upsample,
-        model='hog'
-    )
-
-    # Auto-escalation: If 50m was active and fewer faces than student_count found in a large group,
-    # automatically re-scan using 100m deep scan
-    if resolved_meters == 50 and student_count > 10 and len(face_locations) < min(student_count, 4):
-        print(f"DEBUG: Auto-escalating from 50m to 100m range because only {len(face_locations)} faces detected for {student_count} students.")
-        resolved_meters = 100
-        image = face_recognition.load_image_file(image_path)
-        h, w = image.shape[:2]
-        if max(h, w) > 3600:
-            scale = 3600 / max(h, w)
-            image = cv2.resize(image, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
-        face_locations = face_recognition.face_locations(
-            image,
-            number_of_times_to_upsample=2,
-            model='hog'
-        )
-        tolerance = 0.52
-
-    face_encodings = face_recognition.face_encodings(image, face_locations)
+        embeddings = np.empty((0, face_api.config.EMBEDDING_DIM), dtype=np.float32)
 
     return {
-        'face_locations': face_locations,
-        'face_encodings': face_encodings,
+        'face_locations': [f.bbox for f in valid_faces],
+        'face_encodings': embeddings,
         'resolved_meters': resolved_meters,
         'range_label': f"{resolved_meters} Meters ({'Extended Crowd Mode' if resolved_meters == 100 else 'Standard Room'})",
-        'tolerance': tolerance
+        'tolerance': face_api.config.FACE_RECOGNITION_THRESHOLD
     }
 
 
@@ -1117,14 +1114,6 @@ def school_mark_attendance():
 
     if request.method == 'POST':
         class_id = request.form.get('class_id', '') or (request.json.get('class_id') if request.is_json else '')
-        print(f"DEBUG: Marking attendance for Class ID: {class_id}, Org ID: {session.get('org_id')}")
-        print("DEBUG: request.method =", request.method)
-        print("DEBUG: request.content_type =", request.content_type)
-        print("DEBUG: request.form keys =", list(request.form.keys()))
-        print("DEBUG: request.files keys =", list(request.files.keys()))
-        print("DEBUG: request.is_json =", request.is_json)
-        if request.is_json:
-            print("DEBUG: request JSON payload:", request.get_json())
         if not class_id:
             return jsonify({'error': 'Class not selected'}), 400
 
@@ -1155,103 +1144,24 @@ def school_mark_attendance():
             students = Student.query.filter_by(class_id=int(class_id)).all()
             student_count = len(students)
 
-            # Process face detection with distance adaptation (50m vs 100m)
-            det_result = process_face_detection_with_range(temp_path, detection_range=detection_range, student_count=student_count)
-            face_locations = det_result['face_locations']
-            face_encodings = det_result['face_encodings']
-            resolved_meters = det_result['resolved_meters']
-            range_label = det_result['range_label']
-            match_tolerance = det_result['tolerance']
+            att_result = process_classroom_attendance(
+                image_input=temp_path,
+                db_session=db.session,
+                organization_id=int(session.get('org_id')),
+                class_id=int(class_id),
+                subject_id=None,
+                detection_range=detection_range,
+                student_count=student_count
+            )
 
-            if not face_encodings:
-                return jsonify({
-                    'error': 'No faces detected in the photo. Please ensure students face the camera clearly.',
-                    'detection_range': range_label,
-                    'distance_meters': resolved_meters,
-                    'faces_detected': 0
-                }), 200
-            
-            # Load all stored encodings for this class
-            known_encodings = []
-            known_students = []
-            
-            for student in students:
-                face_recs = FaceEncoding.query.filter_by(student_id=student.id).all()
-                for face_rec in face_recs:
-                    try:
-                        if face_rec.encoding_data:
-                            encoding = np.array(face_rec.encoding_data, dtype=np.float64)
-                        else:
-                            with open(face_rec.encoding_path, 'rb') as f:
-                                encoding = pickle.load(f)
-                        # Verify this is a 128-d encoding from face_recognition
-                        if isinstance(encoding, np.ndarray) and encoding.shape == (128,):
-                            known_encodings.append(encoding)
-                            known_students.append(student)
-                    except Exception:
-                        continue
-
-            if not known_encodings:
-                return jsonify({'error': 'No registered face profiles found for students in this class.'}), 200
-
-            recognized_students = []
-
-            for face_encoding in face_encodings:
-                # Compare detected face with all known faces using distance-adjusted tolerance
-                matches = face_recognition.compare_faces(known_encodings, face_encoding, tolerance=match_tolerance)
-                
-                if True in matches:
-                    # Use the smallest distance to find the best match
-                    face_distances = face_recognition.face_distance(known_encodings, face_encoding)
-                    best_match_index = np.argmin(face_distances)
-                    
-                    if matches[best_match_index]:
-                        best_match_student = known_students[best_match_index]
-                        
-                        # Check if already processed in this batch to prevent duplicates
-                        already_recognized = any(s['roll_number'] == best_match_student.roll_number for s in recognized_students)
-                        
-                        if not already_recognized:
-                            existing = Attendance.query.filter_by(
-                                student_id=best_match_student.id,
-                                date=india_now().date()
-                            ).first()
-
-                            if not existing:
-                                attendance = Attendance(
-                                    student_id=best_match_student.id,
-                                    class_id=int(class_id),
-                                    date=india_now().date(),
-                                    time=india_now().time(),
-                                    status='present',
-                                )
-                                db.session.add(attendance)
-                                print(f"DEBUG: Created NEW attendance record for {best_match_student.name}")
-                                status_str = attendance.status
-                            else:
-                                print(f"DEBUG: Student {best_match_student.name} already processed today")
-                                status_str = 'already present' if existing.status == 'present' else 'absent'
-                            
-                            recognized_students.append({
-                                'name': best_match_student.name,
-                                'roll_number': best_match_student.roll_number,
-                                'status': status_str
-                            })
-
-            db.session.commit()
-            print(f"DEBUG: Successfully committed changes for {len(recognized_students)} recognized students.")
-            print(f"DEBUG: Successfully marked attendance for {len(recognized_students)} students. Database committed.")
-            
             # --- SMS Notification for Absent Students ---
-            absent_students = []
             today = india_now().date()
-            # Use Session.get for SQLAlchemy 2.0 compatibility
             class_info = db.session.get(Class_, int(class_id))
             class_name = class_info.name if class_info else ''
+            recognized_ids = {s.get('student_id') for s in att_result.get('recognized', []) if s.get('student_id')}
+            absent_students = []
             for student in students:
-                is_present = Attendance.query.filter_by(student_id=student.id, date=today).\
-                    filter(Attendance._status == 'present').first()
-                if not is_present:
+                if student.id not in recognized_ids:
                     absent_students.append(student)
                     try:
                         from scripts.sms_helper import send_absent_sms
@@ -1265,16 +1175,9 @@ def school_mark_attendance():
                         )
                     except Exception as sms_err:
                         print(f"[SMS ERROR] Could not send for {student.name}: {sms_err}")
-                    
-            return jsonify({
-                'success': f'Attendance marked for {len(recognized_students)} students',
-                'recognized': recognized_students,
-                'absent_count': len(absent_students),
-                'detection_range': range_label,
-                'distance_meters': resolved_meters,
-                'faces_detected': len(face_locations),
-                'unknown_faces': max(0, len(face_locations) - len(recognized_students))
-            })
+
+            att_result['absent_count'] = len(absent_students)
+            return jsonify(att_result)
 
         except Exception as e:
             import traceback
@@ -1857,63 +1760,11 @@ def college_face_register():
     else:
         students = []
     if request.method == 'POST':
-        student_id = request.form.get('student_id', '')
-        if not student_id:
-            return jsonify({'error': 'Student not selected'}), 400
-            
-        files = request.files.getlist('face_images')
-        if not files or all(f.filename == '' for f in files):
-            return jsonify({'error': 'No file selected'}), 400
-
-        success_count = 0
-        try:
-            for file in files:
-                if file.filename == '':
-                    continue
-                filename = secure_filename(file.filename)
-                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                file.save(filepath)
-                # Load image using face_recognition
-                image = face_recognition.load_image_file(filepath)
-                
-                # Detect faces using face_recognition HOG detector
-                face_locations = face_recognition.face_locations(
-                    image,
-                    model='hog'
-                )
-
-                if not face_locations:
-                    continue
-
-                # Use the first detected face
-                face_location = face_locations[0]
-
-                # Find face encoding
-                face_encodings = face_recognition.face_encodings(
-                    image,
-                    [face_location]
-                )
-
-                if len(face_encodings) == 0:
-                    continue
-
-                # Use the first detected face encoding
-                face_encoding = face_encodings[0]
-                
-                face_record = FaceEncoding(student_id=int(student_id),
-                                           encoding_path="",
-                                           encoding_data=face_encoding.tolist(),
-                                           created_at=datetime.utcnow())
-                db.session.add(face_record)
-                success_count += 1
-                
-            if success_count == 0:
-                return jsonify({'error': 'No faces could be extracted from the provided images.'}), 400
-                
-            db.session.commit()
-            return jsonify({'success': f'{success_count} face encodings registered successfully'})
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
+        student_id = request.form.get('student_id', '') or (request.json.get('student_id') if request.is_json else '')
+        images_b64 = request.json.get('images_base64') if request.is_json else []
+        files = request.files.getlist('face_images') if 'face_images' in request.files else []
+        resp, code = process_student_face_registration(student_id, session.get('org_id'), images_b64=images_b64, files=files)
+        return jsonify(resp), code
     return render_template('college/face_register.html', students=students, classes=classes)
 
 @app.route('/college/mark-attendance', methods=['GET', 'POST'])
@@ -1974,84 +1825,25 @@ def college_mark_attendance():
             students = Student.query.filter_by(class_id=int(class_id)).all()
             student_count = len(students)
 
-            det_result = process_face_detection_with_range(temp_path, detection_range=detection_range, student_count=student_count)
-            face_locations = det_result['face_locations']
-            face_encodings = det_result['face_encodings']
-            resolved_meters = det_result['resolved_meters']
-            range_label = det_result['range_label']
-            match_tolerance = det_result['tolerance']
+            att_result = process_classroom_attendance(
+                image_input=temp_path,
+                db_session=db.session,
+                organization_id=int(session.get('org_id')),
+                class_id=int(class_id),
+                subject_id=subj_id_int,
+                detection_range=detection_range,
+                student_count=student_count
+            )
 
-            if not face_encodings:
-                return jsonify({'error': 'No faces detected', 'detection_range': range_label, 'distance_meters': resolved_meters}), 400
-                
-            students = Student.query.filter_by(class_id=int(class_id)).all()
-            
-            # Load all stored encodings for this class
-            known_encodings = []
-            known_students = []
-            
-            for student in students:
-                face_recs = FaceEncoding.query.filter_by(student_id=student.id).all()
-                for face_rec in face_recs:
-                    try:
-                        if face_rec.encoding_data:
-                            encoding = np.array(face_rec.encoding_data, dtype=np.float64)
-                        else:
-                            with open(face_rec.encoding_path, 'rb') as f:
-                                encoding = pickle.load(f)
-                        # Verify this is a 128-d encoding from face_recognition
-                        if isinstance(encoding, np.ndarray) and encoding.shape == (128,):
-                            known_encodings.append(encoding)
-                            known_students.append(student)
-                    except Exception:
-                        continue
-
-            if not known_encodings:
-                return jsonify({'error': 'No registered faces found for this class'}), 400
-
-            recognized_students = []
-            
-            for face_encoding in face_encodings:
-                # Compare detected face with all known faces (stricter tolerance for accuracy)
-                face_distances = face_recognition.face_distance(known_encodings, face_encoding)
-                best_match_index = np.argmin(face_distances)
-                best_distance = face_distances[best_match_index]
-                
-                # Use distance-adjusted tolerance
-                if best_distance <= match_tolerance:
-                    best_match_student = known_students[best_match_index]
-                    
-                    already_recognized = any(s['roll_number'] == best_match_student.roll_number for s in recognized_students)
-                    if not already_recognized:
-                        if subj_id_int:
-                            existing = Attendance.query.filter_by(
-                                student_id=best_match_student.id, date=india_now().date(), subject_id=subj_id_int).first()
-                        else:
-                            existing = Attendance.query.filter_by(
-                                student_id=best_match_student.id, date=india_now().date()).first()
-                        if not existing:
-                            attendance = Attendance(
-                                student_id=best_match_student.id, class_id=int(class_id), subject_id=subj_id_int,
-                                date=india_now().date(), time=india_now().time(),
-                                status='present')
-                            db.session.add(attendance)
-                            status_str = attendance.status
-                        else:
-                            status_str = 'already present' if existing.status == 'present' else 'absent'
-                        recognized_students.append({
-                            'name': best_match_student.name,
-                            'roll_number': best_match_student.roll_number,
-                            'status': status_str,
-                            'confidence': round((1 - best_distance) * 100, 1)
-                        })
-            db.session.commit()
             # --- SMS Notification for Absent Students ---
             today = india_now().date()
-            class_info = Class_.query.get(int(class_id))
+            class_info = db.session.get(Class_, int(class_id))
             class_name = class_info.name if class_info else ''
-            recognized_roll_numbers = {s['roll_number'] for s in recognized_students}
+            recognized_ids = {s.get('student_id') for s in att_result.get('recognized', []) if s.get('student_id')}
+            absent_students = []
             for student in students:
-                if student.roll_number not in recognized_roll_numbers:
+                if student.id not in recognized_ids:
+                    absent_students.append(student)
                     try:
                         from scripts.sms_helper import send_absent_sms
                         send_absent_sms(
@@ -2064,15 +1856,10 @@ def college_mark_attendance():
                         )
                     except Exception as sms_err:
                         print(f"[SMS ERROR] Could not send for {student.name}: {sms_err}")
-            return jsonify({
-                'success': f'Attendance marked for {len(recognized_students)} students',
-                'recognized': recognized_students,
-                'detection_range': range_label,
-                'distance_meters': resolved_meters,
-                'total_faces_detected': len(face_locations),
-                'faces_detected': len(face_locations),
-                'unknown_faces': max(0, len(face_locations) - len(recognized_students))
-            })
+
+            att_result['absent_count'] = len(absent_students)
+            return jsonify(att_result)
+
         except Exception as e:
             import traceback
             print(f"ERROR in college_mark_attendance: {e}")
@@ -2720,55 +2507,10 @@ def institution_face_register():
         if not files or all(f.filename == '' for f in files):
             return jsonify({'error': 'No file selected'}), 400
 
-        success_count = 0
-        try:
-            for file in files:
-                if file.filename == '':
-                    continue
-                filename = secure_filename(file.filename)
-                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                file.save(filepath)
-                # Load image using face_recognition
-                image = face_recognition.load_image_file(filepath)
-                
-                # Detect faces using face_recognition HOG detector
-                face_locations = face_recognition.face_locations(
-                    image,
-                    model='hog'
-                )
-
-                if not face_locations:
-                    continue
-
-                # Use the first detected face
-                face_location = face_locations[0]
-
-                # Find face encoding
-                face_encodings = face_recognition.face_encodings(
-                    image,
-                    [face_location]
-                )
-
-                if len(face_encodings) == 0:
-                    continue
-
-                # Use the first detected face encoding
-                face_encoding = face_encodings[0]
-                
-                face_record = FaceEncoding(student_id=int(student_id),
-                                           encoding_path="",
-                                           encoding_data=face_encoding.tolist(),
-                                           created_at=datetime.utcnow())
-                db.session.add(face_record)
-                success_count += 1
-                
-            if success_count == 0:
-                return jsonify({'error': 'No faces could be extracted from the provided images.'}), 400
-                
-            db.session.commit()
-            return jsonify({'success': f'{success_count} face encodings registered successfully'})
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
+        success_count, msg, err = process_student_face_registration(int(student_id), files)
+        if err:
+            return jsonify({'error': err}), 400
+        return jsonify({'success': f'{success_count} face encodings registered successfully using ArcFace'})
     return render_template('institution/face_register.html', students=students, classes=classes)
 
 @app.route('/institution/mark-attendance', methods=['GET', 'POST'])
@@ -2829,77 +2571,19 @@ def institution_mark_attendance():
             students = Student.query.filter_by(class_id=int(class_id)).all()
             student_count = len(students)
 
-            det_result = process_face_detection_with_range(temp_path, detection_range=detection_range, student_count=student_count)
-            face_locations = det_result['face_locations']
-            face_encodings = det_result['face_encodings']
-            resolved_meters = det_result['resolved_meters']
-            range_label = det_result['range_label']
-            match_tolerance = det_result['tolerance']
+            att_result = process_classroom_attendance(
+                image_input=temp_path,
+                db_session=db.session,
+                organization_id=int(session.get('org_id')),
+                class_id=int(class_id),
+                subject_id=subj_id_int,
+                detection_range=detection_range,
+                student_count=student_count
+            )
 
-            if not face_encodings:
-                return jsonify({'error': 'No faces detected', 'detection_range': range_label, 'distance_meters': resolved_meters}), 400
-                
-            students = Student.query.filter_by(class_id=int(class_id)).all()
-            
-            # Load all stored encodings for this class
-            known_encodings = []
-            known_students = []
-            
-            for student in students:
-                face_recs = FaceEncoding.query.filter_by(student_id=student.id).all()
-                for face_rec in face_recs:
-                    try:
-                        if face_rec.encoding_data:
-                            encoding = np.array(face_rec.encoding_data, dtype=np.float64)
-                        else:
-                            with open(face_rec.encoding_path, 'rb') as f:
-                                encoding = pickle.load(f)
-                        # Verify this is a 128-d encoding from face_recognition
-                        if isinstance(encoding, np.ndarray) and encoding.shape == (128,):
-                            known_encodings.append(encoding)
-                            known_students.append(student)
-                    except Exception:
-                        continue
+            recognized_students = att_result.get('recognized', [])
+            stats = att_result.get('stats', {})
 
-            if not known_encodings:
-                return jsonify({'error': 'No registered faces found for this class'}), 400
-
-            recognized_students = []
-            
-            for face_encoding in face_encodings:
-                # Compare detected face with all known faces (stricter tolerance for accuracy)
-                face_distances = face_recognition.face_distance(known_encodings, face_encoding)
-                best_match_index = np.argmin(face_distances)
-                best_distance = face_distances[best_match_index]
-                
-                # Use distance-adjusted tolerance
-                if best_distance <= match_tolerance:
-                    best_match_student = known_students[best_match_index]
-                    
-                    already_recognized = any(s['roll_number'] == best_match_student.roll_number for s in recognized_students)
-                    if not already_recognized:
-                        if subj_id_int:
-                            existing = Attendance.query.filter_by(
-                                student_id=best_match_student.id, date=india_now().date(), subject_id=subj_id_int).first()
-                        else:
-                            existing = Attendance.query.filter_by(
-                                student_id=best_match_student.id, date=india_now().date()).first()
-                        if not existing:
-                            attendance = Attendance(
-                                student_id=best_match_student.id, class_id=int(class_id), subject_id=subj_id_int,
-                                date=india_now().date(), time=india_now().time(),
-                                status='present')
-                            db.session.add(attendance)
-                            status_str = attendance.status
-                        else:
-                            status_str = 'already present' if existing.status == 'present' else 'absent'
-                        recognized_students.append({
-                            'name': best_match_student.name,
-                            'roll_number': best_match_student.roll_number,
-                            'status': status_str,
-                            'confidence': round((1 - best_distance) * 100, 1)
-                        })
-            db.session.commit()
             # --- SMS Notification for Absent Students ---
             today = india_now().date()
             class_info = Class_.query.get(int(class_id))
@@ -2919,14 +2603,18 @@ def institution_mark_attendance():
                         )
                     except Exception as sms_err:
                         print(f"[SMS ERROR] Could not send for {student.name}: {sms_err}")
+
             return jsonify({
                 'success': f'Attendance marked for {len(recognized_students)} students',
                 'recognized': recognized_students,
-                'detection_range': range_label,
-                'distance_meters': resolved_meters,
-                'total_faces_detected': len(face_locations),
-                'faces_detected': len(face_locations),
-                'unknown_faces': max(0, len(face_locations) - len(recognized_students))
+                'unknown': att_result.get('unknown', []),
+                'stats': stats,
+                'annotated_image': att_result.get('annotated_image'),
+                'detection_range': att_result.get('detection_range', detection_range),
+                'distance_meters': att_result.get('distance_meters', 50),
+                'total_faces_detected': stats.get('detected', 0),
+                'faces_detected': stats.get('detected', 0),
+                'unknown_faces': stats.get('unknown', 0)
             })
         except Exception as e:
             import traceback
@@ -3632,13 +3320,464 @@ def staff_dashboard():
     for class_ in classes:
         today_attendance += Attendance.query.filter_by(class_id=class_.id, date=today).count()
         
+    staff_face_count = StaffFaceEncoding.query.filter_by(staff_id=staff.id).count()
+    staff_today_attendance = StaffAttendance.query.filter_by(staff_id=staff.id, date=today).first()
+        
     return render_template(
         'staff/dashboard.html',
         classes=classes,
         total_classes=total_classes,
         total_students=total_students,
-        today_attendance=today_attendance
+        today_attendance=today_attendance,
+        staff_face_count=staff_face_count,
+        staff_today_attendance=staff_today_attendance
     )
+
+
+
+# ============================================================
+# STAFF / FACULTY BIOMETRIC & ATTENDANCE WITH GPS ROUTES
+# ============================================================
+
+@app.route('/staff/face-register', methods=['GET'])
+@staff_required
+def staff_face_register():
+    staff_id = session.get('staff_id')
+    staff = Staff.query.get(staff_id)
+    if not staff:
+        return redirect(url_for('staff_login'))
+    
+    encodings = StaffFaceEncoding.query.filter_by(staff_id=staff.id).all()
+    encodings_count = len(encodings)
+    registered_at = encodings[0].created_at if encodings else None
+    
+    return render_template(
+        'staff/face_register.html',
+        staff=staff,
+        encodings_count=encodings_count,
+        registered_at=registered_at
+    )
+
+
+@app.route('/staff/api/face-status', methods=['GET'])
+@staff_required
+def staff_api_face_status():
+    staff_id = session.get('staff_id')
+    count = StaffFaceEncoding.query.filter_by(staff_id=staff_id).count()
+    return jsonify({
+        'success': True,
+        'has_face': count > 0,
+        'encoding_count': count
+    })
+
+
+@app.route('/staff/api/register-face', methods=['POST'])
+@csrf.exempt
+@staff_required
+def staff_api_register_face():
+    """Register face encodings for logged-in staff member using SCRFD + ArcFace."""
+    import base64, uuid
+    data = request.get_json(force=True) if request.is_json else request.form
+    staff_id = session.get('staff_id')
+    staff = Staff.query.get(staff_id)
+    if not staff:
+        return jsonify({'success': False, 'error': 'Staff session not found.'}), 404
+
+    images_b64 = data.get('images_base64', [])
+    if not images_b64:
+        return jsonify({'success': False, 'error': 'No facial images provided.'}), 400
+
+    pipeline = get_pipeline()
+    success_count = 0
+    errors = []
+
+    for idx, img_b64 in enumerate(images_b64[:6]):
+        try:
+            if ',' in img_b64:
+                img_b64 = img_b64.split(',', 1)[1]
+            img_data = base64.b64decode(img_b64)
+            filename = f"staff_face_{staff.id}_{uuid.uuid4().hex}.jpg"
+            temp_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            with open(temp_path, 'wb') as f:
+                f.write(img_data)
+
+            from face_api.pipeline import decode_image
+            image = decode_image(temp_path)
+            if image is None:
+                errors.append(f'Pose {idx+1}: Invalid image data')
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
+                continue
+
+            faces = pipeline.detector.detect(image)
+            if not faces:
+                errors.append(f'Pose {idx+1}: No usable face detected. Please upload a clearer image.')
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
+                continue
+
+            if len(faces) > 1:
+                errors.append(f'Pose {idx+1}: Multiple faces detected. Please upload an image containing only this staff member.')
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
+                continue
+
+            face = faces[0]
+            quality_result = pipeline.quality_filter.evaluate(image, face)
+            if not quality_result.is_valid:
+                errors.append(f'Pose {idx+1}: Quality rejected ({quality_result.reason})')
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
+                continue
+
+            face_enc = pipeline.recognizer.extract_embedding(image, face.landmarks)
+            record = StaffFaceEncoding(
+                staff_id=staff.id,
+                encoding_path="",
+                encoding_data=face_enc.tolist(),
+                created_at=datetime.utcnow()
+            )
+            db.session.add(record)
+            success_count += 1
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+        except Exception as e:
+            errors.append(f'Pose {idx+1}: {str(e)}')
+
+    if success_count == 0:
+        return jsonify({'success': False, 'error': 'No face registered. ' + '; '.join(errors)}), 400
+
+    db.session.commit()
+    msg = f"{success_count} ArcFace biometric sample(s) registered successfully for {staff.name}!"
+    if errors:
+        msg += " (Notes: " + '; '.join(errors) + ")"
+    
+    # Audit log
+    audit = AuditLog(
+        organization_id=staff.organization_id,
+        user_id=session.get('user_id'),
+        action='Staff Face Registration',
+        ip_address=request.remote_addr,
+        details=f'Biometric profile registered for faculty {staff.name} ({success_count} ArcFace samples)'
+    )
+    db.session.add(audit)
+    db.session.commit()
+
+    return jsonify({'success': True, 'message': msg, 'encoding_count': success_count})
+
+
+@app.route('/staff/api/delete-face', methods=['POST'])
+@csrf.exempt
+@staff_required
+def staff_api_delete_face():
+    staff_id = session.get('staff_id')
+    staff = Staff.query.get(staff_id)
+    if not staff:
+        return jsonify({'success': False, 'error': 'Staff not found.'}), 404
+    
+    deleted = StaffFaceEncoding.query.filter_by(staff_id=staff.id).delete()
+    db.session.commit()
+    return jsonify({
+        'success': True,
+        'message': f'Face biometric data cleared ({deleted} records removed). You can now re-enroll.'
+    })
+
+
+@app.route('/staff/mark-attendance', methods=['GET'])
+@staff_required
+def staff_mark_attendance():
+    staff_id = session.get('staff_id')
+    staff = Staff.query.get(staff_id)
+    if not staff:
+        return redirect(url_for('staff_login'))
+
+    today = india_now().date()
+    today_record = StaffAttendance.query.filter_by(staff_id=staff.id, date=today).first()
+    has_face = StaffFaceEncoding.query.filter_by(staff_id=staff.id).count() > 0
+
+    recent_records = StaffAttendance.query.filter_by(staff_id=staff.id).order_by(
+        StaffAttendance.date.desc(), StaffAttendance.time.desc()
+    ).limit(10).all()
+
+    return render_template(
+        'staff/mark_attendance.html',
+        staff=staff,
+        today_record=today_record,
+        has_face=has_face,
+        recent_records=recent_records,
+        today=today,
+        now_time=india_now().strftime('%I:%M %p')
+    )
+
+
+@app.route('/staff/api/mark-attendance', methods=['POST'])
+@csrf.exempt
+@staff_required
+def staff_api_mark_attendance():
+    """Mark staff attendance with face verification + Geolocation."""
+    import base64, uuid
+    data = request.get_json(force=True) if request.is_json else request.form
+    staff_id = session.get('staff_id')
+    staff = Staff.query.get(staff_id)
+    if not staff:
+        return jsonify({'success': False, 'error': 'Staff not found.'}), 404
+
+    image_b64 = data.get('image_base64')
+    latitude = data.get('latitude')
+    longitude = data.get('longitude')
+    accuracy = data.get('accuracy')
+    location_name = data.get('location_name', 'Campus Location (GPS Verified)')
+
+    if latitude is None or longitude is None or str(latitude).strip() == '' or str(longitude).strip() == '':
+        return jsonify({
+            'success': False,
+            'error': 'Location access is required. Please grant GPS/Location permission in your browser.'
+        }), 400
+
+    try:
+        lat_float = float(latitude)
+        lng_float = float(longitude)
+        acc_float = float(accuracy) if accuracy is not None and str(accuracy).strip() != '' else 0.0
+    except ValueError:
+        return jsonify({'success': False, 'error': 'Invalid GPS coordinates format.'}), 400
+
+    enc_records = StaffFaceEncoding.query.filter_by(staff_id=staff.id).all()
+    if not enc_records:
+        return jsonify({
+            'success': False,
+            'error': 'No registered face profile found for your account. Please complete Face Registration first.'
+        }), 400
+
+    known_512 = [
+        np.array(rec.encoding_data, dtype=np.float32)
+        for rec in enc_records
+        if rec.encoding_data and len(rec.encoding_data) == 512
+    ]
+    legacy_128 = [
+        np.array(rec.encoding_data, dtype=np.float64)
+        for rec in enc_records
+        if rec.encoding_data and len(rec.encoding_data) == 128
+    ]
+
+    if not known_512 and not legacy_128:
+        return jsonify({
+            'success': False,
+            'error': 'Biometric profile corrupted. Please re-register your face.'
+        }), 400
+
+    if not image_b64:
+        return jsonify({'success': False, 'error': 'No facial image captured by camera.'}), 400
+
+    temp_path = os.path.join(app.config['UPLOAD_FOLDER'], f"staff_att_temp_{uuid.uuid4().hex}.jpg")
+    try:
+        if ',' in image_b64:
+            image_b64 = image_b64.split(',', 1)[1]
+        with open(temp_path, 'wb') as f:
+            f.write(base64.b64decode(image_b64))
+
+        pipeline = get_pipeline()
+        from face_api.pipeline import decode_image
+        captured_img = decode_image(temp_path)
+        if captured_img is None:
+            return jsonify({'success': False, 'error': 'Invalid image captured by camera.'}), 400
+
+        if known_512:
+            # SCRFD Detection
+            faces = pipeline.detector.detect(captured_img)
+            if not faces:
+                return jsonify({
+                    'success': False,
+                    'error': 'No face detected in camera view. Please align your face inside the circle with good lighting.'
+                }), 400
+
+            # Find best face
+            best_face = max(faces, key=lambda f: (f.bbox[2]-f.bbox[0]) * (f.bbox[3]-f.bbox[1]))
+            quality_result = pipeline.quality_filter.evaluate(captured_img, best_face)
+            if not quality_result.is_valid:
+                return jsonify({
+                    'success': False,
+                    'error': f'Image rejected: {quality_result.reason}. Please ensure good lighting and face camera directly.'
+                }), 400
+
+            candidate_enc = pipeline.recognizer.extract_embedding(captured_img, best_face.landmarks)
+            # Cosine similarity against known 512-d encodings
+            similarities = [float(np.dot(candidate_enc, k)) for k in known_512]
+            best_sim = max(similarities)
+            confidence = pipeline.matcher.similarity_to_confidence(best_sim)
+
+            if best_sim < pipeline.matcher.threshold:
+                return jsonify({
+                    'success': False,
+                    'error': f'Face verification failed. Captured face did not match your registered profile (Confidence: {confidence}%). Please ensure adequate lighting and face camera directly.'
+                }), 400
+        else:
+            # Graceful legacy fallback if staff member has not re-registered yet
+            legacy_img = face_recognition.load_image_file(temp_path)
+            face_locations = face_recognition.face_locations(legacy_img, model='hog')
+            if not face_locations:
+                return jsonify({
+                    'success': False,
+                    'error': 'No face detected in camera view. Please align your face inside the circle with good lighting.'
+                }), 400
+            candidate_enc = face_recognition.face_encodings(legacy_img, [face_locations[0]])[0]
+            matches = face_recognition.compare_faces(legacy_128, candidate_enc, tolerance=0.5)
+            face_distances = face_recognition.face_distance(legacy_128, candidate_enc)
+            min_dist = float(np.min(face_distances))
+            confidence = max(0, min(100, round((1.0 - min_dist) * 100, 1)))
+            if True not in matches:
+                return jsonify({
+                    'success': False,
+                    'error': f'Face verification failed. Captured face did not match your registered profile (Confidence: {confidence}%).'
+                }), 400
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Face processing error: {str(e)}'}), 500
+    finally:
+        if os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
+
+    today = india_now().date()
+    now_time = india_now().time()
+
+    existing_record = StaffAttendance.query.filter_by(staff_id=staff.id, date=today).first()
+    if existing_record:
+        return jsonify({
+            'success': True,
+            'already_marked': True,
+            'message': f'Attendance was already marked for today at {existing_record.time.strftime("%I:%M %p")}.',
+            'time': existing_record.time.strftime('%I:%M:%S %p'),
+            'date': existing_record.date.strftime('%b %d, %Y'),
+            'latitude': existing_record.latitude,
+            'longitude': existing_record.longitude,
+            'location_name': existing_record.location_name,
+            'accuracy': existing_record.accuracy_meters,
+            'status': existing_record.status,
+            'confidence': f'{confidence}%'
+        })
+
+    status_label = 'present'
+    if now_time.hour > 9 or (now_time.hour == 9 and now_time.minute > 30):
+        status_label = 'late'
+
+    new_record = StaffAttendance(
+        staff_id=staff.id,
+        organization_id=staff.organization_id,
+        date=today,
+        time=now_time,
+        status=status_label,
+        latitude=lat_float,
+        longitude=lng_float,
+        location_name=location_name,
+        accuracy_meters=acc_float,
+        created_at=datetime.utcnow()
+    )
+    db.session.add(new_record)
+
+    audit = AuditLog(
+        organization_id=staff.organization_id,
+        user_id=session.get('user_id'),
+        action='Staff Attendance Checked In',
+        ip_address=request.remote_addr,
+        details=f'{staff.name} checked in at {now_time.strftime("%I:%M %p")} with GPS ({lat_float:.5f}, {lng_float:.5f}, ±{acc_float:.1f}m, status: {status_label})'
+    )
+    db.session.add(audit)
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'already_marked': False,
+        'message': f'Attendance marked successfully for {staff.name}!',
+        'time': now_time.strftime('%I:%M:%S %p'),
+        'date': today.strftime('%b %d, %Y'),
+        'latitude': lat_float,
+        'longitude': lng_float,
+        'accuracy': acc_float,
+        'location_name': location_name,
+        'status': status_label,
+        'confidence': f'{confidence}%'
+    })
+
+
+@app.route('/staff/attendance-records', methods=['GET'])
+@staff_required
+def staff_attendance_records():
+    staff_id = session.get('staff_id')
+    staff = Staff.query.get(staff_id)
+    if not staff:
+        return redirect(url_for('staff_login'))
+
+    month_filter = request.args.get('month', '')
+    query = StaffAttendance.query.filter_by(staff_id=staff.id)
+    if month_filter:
+        try:
+            year, month = map(int, month_filter.split('-'))
+            query = query.filter(db.extract('year', StaffAttendance.date) == year,
+                                 db.extract('month', StaffAttendance.date) == month)
+        except Exception:
+            pass
+
+    records = query.order_by(StaffAttendance.date.desc(), StaffAttendance.time.desc()).all()
+    
+    total_present = len([r for r in records if r.status in ['present', 'on-time']])
+    total_late = len([r for r in records if r.status == 'late'])
+    total_days = len(records)
+
+    return render_template(
+        'staff/attendance_records.html',
+        staff=staff,
+        records=records,
+        total_present=total_present,
+        total_late=total_late,
+        total_days=total_days,
+        month_filter=month_filter
+    )
+
+
+@app.route('/<org_type>/staff-attendance', methods=['GET'])
+@org_required(['school', 'college', 'institution'])
+def admin_staff_attendance(org_type):
+    org_id = session.get('org_id')
+    date_str = request.args.get('date', india_now().strftime('%Y-%m-%d'))
+    try:
+        selected_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+    except Exception:
+        selected_date = india_now().date()
+
+    staff_members = Staff.query.filter_by(organization_id=org_id).order_by(Staff.name).all()
+    records = StaffAttendance.query.filter_by(organization_id=org_id, date=selected_date).all()
+    records_by_staff = {r.staff_id: r for r in records}
+
+    staff_data = []
+    present_count = 0
+    late_count = 0
+    for s in staff_members:
+        rec = records_by_staff.get(s.id)
+        if rec:
+            if rec.status == 'late':
+                late_count += 1
+            else:
+                present_count += 1
+        has_face = StaffFaceEncoding.query.filter_by(staff_id=s.id).count() > 0
+        staff_data.append({
+            'staff': s,
+            'attendance': rec,
+            'has_face': has_face
+        })
+
+    return render_template(
+        'staff/admin_staff_attendance.html',
+        org_type=org_type,
+        selected_date=selected_date,
+        staff_data=staff_data,
+        total_staff=len(staff_members),
+        present_count=present_count,
+        late_count=late_count,
+        absent_count=max(0, len(staff_members) - (present_count + late_count))
+    )
+
 
 # Password Reset / OTP Recovery Routes
 @app.route('/forgot-password', methods=['GET', 'POST'])
@@ -4528,6 +4667,86 @@ def staff_leave():
         return redirect(url_for('staff_leave'))
     leaves = LeaveApplication.query.filter_by(staff_id=staff_id).order_by(LeaveApplication.applied_on.desc()).all()
     return render_template('staff/apply_leave.html', leaves=leaves, staff=staff)
+
+
+# ─────────────────────────────────────────────────
+# BIOMETRICS DIAGNOSTICS & MIGRATION API
+# ─────────────────────────────────────────────────
+
+@app.route('/api/system/biometrics-status', methods=['GET'])
+def api_biometrics_status():
+    """System biometric diagnostics and engine status."""
+    try:
+        pipeline = get_pipeline()
+        diag = pipeline.get_diagnostics()
+
+        # Database statistics
+        total_512 = 0
+        total_128 = 0
+        encs = FaceEncoding.query.all()
+        for e in encs:
+            if e.encoding_data and isinstance(e.encoding_data, list):
+                if len(e.encoding_data) == 512:
+                    total_512 += 1
+                elif len(e.encoding_data) == 128:
+                    total_128 += 1
+
+        staff_512 = 0
+        staff_128 = 0
+        staff_encs = StaffFaceEncoding.query.all()
+        for se in staff_encs:
+            if se.encoding_data and isinstance(se.encoding_data, list):
+                if len(se.encoding_data) == 512:
+                    staff_512 += 1
+                elif len(se.encoding_data) == 128:
+                    staff_128 += 1
+
+        diag["database_stats"] = {
+            "student_arcface_512d": total_512,
+            "student_legacy_128d": total_128,
+            "staff_arcface_512d": staff_512,
+            "staff_legacy_128d": staff_128,
+            "total_registered_embeddings": total_512 + staff_512
+        }
+        return jsonify({"status": "success", "diagnostics": diag})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/admin/migrate-faces', methods=['GET', 'POST'])
+@csrf.exempt
+def admin_migrate_faces():
+    """Administrator face encoding migration endpoint from legacy dlib to ArcFace."""
+    org_id = session.get('org_id')
+    from migrate_face_encodings import run_face_migration
+    if request.method == 'POST':
+        try:
+            stats = run_face_migration(app=app, organization_id=org_id)
+            return jsonify({
+                "status": "success",
+                "message": f"Migration complete: {stats['successfully_converted']} converted, {stats['already_arcface']} already on ArcFace.",
+                "stats": stats
+            })
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)}), 500
+
+    # GET request - return current status
+    try:
+        total_students = Student.query.count()
+        arcface_count = 0
+        students = Student.query.all()
+        for s in students:
+            encs = FaceEncoding.query.filter_by(student_id=s.id).all()
+            if any(e.encoding_data and len(e.encoding_data) == 512 for e in encs):
+                arcface_count += 1
+        return jsonify({
+            "status": "success",
+            "total_students": total_students,
+            "students_with_arcface": arcface_count,
+            "students_needing_conversion": total_students - arcface_count
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 if __name__ == '__main__':

@@ -4,10 +4,15 @@ __pycache__/
 venv/
 .env
 .env.*
-.env.template
 instance/
 *.db
 face_encodings/
 uploads/
 test_photos/
 venv311/
+
+# Large ONNX model weights (download separately - see README)
+face_models/
+
+# Developer scratch / one-off scripts
+scratch/

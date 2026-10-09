@@ -607,60 +607,151 @@ if (typeof $ !== 'undefined') {
   $(document).on('click', '#submitBtn', submitAttendance);
 }
 
-// ─── Render Results Card ──────────────────────────────────────────────────────
+// ─── Render Results Card (SCRFD + ArcFace Live Result UI) ─────────────────────
 function renderResults(data) {
   let html = '';
   const recognized = data.recognized || data.recognized_students || [];
   const unknownCount = data.unknown_faces || 0;
+  const rejectedCount = data.rejected_count || (data.rejected_faces ? data.rejected_faces.length : 0);
+  const detectedCount = data.faces_detected || (recognized.length + unknownCount + rejectedCount);
+  const markedCount = data.attendance_marked || recognized.length;
+  const annotatedImage = data.annotated_image || null;
+  const timings = data.timings || {};
 
-  if (recognized.length > 0) {
-    html += `
-    <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4" style="background: rgba(0, 184, 148, 0.08); border: 1px solid rgba(0, 184, 148, 0.3) !important;">
-      <div class="p-3 text-white d-flex justify-content-between align-items-center" style="background: linear-gradient(135deg, #00b894, #00cec9);">
-        <h5 class="m-0 fw-bold"><i class="fas fa-check-double me-2"></i>Successfully Marked Present</h5>
-        <span class="badge bg-white text-success rounded-pill px-3 py-2 fw-bold">${recognized.length} Students</span>
-      </div>
-      <div class="list-group list-group-flush bg-transparent">
-    `;
-
-    recognized.forEach(student => {
-      html += `
-        <div class="list-group-item d-flex justify-content-between align-items-center bg-transparent py-3" style="border-color: rgba(0,0,0,0.05);">
-          <div>
-            <h6 class="m-0 fw-bold text-dark">${student.name}</h6>
-            <small class="text-muted"><i class="fas fa-id-card me-1"></i>Roll: ${student.roll_number}</small>
-          </div>
-          <span class="badge bg-success bg-opacity-25 text-success rounded-pill px-3 py-2 fw-bold">
-            <i class="fas fa-check me-1"></i>${student.status || 'Present'}
-          </span>
-        </div>
-      `;
-    });
-
-    html += `</div></div>`;
-  }
-
-  if (unknownCount > 0) {
-    html += `
-    <div class="alert alert-warning rounded-4 d-flex align-items-center shadow-sm">
-      <i class="fas fa-exclamation-triangle fa-2x me-3 text-warning"></i>
+  html += `
+  <div class="card border-0 shadow-lg rounded-4 overflow-hidden mb-4" style="background: #ffffff; border: 1px solid rgba(0,0,0,0.08) !important;">
+    <!-- Header with Stats Bar -->
+    <div class="p-3 text-white d-flex justify-content-between align-items-center flex-wrap gap-2" style="background: linear-gradient(135deg, #2d3436, #0984e3);">
       <div>
-        <h6 class="fw-bold mb-1">${unknownCount} Unrecognized Face(s) Detected</h6>
-        <small>Faces were detected in the frame, but could not be matched with high confidence to registered students in this class.</small>
+        <h5 class="m-0 fw-bold"><i class="fas fa-camera me-2"></i>Classroom Attendance Result</h5>
+        <small class="text-white-50"><i class="fas fa-microchip me-1"></i>SCRFD Face Detection + ArcFace Deep Embeddings</small>
+      </div>
+      <span class="badge bg-success rounded-pill px-3 py-2 fs-6 fw-bold">
+        <i class="fas fa-check-circle me-1"></i>Attendance Marked: ${markedCount}
+      </span>
+    </div>
+
+    <!-- Live Metric Cards Grid -->
+    <div class="p-3 bg-light border-bottom">
+      <div class="row g-2 text-center">
+        <div class="col-6 col-md-3">
+          <div class="p-2 rounded-3 bg-white shadow-sm border">
+            <small class="text-muted text-uppercase fw-bold" style="font-size:0.75rem;">Detected</small>
+            <div class="fs-4 fw-bold text-primary">${detectedCount}</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="p-2 rounded-3 bg-white shadow-sm border">
+            <small class="text-muted text-uppercase fw-bold" style="font-size:0.75rem;">Recognized</small>
+            <div class="fs-4 fw-bold text-success">${recognized.length}</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="p-2 rounded-3 bg-white shadow-sm border">
+            <small class="text-muted text-uppercase fw-bold" style="font-size:0.75rem;">Unknown</small>
+            <div class="fs-4 fw-bold text-warning">${unknownCount}</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="p-2 rounded-3 bg-white shadow-sm border">
+            <small class="text-muted text-uppercase fw-bold" style="font-size:0.75rem;">Low Quality</small>
+            <div class="fs-4 fw-bold text-secondary">${rejectedCount}</div>
+          </div>
+        </div>
       </div>
     </div>
-    `;
-  }
 
-  if (recognized.length === 0 && unknownCount === 0) {
-    html = `
-    <div class="alert alert-secondary rounded-4 text-center py-4 shadow-sm">
-      <i class="fas fa-user-slash fa-3x text-muted mb-2"></i>
-      <h5 class="fw-bold text-secondary">No Recognized Faces</h5>
-      <p class="mb-0 text-muted">No student faces were recognized in the provided photo. Ensure lighting is clear and students are facing the camera.</p>
+    <!-- Annotated Image View (Color Bounding Boxes) -->
+    ${annotatedImage ? `
+    <div class="p-3 text-center bg-dark">
+      <div class="d-flex justify-content-between align-items-center mb-2 px-1">
+        <small class="text-white-50"><i class="fas fa-vector-square me-1"></i>Annotated Classroom Frame</small>
+        <div class="d-flex gap-2">
+          <span class="badge" style="background:#2ecc71;">● Recognized</span>
+          <span class="badge" style="background:#f39c12;">● Unknown</span>
+          <span class="badge" style="background:#e74c3c;">● Low Quality</span>
+        </div>
+      </div>
+      <img src="${annotatedImage}" alt="Annotated Classroom Capture" class="img-fluid rounded-3 shadow" style="max-height: 480px; width: auto; object-fit: contain;">
     </div>
-    `;
-  }
+    ` : ''}
+
+    <!-- Recognized Students List -->
+    <div class="p-3">
+      <h6 class="fw-bold mb-2 text-dark"><i class="fas fa-user-check text-success me-2"></i>Recognized Students</h6>
+      ${recognized.length > 0 ? `
+      <div class="list-group list-group-flush border rounded-3 overflow-hidden mb-3">
+        ${recognized.map(student => {
+          const conf = student.confidence ? `${student.confidence}%` : 'High';
+          return `
+          <div class="list-group-item d-flex justify-content-between align-items-center py-2 px-3">
+            <div class="d-flex align-items-center gap-2">
+              <span class="text-success fw-bold fs-5">✓</span>
+              <div>
+                <span class="fw-bold text-dark">${student.name}</span>
+                <span class="text-muted small ms-2"><i class="fas fa-id-badge me-1"></i>${student.roll_number || ''}</span>
+              </div>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <span class="badge rounded-pill text-white fw-bold px-2 py-1" style="background: linear-gradient(135deg, #00b894, #00cec9); font-size:0.78rem;">
+                ${conf} match
+              </span>
+              <span class="badge bg-success bg-opacity-25 text-success rounded-pill px-2 py-1 small">
+                ${student.status || 'Present'}
+              </span>
+            </div>
+          </div>
+          `;
+        }).join('')}
+      </div>
+      ` : `
+      <div class="alert alert-secondary py-2 px-3 small rounded-3 mb-3">
+        No students identified from class registry.
+      </div>
+      `}
+
+      <!-- Unknown Faces Section -->
+      ${unknownCount > 0 ? `
+      <h6 class="fw-bold mb-2 text-warning"><i class="fas fa-question-circle me-2"></i>Unrecognized Faces (${unknownCount})</h6>
+      <div class="list-group list-group-flush border rounded-3 overflow-hidden mb-3">
+        ${Array.from({length: unknownCount}).map((_, i) => `
+        <div class="list-group-item d-flex justify-content-between align-items-center py-2 px-3 bg-light">
+          <div class="d-flex align-items-center gap-2">
+            <span class="text-warning fw-bold fs-5">?</span>
+            <span class="text-muted fw-semibold">Unknown Person #${i + 1}</span>
+          </div>
+          <span class="badge bg-warning bg-opacity-25 text-dark rounded-pill px-2 py-1 small">-- Unregistered</span>
+        </div>
+        `).join('')}
+      </div>
+      ` : ''}
+
+      <!-- Low Quality / Rejected Faces Breakdown -->
+      ${rejectedCount > 0 && data.rejected_faces ? `
+      <h6 class="fw-bold mb-2 text-secondary"><i class="fas fa-filter me-2"></i>Filtered / Low Quality Detections (${rejectedCount})</h6>
+      <div class="list-group list-group-flush border rounded-3 overflow-hidden mb-3">
+        ${data.rejected_faces.map((rf, i) => `
+        <div class="list-group-item d-flex justify-content-between align-items-center py-2 px-3 small bg-light">
+          <div class="text-muted">
+            <span class="fw-semibold">Face Candidate #${i + 1}</span>
+            <span class="ms-2 badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25">${rf.reason || 'Low Quality'}</span>
+          </div>
+          <span class="text-muted small">Excluded from attendance</span>
+        </div>
+        `).join('')}
+      </div>
+      ` : ''}
+
+      <!-- Performance Timings Footer -->
+      ${timings.total_sec ? `
+      <div class="d-flex justify-content-between align-items-center text-muted small pt-2 border-top">
+        <span><i class="fas fa-stopwatch me-1"></i>Total: <strong>${timings.total_sec}s</strong> (Det: ${timings.detection_sec || 0}s, Embed: ${timings.embedding_sec || 0}s, Search: ${timings.search_sec || 0}s)</span>
+        <span>Range: <strong>${data.detection_range || 'Standard'}</strong></span>
+      </div>
+      ` : ''}
+    </div>
+  </div>
+  `;
 
   if (resultsContainer) resultsContainer.innerHTML = html;
 }
