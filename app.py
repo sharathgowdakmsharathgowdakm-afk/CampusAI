@@ -1042,7 +1042,7 @@ def legacy_process_classroom_attendance(image_path, db_session, organization_id,
             'timings': {'total_sec': round(time.perf_counter() - t_start, 2)}
         }
 
-    tolerance = 0.45  # Tighter threshold: reduces false-positive matches
+    tolerance = 0.48  # Compatible with existing num_jitters=1 registrations
     candidate_matches = []
 
     for f_idx, face_enc in enumerate(face_encs):
