@@ -1074,8 +1074,7 @@ def legacy_process_classroom_attendance(image_path, db_session, organization_id,
                     subject_id=subject_id,
                     date=today,
                     time=now_dt.time(),
-                    status='present',
-                    organization_id=int(organization_id)
+                    status='present'
                 )
                 db_session.add(att)
                 status_str = 'present'
