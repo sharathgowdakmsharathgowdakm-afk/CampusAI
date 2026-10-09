@@ -213,7 +213,12 @@
                 </td>
             </tr>
 
-            <!-- Edit Modal -->
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% for student in students %}
+<!-- Edit Modal -->
             <div class="modal fade" id="editModal{{ student.id }}" tabindex="-1" aria-hidden="true">
                 <div class="modal-dialog">
                     <div class="modal-content">
@@ -245,10 +250,9 @@
                     </div>
                 </div>
             </div>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
+            
+{% endfor %}
+
 
 <script>
 document.getElementById('searchInput').addEventListener('keyup', function() {
