@@ -1042,7 +1042,7 @@ def legacy_process_classroom_attendance(image_path, db_session, organization_id,
             'timings': {'total_sec': round(time.perf_counter() - t_start, 2)}
         }
 
-    tolerance = 0.48
+    tolerance = 0.45  # Tighter threshold: reduces false-positive matches
     candidate_matches = []
 
     for f_idx, face_enc in enumerate(face_encs):
@@ -1230,17 +1230,20 @@ def legacy_process_student_face_registration(student_id, organization_id, images
         try:
             pil_img = Image.open(io.BytesIO(raw_bytes)).convert('RGB')
             np_img = np.array(pil_img)
+            # Try HOG (fast, always available); CNN would need extra model not present
             locations = face_recognition.face_locations(np_img, model='hog')
 
             if len(locations) == 0:
-                errors.append(f"Image {idx+1}: No usable face detected. Please upload a clearer image.")
+                errors.append(f"Image {idx+1}: No usable face detected. Please upload a clearer, well-lit photo.")
                 continue
 
             if len(locations) > 1:
-                errors.append(f"Image {idx+1}: Multiple faces detected. Please upload an image containing only this student.")
+                errors.append(f"Image {idx+1}: Multiple faces detected. Please upload a photo with only this student.")
                 continue
 
-            encs = face_recognition.face_encodings(np_img, locations)
+            # num_jitters=10: compute encoding 10 times with small random perturbations
+            # and average them → much more robust and accurate 128-d vector
+            encs = face_recognition.face_encodings(np_img, locations, num_jitters=10)
             if not encs:
                 errors.append(f"Image {idx+1}: Could not compute face encoding.")
                 continue
