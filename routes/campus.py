@@ -435,6 +435,9 @@ def timetable():
     classes = Class_.query.filter_by(organization_id=org_id).all()
     class_id = request.args.get('class_id', type=int) or (classes[0].id if classes else None)
 
+    # Subjects for this org so we can link timetable → subject_id
+    subjects = Subject.query.filter_by(organization_id=org_id).order_by(Subject.name).all()
+
     days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
     today_day = datetime.now().strftime('%A')
     today_date = date.today()
@@ -458,7 +461,7 @@ def timetable():
         slot_class = Class_.query.get(slot.class_id)
         class_name = slot_class.name if slot_class else f"Class #{slot.class_id}"
         total_students = len(slot_class.students) if slot_class else 0
-        
+
         # Check attendance for this timetable slot today, scoped by subject
         att_base = Attendance.query.filter_by(
             class_id=slot.class_id,
@@ -476,6 +479,7 @@ def timetable():
             'class_id': slot.class_id,
             'class_name': class_name,
             'subject_name': slot.subject_name or 'General Class',
+            'subject_id': slot.subject_id,
             'start_time': slot.start_time,
             'end_time': slot.end_time,
             'room': slot.room or 'Main Hall',
@@ -483,17 +487,19 @@ def timetable():
             'total_students': total_students,
             'present_count': present_count,
             'total_marked': total_marked,
-            'is_marked': total_marked > 0
+            'is_marked': total_marked > 0,
+            'needs_subject_link': not slot.subject_id  # flag missing subject_id
         })
 
     return render_template(
-        'campus/timetable.html', 
-        days=days, 
-        slots=slots, 
-        classes=classes, 
+        'campus/timetable.html',
+        days=days,
+        slots=slots,
+        classes=classes,
         class_id=class_id,
         today_day=today_day,
-        today_slots=today_slots
+        today_slots=today_slots,
+        subjects=subjects
     )
 
 
@@ -524,11 +530,20 @@ def timetable_mark_attendance(entry_id):
 @campus_bp.route('/academic/timetable/add', methods=['POST'])
 @admin_required
 def add_timetable():
-    from app import db, Timetable
+    from app import db, Timetable, Subject
     org_id = session.get('org_id')
+    subject_id_raw = request.form.get('subject_id') or None
+    subject_id = int(subject_id_raw) if subject_id_raw else None
+    # Auto-fill subject_name from Subject record if not manually provided
+    subject_name = request.form.get('subject_name', '').strip()
+    if subject_id and not subject_name:
+        subj = Subject.query.get(subject_id)
+        if subj:
+            subject_name = subj.name
     entry = Timetable(
         class_id=int(request.form['class_id']),
-        subject_name=request.form.get('subject_name', ''),
+        subject_id=subject_id,
+        subject_name=subject_name,
         day_of_week=request.form['day_of_week'],
         start_time=request.form['start_time'],
         end_time=request.form['end_time'],
@@ -541,6 +556,39 @@ def add_timetable():
     log_audit(f"Added timetable entry for class {request.form['class_id']}")
     flash('Timetable entry added!', 'success')
     return redirect(url_for('campus.timetable', class_id=request.form['class_id']))
+
+
+@campus_bp.route('/academic/timetable/edit/<int:entry_id>', methods=['GET', 'POST'])
+@admin_required
+def edit_timetable(entry_id):
+    from app import db, Timetable, Subject, Class_
+    entry = Timetable.query.get_or_404(entry_id)
+    org_id = session.get('org_id')
+    subjects = Subject.query.filter_by(organization_id=org_id).order_by(Subject.name).all()
+    classes = Class_.query.filter_by(organization_id=org_id).all()
+    days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+    if request.method == 'POST':
+        subject_id_raw = request.form.get('subject_id') or None
+        subject_id = int(subject_id_raw) if subject_id_raw else None
+        subject_name = request.form.get('subject_name', '').strip()
+        if subject_id and not subject_name:
+            subj = Subject.query.get(subject_id)
+            if subj:
+                subject_name = subj.name
+        entry.class_id = int(request.form['class_id'])
+        entry.subject_id = subject_id
+        entry.subject_name = subject_name
+        entry.day_of_week = request.form['day_of_week']
+        entry.start_time = request.form['start_time']
+        entry.end_time = request.form['end_time']
+        entry.room = request.form.get('room', '')
+        entry.faculty = request.form.get('faculty', '')
+        db.session.commit()
+        log_audit(f"Edited timetable entry {entry_id}")
+        flash('Timetable entry updated!', 'success')
+        return redirect(url_for('campus.timetable', class_id=entry.class_id))
+    return render_template('campus/edit_timetable.html',
+        entry=entry, subjects=subjects, classes=classes, days=days)
 
 
 @campus_bp.route('/academic/timetable/delete/<int:entry_id>', methods=['POST'])

@@ -72,11 +72,21 @@
                             <i class="far fa-clock"></i> Attendance Pending
                         </span>
                         {% endif %}
+                        {% if slot.needs_subject_link %}
+                        <span class="badge-campus" style="background:#fee2e2; color:#b91c1c; border:1px solid #fecaca; font-weight:600; padding:4px 10px; font-size:0.75rem; margin-top:4px; display:block;">
+                            <i class="fas fa-exclamation-triangle"></i> Subject not linked — time enforcement inactive
+                        </span>
+                        {% endif %}
                     </div>
                     {% if session.get('user_id') or session.get('staff_id') %}
-                    <a href="{{ url_for('campus.timetable_mark_attendance', entry_id=slot.id) }}" class="btn-campus btn-primary-c" style="padding:7px 14px; font-size:0.85rem; display:inline-flex; align-items:center; gap:6px; text-decoration:none;">
-                        <i class="fas fa-camera"></i> Mark Attendance
-                    </a>
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <a href="{{ url_for('campus.edit_timetable', entry_id=slot.id) }}" class="btn-campus btn-ghost" style="padding:7px 12px; font-size:0.82rem; display:inline-flex; align-items:center; gap:5px; text-decoration:none;">
+                            <i class="fas fa-edit"></i> Edit
+                        </a>
+                        <a href="{{ url_for('campus.timetable_mark_attendance', entry_id=slot.id) }}" class="btn-campus btn-primary-c" style="padding:7px 14px; font-size:0.85rem; display:inline-flex; align-items:center; gap:6px; text-decoration:none;">
+                            <i class="fas fa-camera"></i> Mark Attendance
+                        </a>
+                    </div>
                     {% endif %}
                 </div>
             </div>
@@ -181,8 +191,17 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="campus-form-label">Subject Name</label>
-                    <input type="text" name="subject_name" class="campus-form-control" required placeholder="e.g. Mathematics">
+                    <label class="campus-form-label">Subject <span style="color:#ef4444;">*</span></label>
+                    <select name="subject_id" id="add_subject_id" class="campus-form-control" onchange="fillSubjectName(this)">
+                        <option value="">-- Select Subject --</option>
+                        {% for s in subjects %}
+                            <option value="{{ s.id }}">{{ s.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="campus-form-label">Subject Name (or enter manually if not in list)</label>
+                    <input type="text" id="add_subject_name" name="subject_name" class="campus-form-control" placeholder="e.g. Mathematics">
                 </div>
                 <div class="grid-2">
                     <div class="form-group">
@@ -202,4 +221,18 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function fillSubjectName(select) {
+    var nameInput = document.getElementById('add_subject_name');
+    var selectedText = select.options[select.selectedIndex].text;
+    if (select.value) {
+        nameInput.value = selectedText;
+    } else {
+        nameInput.value = '';
+    }
+}
+</script>
 {% endblock %}

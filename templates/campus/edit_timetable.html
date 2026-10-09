@@ -1,0 +1,114 @@
+{% extends "campus/base_campus.html" %}
+{% block title %}Edit Timetable Entry{% endblock %}
+{% block page_title %}Edit Timetable Entry{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Edit Timetable Entry</h1>
+    <p>Update the subject, time, room, and faculty for this timetable slot.</p>
+</div>
+
+<div class="glass-card" style="max-width:600px; margin:0 auto;">
+    <div class="card-header-gradient" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); padding:14px 20px;">
+        <h5 style="margin:0; color:#fff; display:flex; align-items:center; gap:10px;">
+            <i class="fas fa-edit"></i> Edit Timetable Slot
+        </h5>
+    </div>
+    <div class="card-body-p" style="padding:24px;">
+        <form method="POST" action="{{ url_for('campus.edit_timetable', entry_id=entry.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <div class="form-group" style="margin-bottom:16px;">
+                <label class="campus-form-label">Class</label>
+                <select name="class_id" class="campus-form-control" required>
+                    {% for c in classes %}
+                        <option value="{{ c.id }}" {% if entry.class_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group" style="margin-bottom:16px;">
+                <label class="campus-form-label">Day of Week</label>
+                <select name="day_of_week" class="campus-form-control" required>
+                    {% for day in days %}
+                        <option value="{{ day }}" {% if entry.day_of_week == day %}selected{% endif %}>{{ day }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+                <div class="form-group">
+                    <label class="campus-form-label">Start Time <span style="color:#ef4444;">*</span></label>
+                    <input type="time" name="start_time" class="campus-form-control" value="{{ entry.start_time }}" required>
+                </div>
+                <div class="form-group">
+                    <label class="campus-form-label">End Time <span style="color:#ef4444;">*</span></label>
+                    <input type="time" name="end_time" class="campus-form-control" value="{{ entry.end_time }}" required>
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom:16px;">
+                <label class="campus-form-label">
+                    Subject (select from list) 
+                    <span style="color:#ef4444; font-size:0.85rem;">— Required for time enforcement</span>
+                </label>
+                <select name="subject_id" id="edit_subject_id" class="campus-form-control" onchange="editFillSubjectName(this)">
+                    <option value="">-- Select Subject --</option>
+                    {% for s in subjects %}
+                        <option value="{{ s.id }}" {% if entry.subject_id == s.id %}selected{% endif %}>{{ s.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group" style="margin-bottom:16px;">
+                <label class="campus-form-label">Subject Name (manual override)</label>
+                <input type="text" id="edit_subject_name" name="subject_name" class="campus-form-control"
+                       value="{{ entry.subject_name or '' }}" placeholder="e.g. Mathematics">
+                <small style="color:#64748b; font-size:0.8rem;">
+                    Leave blank to auto-fill from subject selected above.
+                </small>
+            </div>
+
+            {% if not entry.subject_id %}
+            <div style="background:#fef3c7; border:1px solid #fde68a; border-radius:8px; padding:12px 16px; margin-bottom:16px; display:flex; align-items:center; gap:10px;">
+                <i class="fas fa-exclamation-triangle" style="color:#b45309;"></i>
+                <span style="color:#b45309; font-size:0.9rem; font-weight:600;">
+                    This slot has no subject linked — timetable time enforcement is inactive. Please select a subject above to enable it.
+                </span>
+            </div>
+            {% endif %}
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+                <div class="form-group">
+                    <label class="campus-form-label">Room / Lab</label>
+                    <input type="text" name="room" class="campus-form-control" value="{{ entry.room or '' }}" placeholder="e.g. Room 101">
+                </div>
+                <div class="form-group">
+                    <label class="campus-form-label">Faculty</label>
+                    <input type="text" name="faculty" class="campus-form-control" value="{{ entry.faculty or '' }}" placeholder="e.g. Prof. Smith">
+                </div>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:24px;">
+                <a href="{{ url_for('campus.timetable', class_id=entry.class_id) }}" class="btn-campus btn-ghost">
+                    <i class="fas fa-arrow-left"></i> Cancel
+                </a>
+                <button type="submit" class="btn-campus btn-primary-c">
+                    <i class="fas fa-save"></i> Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function editFillSubjectName(select) {
+    var nameInput = document.getElementById('edit_subject_name');
+    if (select.value) {
+        nameInput.value = select.options[select.selectedIndex].text;
+    }
+}
+</script>
+{% endblock %}
