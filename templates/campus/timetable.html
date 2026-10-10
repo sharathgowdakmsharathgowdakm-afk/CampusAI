@@ -35,9 +35,12 @@
         <h5 style="margin:0; font-size:1.05rem; display:flex; align-items:center; gap:10px; color:#fff;">
             <i class="fas fa-calendar-check"></i> Today's Schedule & Attendance in Timetable Order ({{ today_day }})
         </h5>
-        <span class="badge-campus" style="background:rgba(255,255,255,0.25); color:#fff; font-weight:600; padding:4px 12px; border-radius:20px;">
-            {{ today_slots|length }} Periods Scheduled Today
-        </span>
+        <div style="display:flex; align-items:center; gap:12px;">
+            <span id="live-clock" style="font-family:monospace; font-weight:700; font-size:1.05rem; color:#fff; background:rgba(255,255,255,0.15); padding:4px 12px; border-radius:20px; letter-spacing:1px;">--:--:--</span>
+            <span class="badge-campus" style="background:rgba(255,255,255,0.25); color:#fff; font-weight:600; padding:4px 12px; border-radius:20px;">
+                {{ today_slots|length }} Periods Scheduled Today
+            </span>
+        </div>
     </div>
     <div class="card-body-p" style="padding: 18px 20px;">
         {% if today_slots and today_slots|length > 0 %}
@@ -83,9 +86,19 @@
                         <a href="{{ url_for('campus.edit_timetable', entry_id=slot.id) }}" class="btn-campus btn-ghost" style="padding:7px 12px; font-size:0.82rem; display:inline-flex; align-items:center; gap:5px; text-decoration:none;">
                             <i class="fas fa-edit"></i> Edit
                         </a>
-                        <a href="{{ url_for('campus.timetable_mark_attendance', entry_id=slot.id) }}" class="btn-campus btn-primary-c" style="padding:7px 14px; font-size:0.85rem; display:inline-flex; align-items:center; gap:6px; text-decoration:none;">
-                            <i class="fas fa-camera"></i> Mark Attendance
-                        </a>
+                        {%- set start_hm = slot.start_time -%}
+                        {%- set end_hm   = slot.end_time -%}
+                        {%- set btn_active = (now_time >= start_hm and now_time <= end_hm) or
+                                             (now_time >= (slot.start_time[:2]|int * 60 + slot.start_time[3:]|int - 10)|string and now_time <= end_hm) -%}
+                        {# JS will set the exact active/disabled state; Jinja does rough pre-render #}
+                        <span class="tt-mark-btn-wrap" data-start="{{ slot.start_time }}" data-end="{{ slot.end_time }}" data-entry="{{ slot.id }}" data-class="{{ slot.class_id }}">
+                            <a href="{{ url_for('campus.timetable_mark_attendance', entry_id=slot.id) }}"
+                               class="btn-campus btn-primary-c tt-mark-btn"
+                               style="padding:7px 14px; font-size:0.85rem; display:inline-flex; align-items:center; gap:6px; text-decoration:none;"
+                               title="Mark attendance for {{ slot.subject_name }}">
+                                <i class="fas fa-camera"></i> Mark Attendance
+                            </a>
+                        </span>
                     </div>
                     {% endif %}
                 </div>
@@ -132,12 +145,20 @@
                         <span class="tt-info"><i class="fas fa-map-marker-alt"></i> {{ entry.room }}</span>
                         <span class="tt-info"><i class="fas fa-user-tie"></i> {{ entry.faculty }}</span>
                     </div>
+                    {# T4: Only show Mark Attendance for today's day in the weekly grid #}
                     {% if session.get('user_id') or session.get('staff_id') %}
+                    {% if day == today_day %}
                     <div style="margin-top:8px; text-align:right;">
-                        <a href="{{ url_for('campus.timetable_mark_attendance', entry_id=entry.id) }}" style="font-size:0.75rem; padding:3px 8px; border-radius:4px; background:rgba(99,102,241,0.1); color:#4f46e5; text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:4px;">
-                            <i class="fas fa-camera"></i> Mark Attendance
-                        </a>
+                        <span class="tt-mark-btn-wrap" data-start="{{ entry.start_time }}" data-end="{{ entry.end_time }}" data-entry="{{ entry.id }}" data-class="{{ entry.class_id }}">
+                            <a href="{{ url_for('campus.timetable_mark_attendance', entry_id=entry.id) }}"
+                               class="btn-campus btn-primary-c tt-mark-btn"
+                               style="font-size:0.75rem; padding:3px 8px; border-radius:4px; text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:4px;"
+                               title="Mark attendance for {{ entry.subject_name }}">
+                                <i class="fas fa-camera"></i> Mark Attendance
+                            </a>
+                        </span>
                     </div>
+                    {% endif %}
                     {% endif %}
                 </div>
                 {% endfor %}
@@ -225,6 +246,19 @@
 
 {% block scripts %}
 <script>
+/* ── Live Clock ── */
+function updateClock() {
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2,'0');
+    const mm = String(now.getMinutes()).padStart(2,'0');
+    const ss = String(now.getSeconds()).padStart(2,'0');
+    const el = document.getElementById('live-clock');
+    if (el) el.textContent = hh + ':' + mm + ':' + ss;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+/* ── Subject auto-fill ── */
 function fillSubjectName(select) {
     var nameInput = document.getElementById('add_subject_name');
     var selectedText = select.options[select.selectedIndex].text;
@@ -234,5 +268,72 @@ function fillSubjectName(select) {
         nameInput.value = '';
     }
 }
+
+/* ── Slot time-window enforcement (client-side visual) ──
+   TIMETABLE_GRACE_MINUTES must match server-side value.  */
+const GRACE_MINUTES = 10;
+
+function toMinutes(hhmm) {
+    const [h, m] = hhmm.split(':').map(Number);
+    return h * 60 + m;
+}
+
+function applySlotStates() {
+    const now = new Date();
+    const nowMins = now.getHours() * 60 + now.getMinutes();
+
+    document.querySelectorAll('.tt-mark-btn-wrap').forEach(function(wrap) {
+        const start   = wrap.dataset.start;
+        const end     = wrap.dataset.end;
+        const btn     = wrap.querySelector('.tt-mark-btn');
+        if (!btn || !start || !end) return;
+
+        const startMins = toMinutes(start);
+        const endMins   = toMinutes(end);
+        const openMins  = startMins - GRACE_MINUTES;
+        const closeMins = endMins   + GRACE_MINUTES;
+
+        if (nowMins >= openMins && nowMins <= closeMins) {
+            // Active window — allow
+            btn.style.opacity    = '1';
+            btn.style.cursor     = 'pointer';
+            btn.style.pointerEvents = 'auto';
+            btn.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+            btn.style.color      = '#fff';
+            btn.style.animation  = 'pulse-active 1.8s ease-in-out infinite';
+            btn.title = 'Click to mark attendance (slot is active now)';
+        } else if (nowMins < openMins) {
+            // Future slot — disable with countdown
+            const minsLeft = openMins - nowMins;
+            btn.style.opacity       = '0.45';
+            btn.style.cursor        = 'not-allowed';
+            btn.style.pointerEvents = 'none';
+            btn.style.background    = '#94a3b8';
+            btn.style.color         = '#fff';
+            btn.style.animation     = 'none';
+            btn.title = `Available in ${minsLeft} min (from ${start})`;
+        } else {
+            // Past slot — disable
+            btn.style.opacity       = '0.35';
+            btn.style.cursor        = 'not-allowed';
+            btn.style.pointerEvents = 'none';
+            btn.style.background    = '#64748b';
+            btn.style.color         = '#fff';
+            btn.style.animation     = 'none';
+            btn.title = `This slot has ended (was ${start}\u2013${end})`;
+        }
+    });
+}
+
+// Run on load and every 30 s
+applySlotStates();
+setInterval(applySlotStates, 30000);
 </script>
+
+<style>
+@keyframes pulse-active {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(16,185,129,0.5); }
+    50%       { box-shadow: 0 0 0 8px rgba(16,185,129,0); }
+}
+</style>
 {% endblock %}

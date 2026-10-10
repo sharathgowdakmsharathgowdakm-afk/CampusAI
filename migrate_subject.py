@@ -1,49 +1,31 @@
-import sqlite3
-import shutil
-from datetime import datetime
+"""Apply live-clock header patch to timetable.html"""
+path = r'c:\Users\shara\OneDrive\Desktop\smartAttendence\attendence_app\templates\campus\timetable.html'
+with open(path, encoding='utf-8') as f:
+    content = f.read()
 
-db_path = 'instance/attendance.db'
+old = (
+    '        <span class="badge-campus" style="background:rgba(255,255,255,0.25); color:#fff; font-weight:600; padding:4px 12px; border-radius:20px;">\n'
+    '            {{ today_slots|length }} Periods Scheduled Today\n'
+    '        </span>\n'
+    '    </div>'
+)
 
-# Backup first
-backup_path = f'instance/attendance_backup_{datetime.now().strftime("%Y%m%d_%H%M%S")}.db'
-shutil.copy2(db_path, backup_path)
-print(f'Backup created: {backup_path}')
+new = (
+    '        <div style="display:flex; align-items:center; gap:12px;">\n'
+    '            <span id="live-clock" style="font-family:monospace; font-weight:700; font-size:1.05rem; color:#fff; background:rgba(255,255,255,0.15); padding:4px 12px; border-radius:20px; letter-spacing:1px;">--:--:--</span>\n'
+    '            <span class="badge-campus" style="background:rgba(255,255,255,0.25); color:#fff; font-weight:600; padding:4px 12px; border-radius:20px;">\n'
+    '                {{ today_slots|length }} Periods Scheduled Today\n'
+    '            </span>\n'
+    '        </div>\n'
+    '    </div>'
+)
 
-conn = sqlite3.connect(db_path)
-c = conn.cursor()
-
-# Migrate: recreate subject table with nullable course_id
-c.executescript("""
-    PRAGMA foreign_keys=OFF;
-
-    CREATE TABLE subject_migrated (
-        id INTEGER NOT NULL,
-        name VARCHAR(100) NOT NULL,
-        course_id INTEGER,
-        study_year VARCHAR(50),
-        organization_id INTEGER NOT NULL,
-        created_at DATETIME,
-        PRIMARY KEY (id),
-        FOREIGN KEY(course_id) REFERENCES course (id),
-        FOREIGN KEY(organization_id) REFERENCES organization (id)
-    );
-
-    INSERT INTO subject_migrated (id, name, course_id, study_year, organization_id, created_at)
-    SELECT id, name, course_id, study_year, organization_id, created_at FROM subject;
-
-    DROP TABLE subject;
-    ALTER TABLE subject_migrated RENAME TO subject;
-
-    PRAGMA foreign_keys=ON;
-""")
-
-conn.commit()
-
-# Verify
-c.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='subject'")
-row = c.fetchone()
-print('New subject schema:')
-print(row[0])
-
-conn.close()
-print('Migration complete! course_id is now nullable.')
+if old in content:
+    content = content.replace(old, new, 1)
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(content)
+    print('Header updated: live-clock added.')
+else:
+    print('Pattern not found. Showing context:')
+    idx = content.find('Periods Scheduled Today')
+    print(repr(content[max(0, idx-300):idx+50]))

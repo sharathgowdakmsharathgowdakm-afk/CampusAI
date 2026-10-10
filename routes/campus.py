@@ -491,6 +491,9 @@ def timetable():
             'needs_subject_link': not slot.subject_id  # flag missing subject_id
         })
 
+    # Current time as HH:MM for frontend slot-active checks
+    now_time_str = datetime.now().strftime('%H:%M')
+
     return render_template(
         'campus/timetable.html',
         days=days,
@@ -499,26 +502,63 @@ def timetable():
         class_id=class_id,
         today_day=today_day,
         today_slots=today_slots,
-        subjects=subjects
+        subjects=subjects,
+        now_time=now_time_str
     )
+
+
+# Grace window in minutes around the timetable slot
+TIMETABLE_GRACE_MINUTES = 10
 
 
 @campus_bp.route('/academic/timetable/mark/<int:entry_id>')
 @campus_login_required
 def timetable_mark_attendance(entry_id):
-    """Directly launch attendance marking for a timetable slot in sequence."""
+    """Directly launch attendance marking for a timetable slot.
+
+    Enforces that marking only happens within the slot's scheduled time window
+    plus a configurable grace period (TIMETABLE_GRACE_MINUTES) on each side.
+    """
     from app import Timetable, Class_
     entry = Timetable.query.get_or_404(entry_id)
     org_type = session.get('org_type', 'school')
-    
+
+    # ── Time-window enforcement ──────────────────────────────────────────────
+    now = datetime.now().time()
+    try:
+        slot_start = datetime.strptime(entry.start_time, '%H:%M').time()
+        slot_end   = datetime.strptime(entry.end_time,   '%H:%M').time()
+    except (ValueError, TypeError):
+        # Graceful fallback: if times aren't parseable, allow through
+        slot_start = slot_end = None
+
+    if slot_start and slot_end:
+        open_dt  = datetime.combine(date.today(), slot_start) - timedelta(minutes=TIMETABLE_GRACE_MINUTES)
+        close_dt = datetime.combine(date.today(), slot_end)   + timedelta(minutes=TIMETABLE_GRACE_MINUTES)
+        open_time  = open_dt.time()
+        close_time = close_dt.time()
+
+        if not (open_time <= now <= close_time):
+            # Format human-friendly window
+            allowed_from = open_dt.strftime('%I:%M %p')
+            allowed_to   = close_dt.strftime('%I:%M %p')
+            flash(
+                f"⏰ Attendance for '{entry.subject_name}' can only be marked "
+                f"between {allowed_from} and {allowed_to} "
+                f"(slot {entry.start_time}–{entry.end_time}, ±{TIMETABLE_GRACE_MINUTES} min grace).",
+                'warning'
+            )
+            return redirect(url_for('campus.timetable', class_id=entry.class_id))
+    # ─────────────────────────────────────────────────────────────────────────
+
     # Store timetable context in session for sequential attendance flow
     session['timetable_current_slot'] = entry_id
-    session['timetable_class_id'] = entry.class_id
+    session['timetable_class_id']     = entry.class_id
     session['timetable_subject_name'] = entry.subject_name
-    
-    flash(f"Ready to mark attendance for Period: {entry.subject_name} ({entry.start_time} - {entry.end_time})", 'info')
-    
-    # Redirect to corresponding organization's attendance engine with prefilled parameters
+
+    flash(f"Ready to mark attendance for: {entry.subject_name} ({entry.start_time} – {entry.end_time})", 'info')
+
+    # Redirect to the organisation's attendance engine
     if org_type == 'college':
         return redirect(url_for('college_mark_attendance', class_id=entry.class_id, subject=entry.subject_name))
     elif org_type == 'institution':
