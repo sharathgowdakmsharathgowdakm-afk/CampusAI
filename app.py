@@ -200,7 +200,7 @@ class Subject(db.Model):
     __tablename__ = 'subject'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    course_id = db.Column(db.Integer, db.ForeignKey('course.id'), nullable=False)
+    course_id = db.Column(db.Integer, db.ForeignKey('course.id'), nullable=True)
     study_year = db.Column(db.String(50))
     organization_id = db.Column(db.Integer, db.ForeignKey('organization.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -1893,6 +1893,77 @@ def school_students():
         query = query.filter_by(class_id=class_id)
     students = query.all()
     return render_template('school/students.html', students=students)
+
+@app.route('/school/subjects')
+@org_required(['school'])
+def school_subjects():
+    org_id = session.get('org_id')
+    subjects = Subject.query.filter_by(organization_id=org_id).all()
+    return render_template('school/subjects.html', subjects=subjects)
+
+@app.route('/school/edit-subject/<int:subject_id>', methods=['GET', 'POST'])
+@org_required(['school'])
+def school_edit_subject(subject_id):
+    if request.method == 'GET':
+        return redirect(url_for('school_subjects'))
+    org_id = session.get('org_id')
+    subject = Subject.query.filter_by(id=subject_id, organization_id=org_id).first()
+    if not subject:
+        flash('Subject not found.', 'danger')
+        return redirect(url_for('school_subjects'))
+    name = request.form.get('name', '').strip()
+    if not name:
+        flash('Subject name is required.', 'danger')
+        return redirect(url_for('school_subjects'))
+    subject.name = name
+    db.session.commit()
+    flash('Subject updated successfully!', 'success')
+    return redirect(url_for('school_subjects'))
+
+@app.route('/school/delete-subject/<int:subject_id>')
+@org_required(['school'])
+def school_delete_subject(subject_id):
+    org_id = session.get('org_id')
+    subject = Subject.query.filter_by(id=subject_id, organization_id=org_id).first()
+    if not subject:
+        flash('Subject not found.', 'danger')
+        return redirect(url_for('school_subjects'))
+    try:
+        db.session.delete(subject)
+        db.session.commit()
+        flash('Subject deleted successfully!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Cannot delete subject (it may be in use): {str(e)}', 'danger')
+    return redirect(url_for('school_subjects'))
+
+
+@app.route('/school/add-subject', methods=['GET', 'POST'])
+@org_required(['school'])
+def school_add_subject():
+    org_id = session.get('org_id')
+    course_id = request.args.get('course_id') or None
+    year = request.args.get('year') or None
+    if request.method == 'POST':
+        name = request.form.get('subject_name', '').strip()
+        if not name:
+            flash('Subject name is required', 'danger')
+            return redirect(url_for('school_add_subject', course_id=course_id, year=year))
+        try:
+            subject = Subject(
+                name=name,
+                organization_id=org_id,
+                course_id=int(course_id) if course_id else None,
+                study_year=year
+            )
+            db.session.add(subject)
+            db.session.commit()
+            flash('Subject added successfully!', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error adding subject: {str(e)}', 'danger')
+        return redirect(url_for('school_subjects'))
+    return render_template('school/add_subject.html', course_id=course_id, year=year)
 
 # ─────────────────────────────────────────────
 # COLLEGE ROUTES

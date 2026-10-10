@@ -29,8 +29,8 @@
             {% for subject in subjects %}
             <tr>
                 <td><strong>{{ subject.name }}</strong></td>
-                <td>{{ subject.course.name }}</td>
-                <td>{{ subject.semester if subject.semester else 'N/A' }}</td>
+                <td>{{ subject.course.name if subject.course else 'N/A' }}</td>
+                <td>{{ subject.study_year if subject.study_year else (subject.semester if subject.semester else 'N/A') }}</td>
                 <td>
                     <button class="btn btn-sm btn-warning" title="Edit Subject" data-bs-toggle="modal" data-bs-target="#editModal{{ subject.id }}">
                         <i class="fas fa-edit"></i>

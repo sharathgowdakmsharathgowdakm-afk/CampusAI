@@ -1002,6 +1002,7 @@
                 <li><a href="/school/add-class" class="{% if request.endpoint == 'school_add_class' %}active{% endif %}"><i class="fas fa-plus-square"></i> Add Class</a></li>
                 <li><a href="/school/students" class="{% if request.endpoint == 'school_students' %}active{% endif %}"><i class="fas fa-user-graduate"></i> Students</a></li>
                 <li><a href="/school/add-student" class="{% if request.endpoint == 'school_add_student' %}active{% endif %}"><i class="fas fa-user-plus"></i> Add Student</a></li>
+                <li><a href="/school/subjects" class="{% if request.endpoint in ['school_subjects', 'school_add_subject'] %}active{% endif %}"><i class="fas fa-book-open"></i> Subjects</a></li>
                 
                 <li class="sidebar-menu-label">Attendance</li>
                 <li><a href="/school/face-register" class="{% if request.endpoint == 'school_face_register' %}active{% endif %}"><i class="fas fa-portrait"></i> Face Registration</a></li>
