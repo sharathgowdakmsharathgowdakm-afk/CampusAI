@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$(git rev-parse --show-toplevel)/.gsd-path/guard_hook.py\"",
+            "commandWindows": "powershell.exe -NoProfile -NonInteractive -Command \"$root = git rev-parse --show-toplevel; & python (Join-Path $root '.gsd-path\\guard_hook.py')\""
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "hooks": {
+    "preToolUse": [
+      {
+        "command": "python \".gsd-path/guard_hook.py\"",
+        "matcher": ".*",
+        "failClosed": true
+      }
+    ]
+  }
+}
