@@ -474,6 +474,30 @@ def timetable():
         present_count = att_base_subj.filter_by(_status='present').count()
         total_marked = att_base_subj.count()
 
+        # Pre-calculate active status for server-side template rendering
+        slot_is_active = True
+        slot_status_label = 'active'
+        mins_until = 0
+        try:
+            now_dt = datetime.now()
+            s_time = datetime.strptime(slot.start_time.strip(), '%H:%M').time()
+            e_time = datetime.strptime(slot.end_time.strip(), '%H:%M').time()
+            s_dt = datetime.combine(date.today(), s_time) - timedelta(minutes=TIMETABLE_GRACE_MINUTES)
+            e_dt = datetime.combine(date.today(), e_time) + timedelta(minutes=TIMETABLE_GRACE_MINUTES)
+            if s_dt <= now_dt <= e_dt:
+                slot_is_active = True
+                slot_status_label = 'active'
+            elif now_dt < s_dt:
+                slot_is_active = False
+                slot_status_label = 'future'
+                mins_until = max(1, int((s_dt - now_dt).total_seconds() / 60))
+            else:
+                slot_is_active = False
+                slot_status_label = 'past'
+        except Exception:
+            slot_is_active = True
+            slot_status_label = 'active'
+
         today_slots.append({
             'id': slot.id,
             'class_id': slot.class_id,
@@ -488,7 +512,10 @@ def timetable():
             'present_count': present_count,
             'total_marked': total_marked,
             'is_marked': total_marked > 0,
-            'needs_subject_link': not slot.subject_id  # flag missing subject_id
+            'needs_subject_link': not slot.subject_id,  # flag missing subject_id
+            'is_active': slot_is_active,
+            'status_label': slot_status_label,
+            'mins_until': mins_until
         })
 
     # Current time as HH:MM for frontend slot-active checks
@@ -517,17 +544,27 @@ def timetable_mark_attendance(entry_id):
     """Directly launch attendance marking for a timetable slot.
 
     Enforces that marking only happens within the slot's scheduled time window
-    plus a configurable grace period (TIMETABLE_GRACE_MINUTES) on each side.
+    plus a configurable grace period (TIMETABLE_GRACE_MINUTES) on each side,
+    and only on the scheduled day of the week.
     """
     from app import Timetable, Class_
     entry = Timetable.query.get_or_404(entry_id)
     org_type = session.get('org_type', 'school')
 
+    # ── Day-of-week validation ───────────────────────────────────────────────
+    today_day = datetime.now().strftime('%A')
+    if entry.day_of_week and entry.day_of_week.strip().lower() != today_day.lower():
+        flash(
+            f"⏰ Attendance for '{entry.subject_name}' can only be marked on {entry.day_of_week} (today is {today_day}).",
+            'warning'
+        )
+        return redirect(url_for('campus.timetable', class_id=entry.class_id))
+
     # ── Time-window enforcement ──────────────────────────────────────────────
     now = datetime.now().time()
     try:
-        slot_start = datetime.strptime(entry.start_time, '%H:%M').time()
-        slot_end   = datetime.strptime(entry.end_time,   '%H:%M').time()
+        slot_start = datetime.strptime(entry.start_time.strip(), '%H:%M').time()
+        slot_end   = datetime.strptime(entry.end_time.strip(),   '%H:%M').time()
     except (ValueError, TypeError):
         # Graceful fallback: if times aren't parseable, allow through
         slot_start = slot_end = None

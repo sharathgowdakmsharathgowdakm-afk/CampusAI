@@ -86,18 +86,29 @@
                         <a href="{{ url_for('campus.edit_timetable', entry_id=slot.id) }}" class="btn-campus btn-ghost" style="padding:7px 12px; font-size:0.82rem; display:inline-flex; align-items:center; gap:5px; text-decoration:none;">
                             <i class="fas fa-edit"></i> Edit
                         </a>
-                        {%- set start_hm = slot.start_time -%}
-                        {%- set end_hm   = slot.end_time -%}
-                        {%- set btn_active = (now_time >= start_hm and now_time <= end_hm) or
-                                             (now_time >= (slot.start_time[:2]|int * 60 + slot.start_time[3:]|int - 10)|string and now_time <= end_hm) -%}
-                        {# JS will set the exact active/disabled state; Jinja does rough pre-render #}
                         <span class="tt-mark-btn-wrap" data-start="{{ slot.start_time }}" data-end="{{ slot.end_time }}" data-entry="{{ slot.id }}" data-class="{{ slot.class_id }}">
+                            {% if slot.is_active %}
                             <a href="{{ url_for('campus.timetable_mark_attendance', entry_id=slot.id) }}"
                                class="btn-campus btn-primary-c tt-mark-btn"
-                               style="padding:7px 14px; font-size:0.85rem; display:inline-flex; align-items:center; gap:6px; text-decoration:none;"
-                               title="Mark attendance for {{ slot.subject_name }}">
+                               style="padding:7px 14px; font-size:0.85rem; display:inline-flex; align-items:center; gap:6px; text-decoration:none; background:linear-gradient(135deg, #10b981, #059669); color:#fff; animation:pulse-active 1.8s ease-in-out infinite; cursor:pointer;"
+                               title="Click to mark attendance (slot is active now)">
                                 <i class="fas fa-camera"></i> Mark Attendance
                             </a>
+                            {% elif slot.status_label == 'future' %}
+                            <a href="{{ url_for('campus.timetable_mark_attendance', entry_id=slot.id) }}"
+                               class="btn-campus btn-primary-c tt-mark-btn"
+                               style="padding:7px 14px; font-size:0.85rem; display:inline-flex; align-items:center; gap:6px; text-decoration:none; opacity:0.45; cursor:not-allowed; pointer-events:none; background:#94a3b8; color:#fff;"
+                               title="Available in {{ slot.mins_until }} min (from {{ slot.start_time }})">
+                                <i class="fas fa-lock"></i> Mark Attendance
+                            </a>
+                            {% else %}
+                            <a href="{{ url_for('campus.timetable_mark_attendance', entry_id=slot.id) }}"
+                               class="btn-campus btn-primary-c tt-mark-btn"
+                               style="padding:7px 14px; font-size:0.85rem; display:inline-flex; align-items:center; gap:6px; text-decoration:none; opacity:0.35; cursor:not-allowed; pointer-events:none; background:#64748b; color:#fff;"
+                               title="This slot has ended (was {{ slot.start_time }}–{{ slot.end_time }})">
+                                <i class="fas fa-lock"></i> Slot Ended
+                            </a>
+                            {% endif %}
                         </span>
                     </div>
                     {% endif %}
@@ -244,7 +255,7 @@
 </div>
 {% endblock %}
 
-{% block scripts %}
+{% block extra_js %}
 <script>
 /* ── Live Clock ── */
 function updateClock() {
@@ -267,6 +278,16 @@ function fillSubjectName(select) {
     } else {
         nameInput.value = '';
     }
+}
+
+/* ── Modal helpers ── */
+function openModal(id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = 'flex';
+}
+function closeModal(id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = 'none';
 }
 
 /* ── Slot time-window enforcement (client-side visual) ──
