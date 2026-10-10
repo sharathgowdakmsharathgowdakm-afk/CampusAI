@@ -72,7 +72,7 @@
     display: flex; align-items: center; gap: 8px;
   }
   .filter-panel-body { padding: 20px; }
-  .filter-row { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 16px; align-items: end; }
+  .filter-row { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 16px; align-items: end; }
   .filter-group label {
     display: block; font-size: 0.75rem; font-weight: 600;
     color: var(--text-secondary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;
@@ -206,6 +206,9 @@
 <div class="erp-page-header">
   <h1><i class="fas fa-clipboard-check text-gradient me-2"></i> Attendance Records</h1>
   <div class="erp-action-btns">
+    <a href="/campus/assistant" class="erp-btn" style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: #fff; box-shadow: 0 4px 15px rgba(99,102,241,0.35); text-decoration:none;">
+      <i class="fas fa-rocket"></i> AI Campus Dashboard
+    </a>
     <button class="erp-btn erp-btn-outline" onclick="window.print()"><i class="fas fa-print"></i> Print</button>
     <a href="/college/reports" class="erp-btn erp-btn-primary"><i class="fas fa-file-pdf"></i> PDF Reports</a>
   </div>
@@ -255,13 +258,22 @@
           <select name="class_id">
             <option value="">All Classes</option>
             {% for class in classes %}
-            <option value="{{ class.id }}" {% if request.args.get('class_id') == class.id|string %}selected{% endif %}>{{ class.name }}</option>
+            <option value="{{ class.id }}" {% if request.args.get('class_id') == class.id|string or selected_class == class.id|string %}selected{% endif %}>{{ class.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="filter-group">
+          <label>Subject</label>
+          <select name="subject_id">
+            <option value="">All Subjects</option>
+            {% for subject in subjects %}
+            <option value="{{ subject.id }}" {% if request.args.get('subject_id') == subject.id|string or selected_subject == subject.id|string %}selected{% endif %}>{{ subject.name }}</option>
             {% endfor %}
           </select>
         </div>
         <div class="filter-group">
           <label>Date</label>
-          <input type="date" name="date" value="{{ request.args.get('date', '') }}">
+          <input type="date" name="date" value="{{ request.args.get('date', selected_date or '') }}">
         </div>
         <div class="filter-group">
           <label>Status</label>

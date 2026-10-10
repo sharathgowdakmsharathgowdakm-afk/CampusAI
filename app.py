@@ -1622,13 +1622,21 @@ def school_mark_attendance():
 @org_required(['school'])
 def school_attendance_records():
     classes = Class_.query.filter_by(organization_id=session.get('org_id')).all()
+    subjects = Subject.query.filter_by(organization_id=session.get('org_id')).all()
     class_id = request.args.get('class_id')
+    subject_id = request.args.get('subject_id')
     date_str = request.args.get('date')
+    status_filter = request.args.get('status')
     month_str = request.args.get('month')
 
     query = Attendance.query.join(Class_).filter(Class_.organization_id == int(session.get('org_id')))
     if class_id:
         query = query.filter(Attendance.class_id == class_id)
+    if subject_id:
+        query = query.filter(Attendance.subject_id == subject_id)
+    if status_filter in ['present', 'absent']:
+        query = query.filter(Attendance._status == status_filter)
+
     date_obj = None
     if date_str:
         try:
@@ -1646,34 +1654,51 @@ def school_attendance_records():
         except Exception:
             pass
 
-    # If class_id and date_str are both provided, show ALL students of that class (including virtual absent ones)
+    # If class_id and date_obj are both provided, show ALL students of that class (including virtual absent ones)
     if class_id and date_obj:
         students = Student.query.filter_by(class_id=int(class_id)).all()
-        present_records = Attendance.query.filter_by(class_id=int(class_id), date=date_obj).all()
+        att_filter = Attendance.query.filter_by(class_id=int(class_id), date=date_obj)
+        if subject_id:
+            att_filter = att_filter.filter_by(subject_id=int(subject_id))
+        present_records = att_filter.all()
         present_student_ids = {r.student_id: r for r in present_records}
+        
+        subj = Subject.query.get(int(subject_id)) if subject_id else None
         
         records = []
         for s in students:
             if s.id in present_student_ids:
-                records.append(present_student_ids[s.id])
+                if not status_filter or status_filter == 'present':
+                    records.append(present_student_ids[s.id])
             else:
-                from types import SimpleNamespace
-                absent_rec = SimpleNamespace(
-                    id=None,
-                    date=date_obj,
-                    day=date_obj.strftime('%A'),
-                    time=None,
-                    status='absent',
-                    student=s,
-                    class_=s.class_,
-                    subject=None
-                )
-                records.append(absent_rec)
+                if not status_filter or status_filter == 'absent':
+                    from types import SimpleNamespace
+                    absent_rec = SimpleNamespace(
+                        id=None,
+                        date=date_obj,
+                        day=date_obj.strftime('%A'),
+                        time=None,
+                        status='absent',
+                        student=s,
+                        class_=s.class_,
+                        subject=subj
+                    )
+                    records.append(absent_rec)
     else:
         records = query.order_by(Attendance.date.desc(), Attendance.time.desc()).all()
         
     print(f"DEBUG: Found {len(records)} attendance records for Org ID: {session.get('org_id')}")
-    return render_template('school/attendance_records.html', records=records, classes=classes, selected_class=class_id, selected_date=date_str, selected_month=month_str)
+    return render_template(
+        'school/attendance_records.html',
+        records=records,
+        classes=classes,
+        subjects=subjects,
+        selected_class=class_id,
+        selected_subject=subject_id,
+        selected_date=date_str,
+        selected_month=month_str,
+        selected_status=status_filter
+    )
 
 @app.route('/school/reports', methods=['GET', 'POST'])
 @org_required(['school'])
@@ -2394,13 +2419,26 @@ def college_attendance_records():
     if course_id: cls_query = cls_query.filter_by(course_id=course_id)
     if year: cls_query = cls_query.filter_by(study_year=year)
     classes = cls_query.all()
+
+    subj_query = Subject.query.filter_by(organization_id=session.get('org_id'))
+    if course_id: subj_query = subj_query.filter_by(course_id=course_id)
+    if year: subj_query = subj_query.filter_by(study_year=year)
+    subjects = subj_query.all()
+
     class_id = request.args.get('class_id')
+    subject_id = request.args.get('subject_id')
+    status_filter = request.args.get('status')
     date_str = request.args.get('date')
     month_str = request.args.get('month')
 
     query = Attendance.query.join(Class_).filter(Class_.organization_id == int(session.get('org_id')))
     if class_id:
         query = query.filter(Attendance.class_id == class_id)
+    if subject_id:
+        query = query.filter(Attendance.subject_id == subject_id)
+    if status_filter in ['present', 'absent']:
+        query = query.filter(Attendance._status == status_filter)
+
     date_obj = None
     if date_str:
         try:
@@ -2423,11 +2461,13 @@ def college_attendance_records():
         students = Student.query.filter_by(class_id=int(class_id)).all()
         
         # Find all unique subjects for which attendance was taken for this class on this date
-        subjects_taken = db.session.query(Attendance.subject_id).filter_by(class_id=int(class_id), date=date_obj).distinct().all()
-        subjects_taken = [s[0] for s in subjects_taken]
-        
-        if not subjects_taken:
-            subjects_taken = [None]
+        if subject_id:
+            subjects_taken = [int(subject_id)]
+        else:
+            subjects_taken = db.session.query(Attendance.subject_id).filter_by(class_id=int(class_id), date=date_obj).distinct().all()
+            subjects_taken = [s[0] for s in subjects_taken]
+            if not subjects_taken:
+                subjects_taken = [None]
             
         records = []
         for subj_id in subjects_taken:
@@ -2436,25 +2476,37 @@ def college_attendance_records():
             
             for s in students:
                 if s.id in present_student_ids:
-                    records.append(present_student_ids[s.id])
+                    if not status_filter or status_filter == 'present':
+                        records.append(present_student_ids[s.id])
                 else:
-                    from types import SimpleNamespace
-                    subj = Subject.query.get(subj_id) if subj_id else None
-                    absent_rec = SimpleNamespace(
-                        id=None,
-                        date=date_obj,
-                        day=date_obj.strftime('%A'),
-                        time=None,
-                        status='absent',
-                        student=s,
-                        class_=s.class_,
-                        subject=subj
-                    )
-                    records.append(absent_rec)
+                    if not status_filter or status_filter == 'absent':
+                        from types import SimpleNamespace
+                        subj = Subject.query.get(subj_id) if subj_id else None
+                        absent_rec = SimpleNamespace(
+                            id=None,
+                            date=date_obj,
+                            day=date_obj.strftime('%A'),
+                            time=None,
+                            status='absent',
+                            student=s,
+                            class_=s.class_,
+                            subject=subj
+                        )
+                        records.append(absent_rec)
     else:
         records = query.order_by(Attendance.date.desc(), Attendance.time.desc()).all()
         
-    return render_template('college/attendance_records.html', records=records, classes=classes, selected_class=class_id, selected_date=date_str, selected_month=month_str)
+    return render_template(
+        'college/attendance_records.html',
+        records=records,
+        classes=classes,
+        subjects=subjects,
+        selected_class=class_id,
+        selected_subject=subject_id,
+        selected_date=date_str,
+        selected_month=month_str,
+        selected_status=status_filter
+    )
 
 @app.route('/college/reports', methods=['GET', 'POST'])
 @org_required(['college'])
@@ -3164,13 +3216,26 @@ def institution_attendance_records():
     if course_id: cls_query = cls_query.filter_by(course_id=course_id)
     if year: cls_query = cls_query.filter_by(study_year=year)
     classes = cls_query.all()
+
+    subj_query = Subject.query.filter_by(organization_id=session.get('org_id'))
+    if course_id: subj_query = subj_query.filter_by(course_id=course_id)
+    if year: subj_query = subj_query.filter_by(study_year=year)
+    subjects = subj_query.all()
+
     class_id = request.args.get('class_id')
+    subject_id = request.args.get('subject_id')
+    status_filter = request.args.get('status')
     date_str = request.args.get('date')
     month_str = request.args.get('month')
 
     query = Attendance.query.join(Class_).filter(Class_.organization_id == int(session.get('org_id')))
     if class_id:
         query = query.filter(Attendance.class_id == class_id)
+    if subject_id:
+        query = query.filter(Attendance.subject_id == subject_id)
+    if status_filter in ['present', 'absent']:
+        query = query.filter(Attendance._status == status_filter)
+
     date_obj = None
     if date_str:
         try:
@@ -3193,11 +3258,13 @@ def institution_attendance_records():
         students = Student.query.filter_by(class_id=int(class_id)).all()
         
         # Find all unique subjects for which attendance was taken for this class on this date
-        subjects_taken = db.session.query(Attendance.subject_id).filter_by(class_id=int(class_id), date=date_obj).distinct().all()
-        subjects_taken = [s[0] for s in subjects_taken]
-        
-        if not subjects_taken:
-            subjects_taken = [None]
+        if subject_id:
+            subjects_taken = [int(subject_id)]
+        else:
+            subjects_taken = db.session.query(Attendance.subject_id).filter_by(class_id=int(class_id), date=date_obj).distinct().all()
+            subjects_taken = [s[0] for s in subjects_taken]
+            if not subjects_taken:
+                subjects_taken = [None]
             
         records = []
         for subj_id in subjects_taken:
@@ -3206,25 +3273,37 @@ def institution_attendance_records():
             
             for s in students:
                 if s.id in present_student_ids:
-                    records.append(present_student_ids[s.id])
+                    if not status_filter or status_filter == 'present':
+                        records.append(present_student_ids[s.id])
                 else:
-                    from types import SimpleNamespace
-                    subj = Subject.query.get(subj_id) if subj_id else None
-                    absent_rec = SimpleNamespace(
-                        id=None,
-                        date=date_obj,
-                        day=date_obj.strftime('%A'),
-                        time=None,
-                        status='absent',
-                        student=s,
-                        class_=s.class_,
-                        subject=subj
-                    )
-                    records.append(absent_rec)
+                    if not status_filter or status_filter == 'absent':
+                        from types import SimpleNamespace
+                        subj = Subject.query.get(subj_id) if subj_id else None
+                        absent_rec = SimpleNamespace(
+                            id=None,
+                            date=date_obj,
+                            day=date_obj.strftime('%A'),
+                            time=None,
+                            status='absent',
+                            student=s,
+                            class_=s.class_,
+                            subject=subj
+                        )
+                        records.append(absent_rec)
     else:
         records = query.order_by(Attendance.date.desc(), Attendance.time.desc()).all()
         
-    return render_template('institution/attendance_records.html', records=records, classes=classes, selected_class=class_id, selected_date=date_str, selected_month=month_str)
+    return render_template(
+        'institution/attendance_records.html',
+        records=records,
+        classes=classes,
+        subjects=subjects,
+        selected_class=class_id,
+        selected_subject=subject_id,
+        selected_date=date_str,
+        selected_month=month_str,
+        selected_status=status_filter
+    )
 
 @app.route('/institution/reports', methods=['GET', 'POST'])
 @org_required(['institution'])
