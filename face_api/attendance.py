@@ -7,7 +7,10 @@ import time
 import os
 import cv2
 import numpy as np
-import face_recognition
+try:
+    import face_recognition
+except ImportError:
+    face_recognition = None
 from datetime import datetime
 from typing import Dict, Any, List, Optional, Union, Tuple
 
@@ -70,7 +73,11 @@ def register_single_student_face(
     # Ensure non-negative bounds
     h, w = img.shape[:2]
     box = (max(0, top), min(w, right), min(h, bottom), max(0, left))
-    dlib_encs = face_recognition.face_encodings(img_rgb, [box])
+    dlib_encs = (
+        face_recognition.face_encodings(img_rgb, [box])
+        if face_recognition is not None
+        else []
+    )
     enc_128_list = dlib_encs[0].tolist() if dlib_encs else None
 
     # 4. Save to Database
@@ -215,7 +222,11 @@ def process_classroom_attendance(
         # Extract 128-d dlib encoding from SCRFD bounding box
         top, right, bottom, left = int(face.bbox[1]), int(face.bbox[2]), int(face.bbox[3]), int(face.bbox[0])
         box = (max(0, top), min(w_img, right), min(h_img, bottom), max(0, left))
-        dlib_encs = face_recognition.face_encodings(img_rgb, [box])
+        dlib_encs = (
+            face_recognition.face_encodings(img_rgb, [box])
+            if face_recognition is not None
+            else []
+        )
         enc_128 = dlib_encs[0] if dlib_encs else None
 
         # Compare ONLY against the loaded class gallery

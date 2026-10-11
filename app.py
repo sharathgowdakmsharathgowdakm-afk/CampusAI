@@ -4243,6 +4243,16 @@ def staff_api_mark_attendance():
                     'error': f'Face verification failed. Captured face did not match your registered profile (Confidence: {confidence}%). Please ensure adequate lighting and face camera directly.'
                 }), 400
         else:
+            # Legacy 128-d fallback requires face_recognition / dlib
+            if not FACE_RECOGNITION_AVAILABLE:
+                return jsonify({
+                    'success': False,
+                    'error': (
+                        'This staff profile uses legacy face encodings. '
+                        'Please re-register the face using the ArcFace engine.'
+                    )
+                }), 503
+
             # Graceful legacy fallback if staff member has not re-registered yet
             legacy_img = face_recognition.load_image_file(temp_path)
             face_locations = face_recognition.face_locations(legacy_img, model='hog')
