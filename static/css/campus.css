@@ -220,6 +220,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
   margin-bottom: 28px;
   box-shadow: var(--shadow);
 }
@@ -229,7 +231,7 @@ body {
   font-weight: 700;
   color: var(--text-primary);
 }
-.topbar-right { display: flex; align-items: center; gap: 12px; }
+.topbar-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 
 .theme-toggle {
   width: 42px; height: 42px;
@@ -893,5 +895,50 @@ body {
   }
   .results-wrapper, .lms-grid, .assignment-grid, .timetable-grid {
     grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .campus-topbar {
+    padding: 10px 14px;
+    margin-bottom: 20px;
+    border-radius: var(--radius-sm);
+  }
+  .topbar-title {
+    font-size: 1.05rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 140px;
+  }
+  .topbar-right {
+    gap: 6px;
+  }
+  .att-dash-btn span {
+    display: none;
+  }
+  .att-dash-btn {
+    padding: 6px 10px;
+    font-size: 0.78rem;
+  }
+  .theme-toggle {
+    width: 36px;
+    height: 36px;
+    font-size: 14px;
+  }
+  .user-chip {
+    padding: 2px;
+    background: transparent;
+  }
+  .user-avatar {
+    width: 30px;
+    height: 30px;
+    font-size: 0.8rem;
+  }
+  .page-header h1 {
+    font-size: 1.35rem;
+  }
+  .card-body-p {
+    padding: 16px 12px !important;
   }
 }

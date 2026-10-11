@@ -41,19 +41,18 @@ def ensure_model_weights():
                     os.remove(arcface_path)
 
                 # Step 1: Move part1 directly into arcface_path (0 bytes extra disk used)
-                shutil.move(parts[0], arcface_path)
+                shutil.copyfile(parts[0], arcface_path)
 
                 # Step 2: Stream-append part2 and immediately remove part2
                 with open(arcface_path, "ab") as out_f:
                     with open(parts[1], "rb") as in_f:
                         shutil.copyfileobj(in_f, out_f, length=4 * 1024 * 1024)
-                os.remove(parts[1])
 
                 # Step 3: Stream-append part3 and immediately remove part3
                 with open(arcface_path, "ab") as out_f:
                     with open(parts[2], "rb") as in_f:
                         shutil.copyfileobj(in_f, out_f, length=4 * 1024 * 1024)
-                os.remove(parts[2])
+
 
                 print(f"[CampusAI Biometrics] Successfully assembled ArcFace model: {os.path.getsize(arcface_path)} bytes")
             except Exception as e:
@@ -83,7 +82,8 @@ MAX_IMAGE_DIMENSION = 2560
 # ArcFace Recognition Settings
 # Cosine similarity threshold for ArcFace (embeddings are normalized to unit sphere)
 # Values >= threshold indicate a verified match
-FACE_RECOGNITION_THRESHOLD = float(os.environ.get("FACE_RECOGNITION_THRESHOLD", "0.48"))
+# Raised to 0.60 to prevent cross-class false positives (was 0.48 which was too permissive)
+FACE_RECOGNITION_THRESHOLD = float(os.environ.get("FACE_RECOGNITION_THRESHOLD", "0.60"))
 
 # Embedding vector dimensionality
 EMBEDDING_DIM = 512

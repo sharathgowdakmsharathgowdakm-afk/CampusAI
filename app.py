@@ -83,12 +83,24 @@ limiter = Limiter(
     storage_uri="memory://"
 )
 
-# Support production Postgres, MySQL, or SQLite locally
-database_url = os.environ.get('DATABASE_URL', 'sqlite:///attendance.db')
-if database_url.startswith("postgres://"):
-    database_url = database_url.replace("postgres://", "postgresql://", 1)
-elif database_url.startswith("mysql://"):
-    database_url = database_url.replace("mysql://", "mysql+pymysql://", 1)
+# Database Configuration (PostgreSQL in production, SQLite fallback for local dev)
+def get_sanitized_db_url(url: str) -> str:
+    import re
+    return re.sub(r':([^@/]+)@', r':***@', url)
+
+raw_database_url = os.environ.get('DATABASE_URL', '').strip()
+if raw_database_url:
+    database_url = raw_database_url
+    if database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql+psycopg://", 1)
+    elif database_url.startswith("postgresql://") and not database_url.startswith("postgresql+"):
+        database_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
+    elif database_url.startswith("mysql://"):
+        database_url = database_url.replace("mysql://", "mysql+pymysql://", 1)
+    print(f" * Database initialized: {get_sanitized_db_url(database_url)}")
+else:
+    database_url = 'sqlite:///attendance.db'
+
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = 'uploads'
@@ -124,7 +136,7 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    password_hash = db.Column(db.String(128), nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
     org_type = db.Column(db.String(20), nullable=False)  # school, college, institution
     role = db.Column(db.String(50), default='admin')
     organization_id = db.Column(db.Integer, db.ForeignKey('organization.id'), nullable=False)
@@ -1089,7 +1101,7 @@ def legacy_process_classroom_attendance(image_path, db_session, organization_id,
             'timings': {'total_sec': round(time.perf_counter() - t_start, 2)}
         }
 
-    tolerance = 0.48  # Compatible with existing num_jitters=1 registrations
+    tolerance = 0.40  # Strict tolerance to prevent cross-class false positives (dlib: lower = stricter)
     candidate_matches = []
 
     for f_idx, face_enc in enumerate(face_encs):
@@ -2920,6 +2932,12 @@ def institution_add_course():
         return redirect(url_for('institution_dashboard'))
     return render_template('institution/add_course.html')
 
+@app.route('/institution/subjects')
+@org_required(['institution'])
+def institution_subjects():
+    subjects = Subject.query.filter_by(organization_id=session.get('org_id')).all()
+    return render_template('institution/subjects.html', subjects=subjects)
+
 @app.route('/institution/add-subject', methods=['GET', 'POST'])
 @org_required(['institution'])
 def institution_add_subject():
@@ -4635,6 +4653,8 @@ def logout():
 @app.route('/init-db')
 def init_db():
     """Initialize database with default data"""
+    if os.environ.get('FLASK_ENV') == 'production':
+        return "Not Found", 404
     db.create_all()
 
     # Automatic migration to add encoding_data JSON column if not exists

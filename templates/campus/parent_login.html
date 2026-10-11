@@ -11,10 +11,10 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            height: 100vh;
+            min-height: 100vh;
             background: var(--bg);
             margin: 0;
-            overflow: hidden;
+            padding: 24px 16px;
         }
         .login-box {
             background: var(--bg-glass);
@@ -26,6 +26,10 @@
             max-width: 400px;
             box-shadow: var(--shadow-hover);
             animation: fadeInUp 0.5s ease;
+        }
+        @media (max-width: 576px) {
+            body { padding: 16px 12px; }
+            .login-box { padding: 28px 20px; border-radius: var(--radius); }
         }
     </style>
 </head>

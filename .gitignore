@@ -17,3 +17,9 @@ face_models/*.zip
 
 # Developer scratch / one-off scripts
 scratch/
+backups/
+
+.neon
+
+# Local inspection and migration reports
+scripts/reports/

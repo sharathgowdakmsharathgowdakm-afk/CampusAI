@@ -126,8 +126,43 @@ body {
 
 /* ─── Responsive tweaks ───────────────────────────────── */
 @media (max-width: 768px) {
-    .title { font-size: 1.7rem; }
+    .title { font-size: 1.6rem; }
     .pose-title { font-size: 1.1rem; }
     .upload-dropzone { padding: 2rem 1rem; }
     .pose-card-wrapper { width: 110px; }
+    .video-wrapper {
+        width: 100%;
+        max-width: 100%;
+    }
+}
+
+@media (max-width: 576px) {
+    .title { font-size: 1.35rem; }
+    .pose-title { font-size: 0.95rem; }
+    .pose-banner { padding: 0.75rem 1rem; }
+    .method-toggle {
+        width: 100%;
+        display: flex;
+    }
+    .method-toggle .btn {
+        flex: 1 1 50%;
+        padding: 8px 10px !important;
+        font-size: 0.82rem;
+    }
+    .video-wrapper video {
+        min-height: 220px;
+        max-height: 360px;
+        object-fit: cover;
+    }
+    .zoom-controls {
+        padding: 5px;
+        transform: scale(0.85);
+        transform-origin: top right;
+    }
+    .pose-card-wrapper { width: 95px; }
+    #submitBtn {
+        width: 100%;
+        padding: 12px 20px !important;
+        font-size: 0.95rem;
+    }
 }

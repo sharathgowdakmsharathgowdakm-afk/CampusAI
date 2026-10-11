@@ -39,6 +39,14 @@ const SidebarManager = {
       sidebar.classList.remove('open');
       overlay.classList.remove('visible');
     });
+    sidebar.querySelectorAll('a').forEach(link => {
+      link.addEventListener('click', () => {
+        if (window.innerWidth <= 768) {
+          sidebar.classList.remove('open');
+          overlay?.classList.remove('visible');
+        }
+      });
+    });
   }
 };
 

@@ -223,7 +223,7 @@ class EmbeddingStore:
             matrix_128=matrix_128,
             metadata_128=meta_128,
             threshold_512=config.FACE_RECOGNITION_THRESHOLD,
-            tolerance_128=0.55
+            tolerance_128=0.40  # Strict tolerance to prevent cross-class false positives
         )
 
 # Global singleton store instance
